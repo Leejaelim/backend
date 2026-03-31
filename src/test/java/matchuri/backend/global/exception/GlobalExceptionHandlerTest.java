@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest
+@WebMvcTest(controllers = GlobalExceptionHandlerTest.TestController.class)
 @Import({GlobalExceptionHandler.class, GlobalExceptionHandlerTest.TestController.class})
 class GlobalExceptionHandlerTest {
 
@@ -74,6 +74,15 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value(CommonErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 경로는 리소스 없음 응답으로 변환한다")
+    void returnsNotFoundResponseForMissingResource() throws Exception {
+        mockMvc.perform(get("/__missing__/resource.txt"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(CommonErrorCode.RESOURCE_NOT_FOUND.getCode()));
     }
 
     @RestController

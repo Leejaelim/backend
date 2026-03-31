@@ -13,13 +13,22 @@ import org.springframework.stereotype.Component;
 public class MatchuriProperties {
 
     private Auth auth = new Auth();
+    private Seed seed = new Seed();
 
     @Getter
     @Setter
     public static class Auth {
         private List<String> publicApiPatterns = List.of(
+                "/api/v1/members/exists/**",
                 "/api/v1/auth/**",
                 "/error"
         );
+    }
+
+    @Getter
+    @Setter
+    public static class Seed {
+        private boolean enabled = false;
+        private boolean sampleMembersEnabled = true;
     }
 }

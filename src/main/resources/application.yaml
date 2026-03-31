@@ -1,6 +1,8 @@
 spring:
   application:
     name: backend
+  profiles:
+    default: ${MATCHURI_SPRING_PROFILE}
   docker:
     compose:
       lifecycle-management: start-only
@@ -20,8 +22,12 @@ spring:
 matchuri:
   auth:
     public-api-patterns:
+      - /api/v1/members/exists/**
       - /api/v1/auth/**
       - /error
+  seed:
+    enabled: false
+    sample-members-enabled: true
 
 logging:
   level:
