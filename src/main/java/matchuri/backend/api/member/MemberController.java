@@ -35,7 +35,11 @@ public class MemberController implements MemberApi {
     @Override
     @PostMapping
     public ApiResponse<CreateMemberResponse> createMember(@Valid @RequestBody CreateMemberRequest request) {
-        return ApiResponse.success(memberService.createMember(request));
+        var command = memberMapper.toCreateMemberCommand(request.loginId(), request.password());
+        var result = memberService.createMember(command);
+        CreateMemberResponse response = memberMapper.toCreateMemberResponse(result);
+
+        return ApiResponse.success(response);
     }
 
     @Override
@@ -51,25 +55,33 @@ public class MemberController implements MemberApi {
     @Override
     @GetMapping("/me")
     public ApiResponse<MemberProfileResponse> getMyProfile() {
-        return ApiResponse.success(memberService.getMyProfile());
+        return ApiResponse.success(memberMapper.toMemberProfileResponse(memberService.getMyProfile()));
     }
 
     @Override
     @PatchMapping("/me")
     public ApiResponse<UpdateMemberResponse> updateMyProfile(@Valid @RequestBody UpdateMemberBasicInfoRequest request) {
-        return ApiResponse.success(memberService.updateMyProfile(request));
+        var command = memberMapper.toUpdateMemberBasicInfoCommand(request.nickname());
+        var result = memberService.updateMyProfile(command);
+        UpdateMemberResponse response = memberMapper.toUpdateMemberResponse(result);
+
+        return ApiResponse.success(response);
     }
 
     @Override
     @PatchMapping("/me/taste-profile")
     public ApiResponse<UpdateMemberResponse> updateMyTasteProfile(@Valid @RequestBody UpdateMemberTasteProfileRequest request) {
-        return ApiResponse.success(memberService.updateMyTasteProfile(request));
+        var command = memberMapper.toUpdateMemberTasteProfileCommand(request.profileVersion());
+        var result = memberService.updateMyTasteProfile(command);
+        UpdateMemberResponse response = memberMapper.toUpdateMemberResponse(result);
+
+        return ApiResponse.success(response);
     }
 
     @Override
     @DeleteMapping("/me")
     public ApiResponse<WithdrawMemberResponse> withdraw() {
-        return ApiResponse.success(memberService.withdraw());
+        return ApiResponse.success(memberMapper.toWithdrawMemberResponse(memberService.withdraw()));
     }
 
     private void validateLoginId(String loginId) {

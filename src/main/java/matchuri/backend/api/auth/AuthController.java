@@ -9,6 +9,7 @@ import matchuri.backend.api.auth.dto.LoginRequest;
 import matchuri.backend.api.auth.dto.LoginResponse;
 import matchuri.backend.api.auth.dto.LogoutResponse;
 import matchuri.backend.api.auth.dto.OAuth2ExchangeRequest;
+import matchuri.backend.api.member.mapper.MemberMapper;
 import matchuri.backend.domain.auth.service.AuthService;
 import matchuri.backend.domain.auth.service.LoginResult;
 import matchuri.backend.domain.auth.service.RefreshTokenCookieService;
@@ -26,6 +27,7 @@ public class AuthController implements AuthApi {
 
     private final AuthService authService;
     private final RefreshTokenCookieService refreshTokenCookieService;
+    private final MemberMapper memberMapper;
 
     @Override
     @PostMapping("/login")
@@ -34,9 +36,12 @@ public class AuthController implements AuthApi {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse
     ) {
-        LoginResult loginResult = authService.login(request, resolveClientIp(httpRequest));
+        var command = memberMapper.toLoginCommand(request.loginId(), request.password());
+        LoginResult loginResult = authService.login(command, resolveClientIp(httpRequest));
+        LoginResponse response = memberMapper.toLoginResponse(loginResult.payload());
+
         refreshTokenCookieService.addRefreshToken(httpResponse, loginResult.refreshToken());
-        return ApiResponse.success(loginResult.response());
+        return ApiResponse.success(response);
     }
 
     @Override
@@ -44,7 +49,10 @@ public class AuthController implements AuthApi {
     public ApiResponse<LogoutResponse> logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         String refreshToken = refreshTokenCookieService.resolveRefreshToken(httpRequest)
                 .orElseThrow(() -> new matchuri.backend.global.exception.AuthenticationException(matchuri.backend.domain.auth.AuthErrorCode.LOGOUT_FAILED));
-        LogoutResponse response = authService.logout(refreshToken, resolveClientIp(httpRequest));
+
+        var result = authService.logout(refreshToken, resolveClientIp(httpRequest));
+        LogoutResponse response = memberMapper.toLogoutResponse(result);
+
         refreshTokenCookieService.clearRefreshToken(httpResponse);
         return ApiResponse.success(response);
     }
@@ -62,7 +70,11 @@ public class AuthController implements AuthApi {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse
     ) {
-        return ApiResponse.success(authService.exchangeOAuth2Code(request, resolveClientIp(httpRequest)));
+        var command = memberMapper.toOAuth2ExchangeCommand(request.provider(), request.code());
+        var payload = authService.exchangeOAuth2Code(command, resolveClientIp(httpRequest));
+        LoginResponse response = memberMapper.toLoginResponse(payload);
+
+        return ApiResponse.success(response);
     }
 
     private String resolveClientIp(HttpServletRequest httpRequest) {
