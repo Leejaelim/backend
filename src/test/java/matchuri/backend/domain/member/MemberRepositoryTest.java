@@ -1,6 +1,7 @@
 package matchuri.backend.domain.member;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberRole;
@@ -94,5 +95,15 @@ class MemberRepositoryTest {
 
         assertThat(member.getCreatedAt()).isNotNull();
         assertThat(member.getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("같은 소셜 제공자 사용자 식별자는 유일해야 한다")
+    void socialProviderUserIdMustBeUniquePerProvider() {
+        memberRepository.saveAndFlush(Member.createGoogleSocialMember("google-user-1", "google1@example.com", "구글1"));
+
+        assertThatThrownBy(() ->
+                memberRepository.saveAndFlush(Member.createGoogleSocialMember("google-user-1", "google2@example.com", "구글2"))
+        ).isInstanceOf(Exception.class);
     }
 }
