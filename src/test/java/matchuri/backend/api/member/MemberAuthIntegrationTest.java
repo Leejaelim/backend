@@ -20,12 +20,14 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Date;
 import javax.crypto.SecretKey;
+import matchuri.backend.domain.auth.entity.AuthRefreshToken;
 import matchuri.backend.domain.auth.entity.AuthExchangeCode;
 import matchuri.backend.domain.auth.repository.AuthExchangeCodeRepository;
 import matchuri.backend.domain.auth.repository.AuthRefreshTokenRepository;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberRole;
 import matchuri.backend.domain.member.entity.MemberStatus;
+import matchuri.backend.domain.member.entity.MemberTasteProfile;
 import matchuri.backend.domain.member.entity.SocialProviderType;
 import matchuri.backend.domain.member.repository.MemberAgreementRepository;
 import matchuri.backend.domain.member.repository.MemberRepository;
@@ -183,7 +185,7 @@ class MemberAuthIntegrationTest {
         assertThat(memberTasteProfileRepository.findByMemberId(memberRepository.findByLoginId("tester01").orElseThrow().getId()))
                 .isPresent()
                 .get()
-                .extracting(profile -> profile.getProfileVersion())
+                .extracting(MemberTasteProfile::getProfileVersion)
                 .isEqualTo("v1");
 
         mockMvc.perform(post("/api/v1/auth/logout")
@@ -252,6 +254,78 @@ class MemberAuthIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, bearer(authSession.accessToken())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("AUTH_LOGOUT_FAILED"));
+    }
+
+    @Test
+    @DisplayName("refresh token 쿠키로 새 access token과 refresh token을 재발급한다")
+    void refreshReissuesTokens() throws Exception {
+        createMemberThroughApi("refresh-user", "P@ssw0rd!");
+        AuthSession authSession = login("refresh-user", "P@ssw0rd!");
+        Long memberId = memberRepository.findByLoginId("refresh-user").orElseThrow().getId();
+        String previousRefreshToken = authSession.refreshTokenCookie().getValue();
+
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/refresh")
+                        .cookie(authSession.refreshTokenCookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").isString())
+                .andExpect(jsonPath("$.data.refreshToken").value(nullValue()))
+                .andExpect(jsonPath("$.data.member.id").value(memberId))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, org.hamcrest.Matchers.containsString("matchuri_refresh_token=")))
+                .andReturn();
+
+        Cookie rotatedCookie = result.getResponse().getCookie("matchuri_refresh_token");
+        assertThat(rotatedCookie).isNotNull();
+        assertThat(rotatedCookie.getValue()).isNotEqualTo(previousRefreshToken);
+
+        assertThat(authRefreshTokenRepository.findByToken(previousRefreshToken)).isEmpty();
+        assertThat(authRefreshTokenRepository.findByMemberId(memberId))
+                .hasSize(1)
+                .extracting(AuthRefreshToken::getToken)
+                .containsExactly(rotatedCookie.getValue());
+    }
+
+    @Test
+    @DisplayName("refresh token 쿠키가 없으면 AUTH_REFRESH_TOKEN_MISSING을 반환한다")
+    void refreshFailsWhenRefreshTokenCookieIsMissing() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/refresh"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_REFRESH_TOKEN_MISSING"));
+    }
+
+    @Test
+    @DisplayName("유효하지 않은 refresh token이면 쿠키를 비우고 AUTH_REFRESH_TOKEN_INVALID를 반환한다")
+    void refreshFailsWhenRefreshTokenIsInvalid() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .cookie(new Cookie("matchuri_refresh_token", "missing-refresh-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_REFRESH_TOKEN_INVALID"))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, org.hamcrest.Matchers.containsString("Max-Age=0")));
+    }
+
+    @Test
+    @DisplayName("만료된 refresh token이면 쿠키를 비우고 AUTH_REFRESH_TOKEN_EXPIRED를 반환한다")
+    void refreshFailsWhenRefreshTokenIsExpired() throws Exception {
+        Member member = memberRepository.save(new Member(
+                "expired-refresh-user",
+                "hashed-password",
+                null,
+                false,
+                null,
+                null,
+                MemberRole.MEMBER,
+                MemberStatus.ACTIVE
+        ));
+        authRefreshTokenRepository.save(AuthRefreshToken.issue(
+                member,
+                "expired-refresh-token",
+                LocalDateTime.now().minusMinutes(1)
+        ));
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .cookie(new Cookie("matchuri_refresh_token", "expired-refresh-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_REFRESH_TOKEN_EXPIRED"))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, org.hamcrest.Matchers.containsString("Max-Age=0")));
     }
 
     @Test
