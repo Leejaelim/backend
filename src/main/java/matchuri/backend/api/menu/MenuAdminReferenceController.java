@@ -4,11 +4,17 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import matchuri.backend.api.menu.dto.request.CreateAdminAttributeCategoryRequest;
+import matchuri.backend.api.menu.dto.request.UpdateAdminAttributeCategoryRequest;
 import matchuri.backend.api.menu.dto.response.AdminAttributeCategoryResponse;
 import matchuri.backend.api.menu.mapper.MenuReferenceMapper;
+import matchuri.backend.domain.menu.command.CreateAdminAttributeCategoryCommand;
+import matchuri.backend.domain.menu.command.UpdateAdminAttributeCategoryCommand;
+import matchuri.backend.domain.menu.result.AdminAttributeCategoryResult;
 import matchuri.backend.domain.menu.service.MenuAdminReferenceService;
 import matchuri.backend.global.api.ApiResponse;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,11 +31,11 @@ public class MenuAdminReferenceController implements MenuAdminReferenceApi {
     @Override
     @GetMapping("/attribute-categories")
     public ApiResponse<List<AdminAttributeCategoryResponse>> getAdminAttributeCategories() {
-        return ApiResponse.success(
-                menuReferenceMapper.toAdminAttributeCategoryResponses(
-                        menuAdminReferenceService.getAttributeCategories()
-                )
-        );
+
+        var results = menuAdminReferenceService.getAttributeCategories();
+        var responses = menuReferenceMapper.toAdminAttributeCategoryResponses(results);
+
+        return ApiResponse.success(responses);
     }
 
     @Override
@@ -37,12 +43,25 @@ public class MenuAdminReferenceController implements MenuAdminReferenceApi {
     public ApiResponse<AdminAttributeCategoryResponse> createAdminAttributeCategory(
             @Valid @RequestBody CreateAdminAttributeCategoryRequest request
     ) {
-        return ApiResponse.success(
-                menuReferenceMapper.toAdminAttributeCategoryResponse(
-                        menuAdminReferenceService.createAttributeCategory(
-                                menuReferenceMapper.toCreateAdminAttributeCategoryCommand(request)
-                        )
-                )
-        );
+
+        var command = menuReferenceMapper.toCreateAdminAttributeCategoryCommand(request);
+        var result = menuAdminReferenceService.createAttributeCategory(command);
+        var response = menuReferenceMapper.toAdminAttributeCategoryResponse(result);
+
+        return ApiResponse.success(response);
+    }
+
+        @Override
+        @PatchMapping("/attribute-categories/{attributeCategoryId}")
+        public ApiResponse<AdminAttributeCategoryResponse> updateAdminAttributeCategory(
+                @PathVariable Long attributeCategoryId,
+                @Valid @RequestBody UpdateAdminAttributeCategoryRequest request
+    ) {
+
+            var command = menuReferenceMapper.toUpdateAdminAttributeCategoryCommand(attributeCategoryId, request);
+            var result = menuAdminReferenceService.updateAttributeCategory(command);
+            var response = menuReferenceMapper.toAdminAttributeCategoryResponse(result);
+
+            return ApiResponse.success(response);
     }
 }
