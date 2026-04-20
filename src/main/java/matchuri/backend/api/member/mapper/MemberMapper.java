@@ -1,13 +1,11 @@
 package matchuri.backend.api.member.mapper;
 
-import java.util.List;
 import matchuri.backend.api.auth.dto.response.LoginResponse;
 import matchuri.backend.api.auth.dto.response.LogoutResponse;
 import matchuri.backend.api.member.dto.request.RegisterLocalMemberRequest;
 import matchuri.backend.api.member.dto.response.CreateMemberResponse;
 import matchuri.backend.api.member.dto.response.LoginIdExistsResponse;
 import matchuri.backend.api.member.dto.response.MemberProfileResponse;
-import matchuri.backend.api.member.dto.response.MemberTasteProfileSummaryResponse;
 import matchuri.backend.api.member.dto.response.NicknameExistsResponse;
 import matchuri.backend.api.member.dto.response.RegisterLocalMemberResponse;
 import matchuri.backend.api.member.dto.response.UpdateMemberResponse;
@@ -21,8 +19,7 @@ import matchuri.backend.domain.member.command.RegisterLocalMemberCommand;
 import matchuri.backend.domain.member.command.SubmitRequiredAgreementsCommand;
 import matchuri.backend.domain.member.command.UpdateMemberBasicInfoCommand;
 import matchuri.backend.domain.member.command.UpdateMemberTasteProfileCommand;
-import matchuri.backend.domain.member.entity.Member;
-import matchuri.backend.domain.member.entity.MemberTasteProfile;
+import matchuri.backend.domain.member.entity.SocialProviderType;
 import matchuri.backend.domain.member.result.CreateMemberResult;
 import matchuri.backend.domain.member.result.MemberProfileResult;
 import matchuri.backend.domain.member.result.RegisterLocalMemberResult;
@@ -76,7 +73,7 @@ public class MemberMapper {
         return new LoginCommand(loginId, password);
     }
 
-    public OAuth2ExchangeCommand toOAuth2ExchangeCommand(matchuri.backend.domain.member.entity.SocialProviderType provider, String code) {
+    public OAuth2ExchangeCommand toOAuth2ExchangeCommand(SocialProviderType provider, String code) {
         return new OAuth2ExchangeCommand(provider, code);
     }
 
@@ -93,26 +90,6 @@ public class MemberMapper {
         return new LogoutResponse(result.loggedOut());
     }
 
-    public CreateMemberResponse toCreateMemberResponse(Member member) {
-        return new CreateMemberResponse(member.getId(), member.getLoginId(), member.getCreatedAt());
-    }
-
-    public LoginResponse toLoginResponse(Member member, String accessToken, long expiresIn, String refreshToken) {
-        return new LoginResponse(
-                accessToken,
-                refreshToken,
-                expiresIn,
-                new LoginResponse.LoginMemberSummary(member.getId(), member.getMemberRole().name())
-        );
-    }
-
-    public MemberProfileResponse toMemberProfileResponse(Member member) {
-        return new MemberProfileResponse(
-                member.getId(),
-                member.getNickname()
-        );
-    }
-
     public MemberProfileResponse toMemberProfileResponse(MemberProfileResult result) {
         return new MemberProfileResponse(result.id(), result.nickname());
     }
@@ -125,27 +102,11 @@ public class MemberMapper {
         return new UpdateMemberTasteProfileCommand(profileVersion);
     }
 
-    public UpdateMemberResponse toUpdateMemberResponse(Member member) {
-        return new UpdateMemberResponse(member.getId(), member.getUpdatedAt());
-    }
-
     public UpdateMemberResponse toUpdateMemberResponse(UpdateMemberResult result) {
         return new UpdateMemberResponse(result.id(), result.updatedAt());
     }
 
-    public WithdrawMemberResponse toWithdrawMemberResponse(Member member) {
-        return new WithdrawMemberResponse(member.getId(), member.getStatus().name());
-    }
-
     public WithdrawMemberResponse toWithdrawMemberResponse(WithdrawMemberResult result) {
         return new WithdrawMemberResponse(result.id(), result.status());
-    }
-
-    private MemberTasteProfileSummaryResponse toTasteProfileSummary(MemberTasteProfile tasteProfile) {
-        if (tasteProfile == null) {
-            return null;
-        }
-
-        return new MemberTasteProfileSummaryResponse(List.of(), List.of(), tasteProfile.getProfileVersion());
     }
 }
