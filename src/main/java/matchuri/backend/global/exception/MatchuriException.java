@@ -12,8 +12,8 @@ public abstract class MatchuriException extends RuntimeException {
         this.errorCode = errorCode;
     }
 
-    protected MatchuriException(ErrorCode errorCode, String message) {
-        super(message);
+    protected MatchuriException(ErrorCode errorCode, Object... args) {
+        super(errorCode.format(args));
         this.errorCode = errorCode;
     }
 }
