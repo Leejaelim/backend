@@ -1,6 +1,7 @@
 package matchuri.backend.api.auth.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import matchuri.backend.api.common.dto.OnboardingStatusResponse;
 
 public record LoginResponse(
         @Schema(
@@ -23,7 +24,10 @@ public record LoginResponse(
         long expiresIn,
 
         @Schema(description = "로그인한 회원의 최소 요약 정보입니다.")
-        LoginMemberSummary member
+        LoginMemberSummary member,
+
+        @Schema(description = "로그인 직후 프론트가 다음 온보딩 화면을 판단하기 위한 상태입니다.")
+        OnboardingStatusResponse onboarding
 ) {
 
     public record LoginMemberSummary(
@@ -31,7 +35,11 @@ public record LoginResponse(
             Long id,
 
             @Schema(description = "로그인한 회원 역할입니다.", example = "MEMBER")
-            String role
+            String role,
+
+            @Schema(description = "현재 표시 가능한 회원 닉네임입니다.", nullable = true, example = "점심탐험가")
+            String nickname
     ) {
     }
+
 }

@@ -1,5 +1,6 @@
 package matchuri.backend.api.memberagreement;
 
+import matchuri.backend.api.common.dto.OnboardingStatusResponse;
 import matchuri.backend.api.memberagreement.dto.request.SubmitRequiredAgreementsRequest;
 import matchuri.backend.api.memberagreement.dto.response.RequiredAgreementStatusResponse;
 import matchuri.backend.api.memberagreement.dto.response.SubmitRequiredAgreementsResponse;
@@ -37,6 +38,12 @@ public class MemberAgreementMapper {
                 result.status().missingAgreementTypes().stream()
                         .map(Enum::name)
                         .toList(),
+                new OnboardingStatusResponse(
+                        result.onboarding().requiredAgreementsCompleted(),
+                        result.onboarding().nicknameCompleted(),
+                        result.onboarding().completed(),
+                        result.onboarding().nextStep()
+                ),
                 result.issuedAccessToken().accessToken(),
                 result.issuedAccessToken().expiresIn()
         );

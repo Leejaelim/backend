@@ -78,6 +78,12 @@ public interface MemberAgreementApi {
                                               "data": {
                                                 "requiredAgreementsCompleted": true,
                                                 "missingAgreementTypes": [],
+                                                "onboarding": {
+                                                  "requiredAgreementsCompleted": true,
+                                                  "nicknameCompleted": false,
+                                                  "completed": false,
+                                                  "nextStep": "REQUIRED_NICKNAME"
+                                                },
                                                 "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
                                                 "expiresIn": 3600
                                               },
