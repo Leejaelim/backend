@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import matchuri.backend.domain.auth.exception.AuthErrorCode;
 import matchuri.backend.global.api.ApiResponse;
 import matchuri.backend.global.exception.ErrorCode;
+import org.jspecify.annotations.NullMarked;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+@NullMarked
 public class MatchuriAccessDeniedHandler implements AccessDeniedHandler {
 
     private final ObjectMapper objectMapper;
@@ -25,7 +27,8 @@ public class MatchuriAccessDeniedHandler implements AccessDeniedHandler {
             HttpServletResponse response,
             AccessDeniedException accessDeniedException
     ) throws IOException {
-        Object errorCodeAttribute = request.getAttribute(RequiredAgreementAccessFilter.AUTHORIZATION_ERROR_CODE_ATTRIBUTE);
+        Object errorCodeAttribute = request.getAttribute(
+                RequiredAgreementAccessFilter.AUTHORIZATION_ERROR_CODE_ATTRIBUTE);
         ErrorCode errorCode = errorCodeAttribute instanceof ErrorCode customErrorCode
                 ? customErrorCode
                 : AuthErrorCode.FORBIDDEN;

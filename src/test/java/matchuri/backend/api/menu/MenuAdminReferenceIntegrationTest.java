@@ -18,8 +18,8 @@ import javax.crypto.SecretKey;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberRole;
 import matchuri.backend.domain.member.entity.MemberStatus;
-import matchuri.backend.domain.member.support.agreement.RequiredAgreementVersions;
 import matchuri.backend.domain.member.repository.MemberRepository;
+import matchuri.backend.domain.member.support.agreement.RequiredAgreementVersions;
 import matchuri.backend.domain.menu.entity.AttributeCategory;
 import matchuri.backend.domain.menu.entity.CategoryType;
 import matchuri.backend.domain.menu.entity.Ingredient;
@@ -77,8 +77,10 @@ class MenuAdminReferenceIntegrationTest {
                 MemberRole.ADMIN,
                 MemberStatus.ACTIVE
         ));
-        AttributeCategory spicy = attributeCategoryRepository.save(new AttributeCategory(CategoryType.FLAVOR, "SPICY", "매운맛", 20));
-        AttributeCategory grilled = attributeCategoryRepository.save(new AttributeCategory(CategoryType.COOKING_METHOD, "GRILLED", "구이", 10));
+        AttributeCategory spicy = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FLAVOR, "SPICY", "매운맛", 20));
+        AttributeCategory grilled = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.COOKING_METHOD, "GRILLED", "구이", 10));
         AttributeCategory mild = new AttributeCategory(CategoryType.FLAVOR, "MILD", "순한맛", 10);
         mild.deactivate();
         mild = attributeCategoryRepository.save(mild);
@@ -118,7 +120,7 @@ class MenuAdminReferenceIntegrationTest {
         Ingredient pork = new Ingredient("PORK", "돼지고기", false, 10);
         pork.deactivate();
         pork = ingredientRepository.save(pork);
-        Ingredient milk = ingredientRepository.save(new Ingredient("MILK", "우유", true, 30));
+        ingredientRepository.save(new Ingredient("MILK", "우유", true, 30));
 
         mockMvc.perform(get("/api/v1/admin/ingredients")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(admin)))

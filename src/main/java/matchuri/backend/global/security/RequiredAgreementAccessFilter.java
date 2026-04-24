@@ -14,6 +14,7 @@ import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementRevisionResolver;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementVersions;
 import matchuri.backend.global.config.MatchuriProperties;
+import org.jspecify.annotations.NullMarked;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -24,6 +25,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
 @RequiredArgsConstructor
+@NullMarked
 public class RequiredAgreementAccessFilter extends OncePerRequestFilter {
 
     public static final String AUTHORIZATION_ERROR_CODE_ATTRIBUTE = "matchuri.authorization.error-code";
@@ -46,20 +48,23 @@ public class RequiredAgreementAccessFilter extends OncePerRequestFilter {
         }
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
             filterChain.doFilter(request, response);
             return;
         }
 
         if (!hasSatisfiedRequiredAgreements(authenticatedMember)) {
             request.setAttribute(AUTHORIZATION_ERROR_CODE_ATTRIBUTE, MemberAgreementErrorCode.REQUIRED);
-            accessDeniedHandler.handle(request, response, new AccessDeniedException(MemberAgreementErrorCode.REQUIRED.getMessage()));
+            accessDeniedHandler.handle(request, response,
+                    new AccessDeniedException(MemberAgreementErrorCode.REQUIRED.getMessage()));
             return;
         }
 
         if (!hasCompletedNickname(authenticatedMember)) {
             request.setAttribute(AUTHORIZATION_ERROR_CODE_ATTRIBUTE, MemberErrorCode.NICKNAME_REQUIRED);
-            accessDeniedHandler.handle(request, response, new AccessDeniedException(MemberErrorCode.NICKNAME_REQUIRED.getMessage()));
+            accessDeniedHandler.handle(request, response,
+                    new AccessDeniedException(MemberErrorCode.NICKNAME_REQUIRED.getMessage()));
             return;
         }
 
@@ -95,7 +100,8 @@ public class RequiredAgreementAccessFilter extends OncePerRequestFilter {
         auth.getPublicApiPatterns().forEach(pattern -> matchers.add(new AllowedRequest(null, pattern)));
         auth.getPublicGetApiPatterns().forEach(pattern -> matchers.add(new AllowedRequest(HttpMethod.GET, pattern)));
         auth.getPublicPostApiPatterns().forEach(pattern -> matchers.add(new AllowedRequest(HttpMethod.POST, pattern)));
-        auth.getPublicOptionsApiPatterns().forEach(pattern -> matchers.add(new AllowedRequest(HttpMethod.OPTIONS, pattern)));
+        auth.getPublicOptionsApiPatterns()
+                .forEach(pattern -> matchers.add(new AllowedRequest(HttpMethod.OPTIONS, pattern)));
 
         matchers.add(new AllowedRequest(HttpMethod.POST, "/api/v1/auth/logout"));
         matchers.add(new AllowedRequest(HttpMethod.GET, "/api/v1/member-agreements/required-status"));
