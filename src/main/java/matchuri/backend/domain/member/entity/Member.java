@@ -56,7 +56,7 @@ public class Member extends BaseEntity {
     @Column(name = "login_id", length = LOGIN_ID_MAX_SIZE, comment = "로그인 아이디")
     private String loginId;
 
-    @Column(name = "password_hash", length = 255, comment = "비밀번호 해시")
+    @Column(name = "password_hash", comment = "비밀번호 해시")
     private String passwordHash;
 
     @Column(name = "nickname", length = NICKNAME_MAX_SIZE, comment = "닉네임 (자체 로그인은 수집)")
@@ -112,14 +112,6 @@ public class Member extends BaseEntity {
         this.nicknameCompleted = !social;
     }
 
-    public static Member createWithEncodedPassword(String loginId, String passwordHash) {
-        return createWithEncodedPassword(loginId, passwordHash, null);
-    }
-
-    public static Member createWithEncodedPassword(String loginId, String passwordHash, String nickname) {
-        return createWithEncodedPassword(loginId, passwordHash, nickname, null);
-    }
-
     public static Member createWithEncodedPassword(String loginId, String passwordHash, String nickname, String email) {
         return Member.builder()
                 .loginId(loginId)
@@ -155,8 +147,8 @@ public class Member extends BaseEntity {
         this.tasteProfile = tasteProfile;
     }
 
-    public void updateEmail(String email) {
-        this.email = email;
+    public void updatePasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public void updateNickname(String nickname) {
