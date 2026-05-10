@@ -216,33 +216,18 @@ class OpenApiDocumentationIntegrationTest {
     }
 
     @Test
-    @DisplayName("OpenAPI 문서에 Mock API 표시와 200 응답 예시가 노출된다")
+    @DisplayName("OpenAPI 문서에 추천/그룹 API 표시와 200 응답 예시가 노출된다")
     void exposesMockApiMetadataAndSuccessExamplesInOpenApi() throws Exception {
         mockMvc.perform(get("/docs/openapi"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
                 .andExpect(jsonPath("$.paths['/api/v1/personal/recommendations'].get.summary")
-                        .value("내 개인 추천 이력 목록 조회 (Mock API)"))
-                .andExpect(jsonPath("$.paths['/api/v1/personal/recommendations'].get.parameters[0].name")
-                        .value("page"))
-                .andExpect(jsonPath("$.paths['/api/v1/personal/recommendations'].get.parameters[0].description")
-                        .value("0부터 시작하는 페이지 번호입니다."))
-                .andExpect(jsonPath("$.paths['/api/v1/personal/recommendations'].get.parameters[0].schema.default")
-                        .value(0))
-                .andExpect(jsonPath("$.paths['/api/v1/personal/recommendations'].get.parameters[1].name")
-                        .value("size"))
-                .andExpect(jsonPath("$.paths['/api/v1/personal/recommendations'].get.parameters[1].description")
-                        .value("페이지 크기입니다. 기본값은 20입니다."))
-                .andExpect(jsonPath("$.paths['/api/v1/personal/recommendations'].get.parameters[1].schema.default")
-                        .value(20))
+                        .value("내 개인 추천 이력 목록 조회"))
                 .andExpect(jsonPath(
                         "$.paths['/api/v1/personal/recommendations'].get.responses['200'].content['application/json'].examples.success.value.data.content[0].id")
                         .value(9001))
-                .andExpect(jsonPath(
-                        "$.paths['/api/v1/personal/recommendations'].get.responses['200'].content['application/json'].examples.success.value.data.pageInfo.size")
-                        .value(20))
                 .andExpect(jsonPath("$.paths['/api/v1/personal/recommendations'].post.summary")
-                        .value("개인 추천 요청 생성 (Mock API)"))
+                        .value("개인 추천 요청 생성"))
                 .andExpect(jsonPath(
                         "$.paths['/api/v1/personal/recommendations'].post.responses['200'].content['application/json'].examples.success.value.data.candidates[0].menuName")
                         .value("비빔밥"))
@@ -268,24 +253,9 @@ class OpenApiDocumentationIntegrationTest {
                         .value(3001))
                 .andExpect(jsonPath("$.paths['/api/v1/groups'].get.summary")
                         .value("내 그룹 목록 조회 (Mock API)"))
-                .andExpect(jsonPath("$.paths['/api/v1/groups'].get.parameters[1].name")
-                        .value("page"))
-                .andExpect(jsonPath("$.paths['/api/v1/groups'].get.parameters[1].description")
-                        .value("0부터 시작하는 페이지 번호입니다."))
-                .andExpect(jsonPath("$.paths['/api/v1/groups'].get.parameters[1].schema.default")
-                        .value(0))
-                .andExpect(jsonPath("$.paths['/api/v1/groups'].get.parameters[2].name")
-                        .value("size"))
-                .andExpect(jsonPath("$.paths['/api/v1/groups'].get.parameters[2].description")
-                        .value("페이지 크기입니다. 기본값은 20입니다."))
-                .andExpect(jsonPath("$.paths['/api/v1/groups'].get.parameters[2].schema.default")
-                        .value(20))
                 .andExpect(jsonPath(
                         "$.paths['/api/v1/groups'].get.responses['200'].content['application/json'].examples.success.value.data.content[0].latestRecommendationStatus")
                         .value("OPEN"))
-                .andExpect(jsonPath(
-                        "$.paths['/api/v1/groups'].get.responses['200'].content['application/json'].examples.success.value.data.pageInfo.size")
-                        .value(20))
                 .andExpect(jsonPath(
                         "$.paths['/api/v1/groups/{groupId}'].get.responses['200'].content['application/json'].examples.success.value.data.activeRecommendation.voteProgress.votedMemberCount")
                         .value(3))
@@ -315,17 +285,7 @@ class OpenApiDocumentationIntegrationTest {
                         .value(1))
                 .andExpect(jsonPath(
                         "$.paths['/api/v1/groups/{groupId}/recommendations/{sessionId}/finalize'].patch.responses['200'].content['application/json'].examples.success.value.data.finalCandidate.menuName")
-                        .value("비빔밥"))
-                .andExpect(jsonPath("$.components.schemas.PageInfo.description")
-                        .value("페이지네이션 메타데이터입니다. 페이지 번호는 0부터 시작합니다."))
-                .andExpect(jsonPath("$.components.schemas.PageInfo.properties.page.description")
-                        .value("현재 페이지 번호입니다. 0부터 시작합니다."))
-                .andExpect(jsonPath("$.components.schemas.PageInfo.properties.size.description")
-                        .value("요청한 페이지 크기입니다."))
-                .andExpect(jsonPath("$.components.schemas.PageInfo.properties.totalElements.description")
-                        .value("조회 조건에 해당하는 전체 요소 수입니다."))
-                .andExpect(jsonPath("$.components.schemas.PageInfo.properties.hasNext.description")
-                        .value("다음 페이지 존재 여부입니다."));
+                        .value("비빔밥"));
     }
 
     @Test

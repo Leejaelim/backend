@@ -2,6 +2,7 @@ package matchuri.backend.api.recommendation;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import matchuri.backend.api.recommendation.dto.request.CreatePersonalRecommendationRequest;
 import matchuri.backend.api.recommendation.dto.request.SelectPersonalRecommendationRequest;
 import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationCandidateListResponse;
@@ -9,8 +10,15 @@ import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationDe
 import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationRequestResponse;
 import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationResponse;
 import matchuri.backend.api.recommendation.dto.response.SelectPersonalRecommendationResponse;
+import matchuri.backend.domain.recommendation.result.PersonalRecommendationCandidateResult;
+import matchuri.backend.domain.recommendation.result.PersonalRecommendationResult;
+import matchuri.backend.domain.recommendation.result.PersonalRecommendationSummaryResult;
+import matchuri.backend.domain.recommendation.result.SelectPersonalRecommendationResult;
+import matchuri.backend.domain.recommendation.service.RecommendationService;
 import matchuri.backend.global.api.ApiResponse;
 import matchuri.backend.global.api.PageResponse;
+import org.jspecify.annotations.NullMarked;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,28 +27,27 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.validation.annotation.Validated;
 
+@NullMarked
 @RestController
 @RequestMapping("/api/v1")
-@Validated
+@RequiredArgsConstructor
 public class RecommendationController implements RecommendationApi {
+
+    private final RecommendationService recommendationService;
+    private final RecommendationMapper recommendationMapper;
 
     @Override
     @GetMapping("/personal/recommendations")
     public ApiResponse<PageResponse<PersonalRecommendationResponse>> getMyPersonalRecommendationList(
-            @RequestParam(defaultValue = "0")
-            Integer page,
-
-            @RequestParam(defaultValue = "20")
-            Integer size
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "20") Integer size
     ) {
+        Page<PersonalRecommendationSummaryResult> results =
+                recommendationService.getMyPersonalRecommendations(page, size);
 
-        PageResponse<PersonalRecommendationResponse> response = PageResponse.mock(
-                List.of(PersonalRecommendationResponse.mock()),
-                page,
-                size,
-                1L);
+        PageResponse<PersonalRecommendationResponse> response =
+                PageResponse.of(results, recommendationMapper::toSummaryResponse);
 
         return ApiResponse.success(response);
     }
@@ -50,13 +57,18 @@ public class RecommendationController implements RecommendationApi {
     public ApiResponse<PersonalRecommendationRequestResponse> createPersonalRecommendation(
             @Valid @RequestBody CreatePersonalRecommendationRequest request
     ) {
-        return ApiResponse.success(PersonalRecommendationRequestResponse.mockCompleted());
+        String contextJson = recommendationMapper.toContextJson(request);
+        PersonalRecommendationResult result = recommendationService.createPersonalRecommendation(contextJson);
+
+        return ApiResponse.success(recommendationMapper.toCreateResponse(result));
     }
 
     @Override
     @GetMapping("/personal/recommendations/{requestId}")
     public ApiResponse<PersonalRecommendationDetailResponse> getPersonalRecommendation(@PathVariable Long requestId) {
-        return ApiResponse.success(PersonalRecommendationDetailResponse.mockSelected());
+        PersonalRecommendationResult result = recommendationService.getPersonalRecommendation(requestId);
+
+        return ApiResponse.success(recommendationMapper.toDetailResponse(result));
     }
 
     @Override
@@ -64,7 +76,10 @@ public class RecommendationController implements RecommendationApi {
     public ApiResponse<PersonalRecommendationCandidateListResponse> getPersonalRecommendationCandidates(
             @PathVariable Long requestId
     ) {
-        return ApiResponse.success(PersonalRecommendationCandidateListResponse.mock());
+        List<PersonalRecommendationCandidateResult> results =
+                recommendationService.getPersonalRecommendationCandidates(requestId);
+
+        return ApiResponse.success(recommendationMapper.toCandidateListResponse(requestId, results));
     }
 
     @Override
@@ -73,6 +88,11 @@ public class RecommendationController implements RecommendationApi {
             @PathVariable Long requestId,
             @Valid @RequestBody SelectPersonalRecommendationRequest request
     ) {
-        return ApiResponse.success(SelectPersonalRecommendationResponse.mockSelected(request.selectedCandidateId()));
+        SelectPersonalRecommendationResult result = recommendationService.selectPersonalRecommendationCandidate(
+                requestId,
+                request.selectedCandidateId()
+        );
+
+        return ApiResponse.success(recommendationMapper.toSelectResponse(result));
     }
 }
