@@ -80,6 +80,18 @@ public class GroupRoom extends BaseEntity {
         groupRoomMembers.add(groupRoomMember);
     }
 
+    public void updateName(String name) {
+        this.name = name;
+    }
+
+    public void updateLatitude(BigDecimal latitude) {
+        this.latitude = latitude;
+    }
+
+    public void updateLongitude(BigDecimal longitude) {
+        this.longitude = longitude;
+    }
+
     public void close() {
         this.status = GroupRoomStatus.CLOSED;
     }

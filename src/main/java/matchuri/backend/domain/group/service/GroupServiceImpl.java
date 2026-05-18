@@ -11,6 +11,7 @@ import matchuri.backend.domain.group.command.DeleteGroupCommand;
 import matchuri.backend.domain.group.command.GetMyGroupsCommand;
 import matchuri.backend.domain.group.command.JoinGroupCommand;
 import matchuri.backend.domain.group.command.LeaveGroupCommand;
+import matchuri.backend.domain.group.command.UpdateGroupCommand;
 import matchuri.backend.domain.group.entity.GroupInvite;
 import matchuri.backend.domain.group.entity.GroupInviteStatus;
 import matchuri.backend.domain.group.entity.GroupMemberRole;
@@ -31,6 +32,7 @@ import matchuri.backend.domain.group.result.GroupMemberSummaryResult;
 import matchuri.backend.domain.group.result.GroupSummaryResult;
 import matchuri.backend.domain.group.result.JoinGroupResult;
 import matchuri.backend.domain.group.result.LeaveGroupResult;
+import matchuri.backend.domain.group.result.UpdateGroupResult;
 import matchuri.backend.domain.group.support.GroupInviteCodeGenerator;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.support.member.ActiveMemberReader;
@@ -81,15 +83,11 @@ public class GroupServiceImpl implements GroupService {
         }
 
         long memberId = member.getId();
-        long hostMemberId = room.getHostMember().getId();
-
-        if (memberId != hostMemberId) {
-            throw new BusinessException(GroupErrorCode.ACCESS_DENIED, command.groupId());
-        }
-
+        Member hostMember = room.getHostMember();
+        long hostMemberId = hostMember.getId();
         GroupRoomMember membership = room.getGroupRoomHostMember();
 
-        if (!membership.isOwner()) {
+        if (memberId != hostMemberId || !membership.isOwner()) {
             throw new BusinessException(GroupErrorCode.ACCESS_DENIED, command.groupId());
         }
 
@@ -172,10 +170,53 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
+    public UpdateGroupResult updateGroup(UpdateGroupCommand command) {
+        if (command.hasNoFields()) {
+            throw new BusinessException(GroupErrorCode.UPDATE_EMPTY_REQUEST);
+        }
+
+        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+        GroupRoom room = groupRoomRepository.findByIdAndStatusNot(command.groupId(), GroupRoomStatus.DELETED)
+                .orElseThrow(() -> new BusinessException(GroupErrorCode.NOT_FOUND, command.groupId()));
+
+        if (!room.isActive()) {
+            throw new BusinessException(GroupErrorCode.NOT_ACTIVE, room.getId());
+        }
+
+        GroupRoomMember membership = room.getGroupRoomMemberById(member.getId())
+                .orElseThrow(() -> new BusinessException(GroupErrorCode.ACCESS_DENIED, room.getId()));
+
+        if (!membership.isOwner()) {
+            throw new BusinessException(GroupErrorCode.UPDATE_FORBIDDEN, room.getId());
+        }
+
+        if (command.name() != null) {
+            room.updateName(command.name());
+        }
+
+        if (command.latitude() != null) {
+            room.updateLatitude(command.latitude());
+        }
+
+        if (command.longitude() != null) {
+            room.updateLongitude(command.longitude());
+        }
+
+        return new UpdateGroupResult(
+                room.getId(),
+                room.getName(),
+                room.getLatitude(),
+                room.getLongitude(),
+                room.getStatus(),
+                room.getUpdatedAt()
+        );
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public Page<@NonNull GroupSummaryResult> getMyGroups(GetMyGroupsCommand command) {
         Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
-        Page<GroupRoomMember> memberships = groupRoomMemberRepository.findMyActiveMemberships(
+        Page<@NonNull GroupRoomMember> memberships = groupRoomMemberRepository.findMyActiveMemberships(
                 member.getId(),
                 command.status(),
                 PageRequest.of(command.page(), command.size())
@@ -211,7 +252,7 @@ public class GroupServiceImpl implements GroupService {
         );
     }
 
-    private Map<Long, Long> countActiveMembers(Page<GroupRoomMember> memberships) {
+    private Map<Long, Long> countActiveMembers(Page<@NonNull GroupRoomMember> memberships) {
         List<Long> roomIds = memberships.getContent().stream()
                 .map(membership -> membership.getRoom().getId())
                 .toList();
