@@ -1,8 +1,3 @@
-matchuri:
-  seed:
-    enabled: true
-    sample-members-enabled: true
-
 spring:
   jpa:
     show-sql: false
@@ -13,4 +8,4 @@ spring:
 
 logging:
   level:
-    org.hibernate.SQL: debug
+    org.hibernate.SQL: info
