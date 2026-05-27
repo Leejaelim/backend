@@ -98,7 +98,8 @@ public interface GroupApi {
                     - 로그인한 활성 회원만 사용할 수 있습니다.
                     - 현재 회원이 `ACTIVE` 멤버로 속한 그룹만 반환합니다.
                     - 삭제된 그룹은 목록에서 제외합니다.
-                    - 그룹 추천 구현 전까지 `latestRecommendationStatus`는 null일 수 있습니다.
+                    - 최신 그룹 추천이 있으면 `latestRecommendationStatus`로 상태를 반환합니다.
+                    - 아직 그룹 추천이 없으면 `latestRecommendationStatus`는 null입니다.
                     """
     )
     @ApiResponses({
@@ -138,7 +139,8 @@ public interface GroupApi {
                     - 현재 회원이 해당 그룹의 `ACTIVE` 멤버일 때만 조회할 수 있습니다.
                     - 그룹의 모든 `ACTIVE` 멤버에게 고정 초대 코드를 함께 반환합니다.
                     - 삭제된 그룹은 조회할 수 없습니다.
-                    - 열린 그룹 추천이 있으면 `activeRecommendation`을 함께 반환합니다.
+                    - `PREPARING` 또는 `OPEN` 추천 세션이 있으면 `activeRecommendation`을 함께 반환합니다.
+                    - `PREPARING`이면 readiness 진행률을, `OPEN`이면 후보와 투표 진행률을 포함합니다.
                     """
     )
     @ApiResponses({
@@ -148,10 +150,18 @@ public interface GroupApi {
                     content = @Content(
                             mediaType = "application/json",
                             schema = @Schema(implementation = GroupDetailApiResponse.class),
-                            examples = @ExampleObject(
-                                    name = "success",
-                                    value = GroupApiExamples.GROUP_DETAIL_SUCCESS
-                            )
+                            examples = {
+                                    @ExampleObject(
+                                            name = "preparing",
+                                            summary = "준비 중인 그룹 추천 포함",
+                                            value = GroupApiExamples.GROUP_DETAIL_SUCCESS
+                                    ),
+                                    @ExampleObject(
+                                            name = "open",
+                                            summary = "열린 그룹 추천 포함",
+                                            value = GroupApiExamples.GROUP_DETAIL_OPEN_RECOMMENDATION_SUCCESS
+                                    )
+                            }
                     )
             )
     })
@@ -419,6 +429,7 @@ public interface GroupApi {
                     - 로그인한 활성 회원만 사용할 수 있습니다.
                     - 현재 회원이 해당 그룹의 `ACTIVE` 멤버일 때만 조회할 수 있습니다.
                     - 삭제된 그룹은 조회할 수 없습니다.
+                    - `PREPARING` 세션도 목록에 포함합니다.
                     - 응답은 `sessionId`, `status`, `startedAt`, `endedAt`만 포함하는 얇은 summary입니다.
                     - `finalCandidate`, `finalMenuName`, `voteProgress`, `status` 필터는 1차 범위에서 제외합니다.
                     - 최신순(`startedAt DESC`, `id DESC`)으로 정렬합니다.
@@ -454,13 +465,14 @@ public interface GroupApi {
     @Operation(
             summary = "그룹 추천 세션 상세 조회",
             description = """
-                    그룹 추천 상태, 후보, 투표 진행률, 최종 후보를 조회합니다.
+                    그룹 추천 상태, 준비 진행률, 후보, 투표 진행률, 최종 후보를 조회합니다.
 
                     구현 기준:
                     - 로그인한 활성 회원만 사용할 수 있습니다.
                     - 현재 회원이 해당 그룹의 `ACTIVE` 멤버일 때만 조회할 수 있습니다.
                     - `sessionId`는 API 표현 이름이며 저장 모델은 `group_recommendations.id`로 해석합니다.
-                    - 후보별 현재 투표 수와 전체 투표 진행률을 함께 반환합니다.
+                    - `PREPARING` 세션이면 후보는 빈 배열, 투표 진행률은 null, readiness 진행률은 값으로 반환합니다.
+                    - `OPEN` 세션이면 후보별 현재 투표 수와 전체 투표 진행률을 함께 반환하고 readiness는 null입니다.
                     """
     )
     @ApiResponses({
@@ -559,10 +571,18 @@ public interface GroupApi {
                     content = @Content(
                             mediaType = "application/json",
                             schema = @Schema(implementation = ReadyGroupRecommendationApiResponse.class),
-                            examples = @ExampleObject(
-                                    name = "success",
-                                    value = GroupApiExamples.READY_RECOMMENDATION_SUCCESS
-                            )
+                            examples = {
+                                    @ExampleObject(
+                                            name = "preparing",
+                                            summary = "아직 전원 준비 전",
+                                            value = GroupApiExamples.READY_RECOMMENDATION_SUCCESS
+                                    ),
+                                    @ExampleObject(
+                                            name = "opened",
+                                            summary = "마지막 인원 준비 완료로 후보 생성",
+                                            value = GroupApiExamples.READY_RECOMMENDATION_OPEN_SUCCESS
+                                    )
+                            }
                     )
             )
     })

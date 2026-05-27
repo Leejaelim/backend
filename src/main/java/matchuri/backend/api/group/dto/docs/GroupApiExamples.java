@@ -27,7 +27,7 @@ public final class GroupApiExamples {
                     "name": "오늘 점심 메뉴 회의",
                     "status": "ACTIVE",
                     "memberCount": 4,
-                    "latestRecommendationStatus": null,
+                    "latestRecommendationStatus": "PREPARING",
                     "createdAt": "2026-05-06T12:00:00"
                   }
                 ],
@@ -86,7 +86,87 @@ public final class GroupApiExamples {
                     "joinedAt": "2026-05-06T12:02:00"
                   }
                 ],
-                "activeRecommendation": null
+                "activeRecommendation": {
+                  "sessionId": 5001,
+                  "status": "PREPARING",
+                  "readiness": {
+                    "totalMemberCount": 4,
+                    "readyMemberCount": 2,
+                    "allReady": false
+                  },
+                  "candidates": [],
+                  "voteProgress": null,
+                  "finalCandidate": null,
+                  "createdAt": "2026-05-06T12:05:00"
+                }
+              },
+              "error": null
+            }
+            """;
+
+    public static final String GROUP_DETAIL_OPEN_RECOMMENDATION_SUCCESS = """
+            {
+              "success": true,
+              "data": {
+                "id": 3001,
+                "name": "오늘 점심 메뉴 회의",
+                "inviteCode": "LUNCH42",
+                "latitude": 37.498095,
+                "longitude": 127.027610,
+                "status": "ACTIVE",
+                "members": [
+                  {
+                    "memberId": 1,
+                    "nickname": "점심탐험가",
+                    "role": "OWNER",
+                    "status": "ACTIVE",
+                    "joinedAt": "2026-05-06T12:01:00"
+                  },
+                  {
+                    "memberId": 2,
+                    "nickname": "든든한한끼",
+                    "role": "MEMBER",
+                    "status": "ACTIVE",
+                    "joinedAt": "2026-05-06T12:02:00"
+                  }
+                ],
+                "activeRecommendation": {
+                  "sessionId": 5001,
+                  "status": "OPEN",
+                  "readiness": null,
+                  "candidates": [
+                    {
+                      "candidateId": 8001,
+                      "menuId": 1001,
+                      "menuName": "비빔밥",
+                      "rankNo": 1,
+                      "score": 91.5,
+                      "voteCount": 3
+                    },
+                    {
+                      "candidateId": 8002,
+                      "menuId": 1002,
+                      "menuName": "돈까스",
+                      "rankNo": 2,
+                      "score": 84.0,
+                      "voteCount": 1
+                    },
+                    {
+                      "candidateId": 8003,
+                      "menuId": 1003,
+                      "menuName": "쌀국수",
+                      "rankNo": 3,
+                      "score": 79.5,
+                      "voteCount": 0
+                    }
+                  ],
+                  "voteProgress": {
+                    "totalMemberCount": 4,
+                    "votedMemberCount": 3
+                  },
+                  "finalCandidate": null,
+                  "createdAt": "2026-05-06T12:05:00"
+                }
               },
               "error": null
             }
@@ -260,7 +340,7 @@ public final class GroupApiExamples {
                 "content": [
                   {
                     "sessionId": 5002,
-                    "status": "OPEN",
+                    "status": "PREPARING",
                     "startedAt": "2026-05-26T12:20:00",
                     "endedAt": null
                   },
@@ -292,6 +372,7 @@ public final class GroupApiExamples {
               "data": {
                 "sessionId": 5001,
                 "status": "OPEN",
+                "readiness": null,
                 "candidates": [
                   {
                     "candidateId": 8001,
@@ -411,6 +492,48 @@ public final class GroupApiExamples {
                   "allReady": false
                 },
                 "candidates": []
+              },
+              "error": null
+            }
+            """;
+
+    public static final String READY_RECOMMENDATION_OPEN_SUCCESS = """
+            {
+              "success": true,
+              "data": {
+                "sessionId": 5001,
+                "status": "OPEN",
+                "readiness": {
+                  "totalMemberCount": 4,
+                  "readyMemberCount": 4,
+                  "allReady": true
+                },
+                "candidates": [
+                  {
+                    "candidateId": 8001,
+                    "menuId": 1001,
+                    "menuName": "비빔밥",
+                    "rankNo": 1,
+                    "score": 91.5,
+                    "voteCount": 0
+                  },
+                  {
+                    "candidateId": 8002,
+                    "menuId": 1002,
+                    "menuName": "돈까스",
+                    "rankNo": 2,
+                    "score": 84.0,
+                    "voteCount": 0
+                  },
+                  {
+                    "candidateId": 8003,
+                    "menuId": 1003,
+                    "menuName": "쌀국수",
+                    "rankNo": 3,
+                    "score": 79.5,
+                    "voteCount": 0
+                  }
+                ]
               },
               "error": null
             }
