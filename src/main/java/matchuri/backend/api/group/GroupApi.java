@@ -590,12 +590,18 @@ public interface GroupApi {
 
     @Operation(
             summary = "그룹 추천 재요청",
+            deprecated = true,
             description = """
                     열린 그룹 추천을 종료하고 새 그룹 추천을 생성합니다.
 
-                    구현 기준:
+                    Deprecated:
+                    - 그룹 추천 재요청은 MVP 8단계 클라이언트 연동 범위에서 제외되었습니다.
+                    - 엔드포인트와 도메인 구현은 MVP 이후 재도입 검토를 위해 호환 목적으로 보존합니다.
+                    - API 호출 시 `410 Gone`과 `GROUP_RECOMMENDATION_REROLL_DISABLED`를 반환합니다.
+
+                    보존된 구현 기준:
                     - 로그인한 활성 회원만 사용할 수 있습니다.
-                    - MVP에서는 해당 그룹의 `ACTIVE` OWNER 멤버만 재요청할 수 있습니다.
+                    - 해당 그룹의 `ACTIVE` OWNER 멤버만 재요청할 수 있습니다.
                     - source 그룹 추천은 해당 그룹에 속하고 `OPEN` 상태여야 합니다.
                     - `NOT_SATISFIED`는 source 후보 전체를 `group_menu_actions.SKIP`으로 저장한 뒤 source를 `REROLLED_WITH_SKIP`으로 종료합니다.
                     - `INPUT_CHANGED`는 `SKIP` 로그 없이 source를 `REROLLED_WITHOUT_SKIP`으로 종료합니다.
@@ -604,14 +610,13 @@ public interface GroupApi {
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200",
-                    description = "그룹 추천 재요청 성공",
+                    responseCode = "410",
+                    description = "그룹 추천 재요청은 MVP 클라이언트 계약에서 제외됨",
                     content = @Content(
                             mediaType = "application/json",
-                            schema = @Schema(implementation = CreateGroupRecommendationApiResponse.class),
                             examples = @ExampleObject(
-                                    name = "success",
-                                    value = GroupApiExamples.REROLL_RECOMMENDATION_SUCCESS
+                                    name = "disabled",
+                                    value = GroupApiExamples.REROLL_RECOMMENDATION_DISABLED
                             )
                     )
             )
