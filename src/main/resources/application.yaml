@@ -132,6 +132,23 @@ matchuri:
       token-ttl-seconds: ${MATCHURI_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS:600}
       resend-cooldown-seconds: ${MATCHURI_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS:60}
       max-attempts: ${MATCHURI_EMAIL_VERIFICATION_MAX_ATTEMPTS:5}
+
+cloudflare:
+  r2:
+    endpoint: ${MATCHURI_R2_ENDPOINT:http://localhost:9000}
+    access-key: ${MATCHURI_R2_ACCESS_KEY:dummy-r2-access-key}
+    secret-key: ${MATCHURI_R2_SECRET_KEY:dummy-r2-secret-key}
+    bucket: ${MATCHURI_R2_BUCKET:matchuri-image-bucket}
+    public-url: ${MATCHURI_R2_PUBLIC_URL:https://asset.matchuri.com}
+    region: ${MATCHURI_R2_REGION:auto}
+    max-upload-bytes: ${MATCHURI_IMAGE_MAX_UPLOAD_BYTES:5242880}
+    min-image-width: ${MATCHURI_IMAGE_MIN_WIDTH:300}
+    min-image-height: ${MATCHURI_IMAGE_MIN_HEIGHT:300}
+    max-image-width: ${MATCHURI_IMAGE_MAX_WIDTH:4096}
+    max-image-height: ${MATCHURI_IMAGE_MAX_HEIGHT:4096}
+    cache-control: ${MATCHURI_IMAGE_CACHE_CONTROL:public, max-age=604800}
+
+
 logging:
   level:
     root: INFO
