@@ -37,8 +37,19 @@ import matchuri.backend.domain.recommendation.algorithm.input.RecommendationCont
 import matchuri.backend.domain.recommendation.algorithm.input.TasteProfileSnapshot;
 import matchuri.backend.domain.recommendation.algorithm.output.MenuRecommendationCandidateResult;
 import matchuri.backend.domain.recommendation.algorithm.output.MenuRecommendationResult;
+import matchuri.backend.domain.realtime.event.GroupDeletedRealtimeEvent;
+import matchuri.backend.domain.realtime.event.GroupInviteCreatedRealtimeEvent;
+import matchuri.backend.domain.realtime.event.GroupMemberJoinedRealtimeEvent;
+import matchuri.backend.domain.realtime.event.GroupMemberLeftRealtimeEvent;
+import matchuri.backend.domain.realtime.event.GroupRecommendationFinalizedRealtimeEvent;
+import matchuri.backend.domain.realtime.event.GroupRecommendationOpenedRealtimeEvent;
+import matchuri.backend.domain.realtime.event.GroupRecommendationReadinessUpdatedRealtimeEvent;
+import matchuri.backend.domain.realtime.event.GroupRecommendationStartedRealtimeEvent;
+import matchuri.backend.domain.realtime.event.GroupRecommendationVoteCompletedRealtimeEvent;
+import matchuri.backend.domain.realtime.event.GroupRecommendationVoteUpdatedRealtimeEvent;
 import matchuri.backend.global.exception.BusinessException;
 import org.jspecify.annotations.NonNull;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -71,6 +82,7 @@ public class GroupServiceImpl implements GroupService {
     private final GroupInviteCodeGenerator groupInviteCodeGenerator;
     private final GroupRecommendationExpirationService groupRecommendationExpirationService;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public CreateGroupResult createGroup(CreateGroupCommand command) {
@@ -112,6 +124,17 @@ public class GroupServiceImpl implements GroupService {
                 room,
                 command.contextJson(),
                 LocalDateTime.now()
+        ));
+        int totalMemberCount = groupRoomMemberRepository.findActiveMembersByRoomId(room.getId()).size();
+        GroupRecommendationReadinessProgressResult readiness =
+                GroupRecommendationReadinessProgressResult.of(totalMemberCount, 0);
+
+        eventPublisher.publishEvent(new GroupRecommendationStartedRealtimeEvent(
+                room.getId(),
+                recommendation.getId(),
+                member.getId(),
+                recommendation.getStatus(),
+                readiness
         ));
 
         return new CreateGroupRecommendationResult(
@@ -375,12 +398,32 @@ public class GroupServiceImpl implements GroupService {
                     recentlySkippedMenuIds(room.getId())
             );
         }
+        List<GroupRecommendationCandidateResult> candidateResults = toCandidateResults(candidates, 0);
+
+        eventPublisher.publishEvent(new GroupRecommendationReadinessUpdatedRealtimeEvent(
+                room.getId(),
+                recommendation.getId(),
+                member.getId(),
+                member.getNickname(),
+                recommendation.getStatus(),
+                readiness
+        ));
+
+        if (readiness.allReady()) {
+            eventPublisher.publishEvent(new GroupRecommendationOpenedRealtimeEvent(
+                    room.getId(),
+                    recommendation.getId(),
+                    recommendation.getStatus(),
+                    candidateResults,
+                    toVoteProgress(recommendation)
+            ));
+        }
 
         return new ReadyGroupRecommendationResult(
                 recommendation.getId(),
                 recommendation.getStatus(),
                 readiness,
-                toCandidateResults(candidates, 0)
+                candidateResults
         );
     }
 
@@ -446,8 +489,25 @@ public class GroupServiceImpl implements GroupService {
                         recommendation,
                         candidate,
                         member
-                ));
+        ));
         GroupRecommendationVote savedVote = groupRecommendationVoteRepository.saveAndFlush(vote);
+        GroupVoteProgressResult voteProgress = toVoteProgress(recommendation);
+
+        eventPublisher.publishEvent(new GroupRecommendationVoteUpdatedRealtimeEvent(
+                groupId,
+                recommendation.getId(),
+                voteProgress
+        ));
+
+        if (voteProgress.totalMemberCount() > 0
+                && voteProgress.totalMemberCount().equals(voteProgress.votedMemberCount())) {
+            eventPublisher.publishEvent(new GroupRecommendationVoteCompletedRealtimeEvent(
+                    groupId,
+                    recommendation.getId(),
+                    recommendation.getRoom().getHostMember().getId(),
+                    voteProgress
+            ));
+        }
 
         return new GroupVoteResult(
                 savedVote.getId(),
@@ -483,14 +543,24 @@ public class GroupServiceImpl implements GroupService {
         GroupRecommendationCandidate selectedCandidate = selectFinalCandidate(candidates, voteCountsByCandidateId);
         LocalDateTime finalizedAt = LocalDateTime.now();
         recommendation.finalizeWith(selectedCandidate, finalizedAt);
+        GroupRecommendationCandidateResult finalCandidate = GroupRecommendationCandidateResult.from(
+                selectedCandidate,
+                voteCountsByCandidateId.getOrDefault(selectedCandidate.getId(), 0)
+        );
+
+        eventPublisher.publishEvent(new GroupRecommendationFinalizedRealtimeEvent(
+                groupId,
+                recommendation.getId(),
+                member.getId(),
+                recommendation.getStatus(),
+                finalCandidate,
+                finalizedAt
+        ));
 
         return new FinalizeGroupRecommendationResult(
                 recommendation.getId(),
                 recommendation.getStatus(),
-                GroupRecommendationCandidateResult.from(
-                        selectedCandidate,
-                        voteCountsByCandidateId.getOrDefault(selectedCandidate.getId(), 0)
-                ),
+                finalCandidate,
                 finalizedAt
         );
     }
@@ -539,6 +609,16 @@ public class GroupServiceImpl implements GroupService {
         LocalDateTime expiresAt = LocalDateTime.now().plusHours(NICKNAME_INVITE_EXPIRATION_HOURS);
         GroupInvite invite = groupInviteRepository.save(new GroupInvite(room, requestMember, targetMember, expiresAt));
 
+        eventPublisher.publishEvent(new GroupInviteCreatedRealtimeEvent(
+                invite.getId(),
+                room.getId(),
+                room.getName(),
+                requestMember.getId(),
+                requestMember.getNickname(),
+                targetMember.getId(),
+                invite.getExpiresAt()
+        ));
+
         return new CreateNicknameGroupInviteResult(
                 invite.getId(),
                 room.getId(),
@@ -561,6 +641,13 @@ public class GroupServiceImpl implements GroupService {
         }
 
         GroupRoomMember membership = joinOrRejoinMember(room, member);
+
+        eventPublisher.publishEvent(new GroupMemberJoinedRealtimeEvent(
+                room.getId(),
+                member.getId(),
+                member.getNickname(),
+                membership.getJoinedAt()
+        ));
 
         return new JoinGroupResult(room.getId(), membership.getStatus());
     }
@@ -589,6 +676,13 @@ public class GroupServiceImpl implements GroupService {
         LocalDateTime leftAt = LocalDateTime.now();
         membership.leave(leftAt);
 
+        eventPublisher.publishEvent(new GroupMemberLeftRealtimeEvent(
+                room.getId(),
+                member.getId(),
+                member.getNickname(),
+                membership.getLeftAt()
+        ));
+
         return new LeaveGroupResult(room.getId(), membership.getStatus(), membership.getLeftAt());
     }
 
@@ -607,9 +701,21 @@ public class GroupServiceImpl implements GroupService {
         }
 
         LocalDateTime deletedAt = LocalDateTime.now();
+        List<Long> targetMemberIds = groupRoomMemberRepository.findActiveMembersByRoomId(room.getId()).stream()
+                .map(GroupRoomMember::getMember)
+                .map(Member::getId)
+                .toList();
+
         room.delete();
         revokeActiveInvites(room);
         leaveActiveMembers(room, deletedAt);
+
+        eventPublisher.publishEvent(new GroupDeletedRealtimeEvent(
+                room.getId(),
+                member.getId(),
+                targetMemberIds,
+                deletedAt
+        ));
 
         return new DeleteGroupResult(room.getId(), room.getStatus(), deletedAt);
     }
@@ -705,6 +811,12 @@ public class GroupServiceImpl implements GroupService {
             GroupRoomMember membership = joinOrRejoinMember(room, member);
             memberStatus = membership.getStatus();
             invite.accept(now);
+            eventPublisher.publishEvent(new GroupMemberJoinedRealtimeEvent(
+                    room.getId(),
+                    member.getId(),
+                    member.getNickname(),
+                    membership.getJoinedAt()
+            ));
         } else {
             invite.decline(now);
         }

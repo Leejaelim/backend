@@ -529,6 +529,60 @@ class OpenApiDocumentationIntegrationTest {
     }
 
     @Test
+    @DisplayName("OpenAPI 문서에 실시간 SSE API 표시와 text/event-stream 응답이 노출된다")
+    void exposesRealtimeSseApiMetadataInOpenApi() throws Exception {
+        mockMvc.perform(get("/docs/openapi"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(jsonPath("$.paths['/api/v1/realtime/events'].get.summary")
+                        .value("[RT.010.000] 내 실시간 이벤트 스트림"))
+                .andExpect(jsonPath("$.paths['/api/v1/realtime/events'].get['x-api-id']")
+                        .value("RT.010.000"))
+                .andExpect(jsonPath("$.paths['/api/v1/realtime/events'].get.tags[0]")
+                        .value("07 Realtime"))
+                .andExpect(jsonPath("$.paths['/api/v1/realtime/events'].get.description")
+                        .value(org.hamcrest.Matchers.containsString("GROUP_INVITE_CREATED")))
+                .andExpect(jsonPath("$.paths['/api/v1/realtime/events'].get.description")
+                        .value(org.hamcrest.Matchers.containsString("GROUP_RECOMMENDATION_VOTE_COMPLETED")))
+                .andExpect(jsonPath(
+                        "$.paths['/api/v1/realtime/events'].get.responses['200'].content['text/event-stream']")
+                        .exists())
+                .andExpect(jsonPath(
+                        "$.paths['/api/v1/realtime/events'].get.responses['200'].content['text/event-stream'].schema.type")
+                        .value("string"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/v1/realtime/events'].get.responses['200'].content['text/event-stream'].examples.inviteCreated.value")
+                        .value(org.hamcrest.Matchers.containsString("event: GROUP_INVITE_CREATED")))
+                .andExpect(jsonPath(
+                        "$.paths['/api/v1/realtime/events'].get.responses['200'].content['text/event-stream'].examples.voteCompleted.value")
+                        .value(org.hamcrest.Matchers.containsString("\"eventType\":\"GROUP_RECOMMENDATION_VOTE_COMPLETED\"")))
+                .andExpect(jsonPath("$.paths['/api/v1/groups/{groupId}/realtime/events'].get.summary")
+                        .value("[RT.020.000] 그룹 실시간 이벤트 스트림"))
+                .andExpect(jsonPath("$.paths['/api/v1/groups/{groupId}/realtime/events'].get['x-api-id']")
+                        .value("RT.020.000"))
+                .andExpect(jsonPath("$.paths['/api/v1/groups/{groupId}/realtime/events'].get.tags[0]")
+                        .value("07 Realtime"))
+                .andExpect(jsonPath("$.paths['/api/v1/groups/{groupId}/realtime/events'].get.description")
+                        .value(org.hamcrest.Matchers.containsString("GROUP_MEMBER_JOINED")))
+                .andExpect(jsonPath("$.paths['/api/v1/groups/{groupId}/realtime/events'].get.description")
+                        .value(org.hamcrest.Matchers.containsString("GROUP_DELETED")))
+                .andExpect(jsonPath("$.paths['/api/v1/groups/{groupId}/realtime/events'].get.description")
+                        .value(org.hamcrest.Matchers.containsString("GROUP_RECOMMENDATION_FINALIZED")))
+                .andExpect(jsonPath(
+                        "$.paths['/api/v1/groups/{groupId}/realtime/events'].get.responses['200'].content['text/event-stream']")
+                        .exists())
+                .andExpect(jsonPath(
+                        "$.paths['/api/v1/groups/{groupId}/realtime/events'].get.responses['200'].content['text/event-stream'].schema.type")
+                        .value("string"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/v1/groups/{groupId}/realtime/events'].get.responses['200'].content['text/event-stream'].examples.groupDeleted.value")
+                        .value(org.hamcrest.Matchers.containsString("event: GROUP_DELETED")))
+                .andExpect(jsonPath(
+                        "$.paths['/api/v1/groups/{groupId}/realtime/events'].get.responses['200'].content['text/event-stream'].examples.voteUpdated.value")
+                        .value(org.hamcrest.Matchers.containsString("\"eventType\":\"GROUP_RECOMMENDATION_VOTE_UPDATED\"")));
+    }
+
+    @Test
     @DisplayName("OpenAPI 문서에 Menu Reference 공개 API의 비인증 정책과 envelope 응답 스키마가 노출된다")
     void exposesMenuReferenceApiMetadataInOpenApi() throws Exception {
         mockMvc.perform(get("/docs/openapi"))
