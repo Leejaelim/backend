@@ -1,9 +1,5 @@
 package matchuri.backend.api.group;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import matchuri.backend.api.group.dto.request.CreateGroupRecommendationRequest;
 import matchuri.backend.api.group.dto.request.CreateGroupRequest;
 import matchuri.backend.api.group.dto.request.CreateNicknameGroupInviteRequest;
@@ -72,16 +68,15 @@ import matchuri.backend.domain.group.result.UpdateGroupResult;
 import org.springframework.stereotype.Component;
 
 @Component
-@RequiredArgsConstructor
 public class GroupMapper {
-
-    private final ObjectMapper objectMapper;
 
     public CreateGroupCommand toCreateGroupCommand(CreateGroupRequest request) {
         return new CreateGroupCommand(
                 request.name(),
                 request.latitude(),
-                request.longitude()
+                request.longitude(),
+                request.radiusMeters(),
+                request.address()
         );
     }
 
@@ -97,14 +92,20 @@ public class GroupMapper {
             Long groupId,
             CreateGroupRecommendationRequest request
     ) {
-        return new CreateGroupRecommendationCommand(groupId, toContextJson(request.contextJson()));
+        return new CreateGroupRecommendationCommand(
+                groupId,
+                request.latitude(),
+                request.longitude(),
+                request.radiusMeters(),
+                request.address()
+        );
     }
 
     public CreateGroupRecommendationCommand toCreateGroupRecommendationCommand(
             Long groupId,
             RerollGroupRecommendationRequest request
     ) {
-        return new CreateGroupRecommendationCommand(groupId, toContextJson(request.contextJson()));
+        return new CreateGroupRecommendationCommand(groupId, null, null, null, null);
     }
 
     public CreateGroupRecommendationResponse toCreateGroupRecommendationResponse(
@@ -196,7 +197,9 @@ public class GroupMapper {
                 groupId,
                 request.name(),
                 request.latitude(),
-                request.longitude()
+                request.longitude(),
+                request.radiusMeters(),
+                request.address()
         );
     }
 
@@ -206,6 +209,8 @@ public class GroupMapper {
                 result.name(),
                 result.latitude(),
                 result.longitude(),
+                result.radiusMeters(),
+                result.address(),
                 result.status(),
                 result.updatedAt()
         );
@@ -237,6 +242,8 @@ public class GroupMapper {
                 result.inviteCode(),
                 result.latitude(),
                 result.longitude(),
+                result.radiusMeters(),
+                result.address(),
                 result.status(),
                 result.members().stream()
                         .map(this::toGroupMemberSummaryResponse)
@@ -400,15 +407,5 @@ public class GroupMapper {
                 result.readyMemberCount(),
                 result.allReady()
         );
-    }
-
-    private String toContextJson(Map<String, Object> contextJson) {
-        try {
-            Map<String, Object> normalizedContextJson = contextJson == null ? Map.of() : contextJson;
-
-            return objectMapper.writeValueAsString(normalizedContextJson);
-        } catch (JsonProcessingException exception) {
-            throw new IllegalArgumentException("contextJson을 JSON 문자열로 변환할 수 없습니다.", exception);
-        }
     }
 }

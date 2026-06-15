@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -23,6 +24,7 @@ import matchuri.backend.domain.group.entity.GroupRecommendationReadiness;
 import matchuri.backend.domain.group.entity.GroupRecommendationReadinessStatus;
 import matchuri.backend.domain.group.entity.GroupRecommendationStatus;
 import matchuri.backend.domain.group.entity.GroupRecommendationVote;
+import matchuri.backend.domain.group.entity.GroupLocation;
 import matchuri.backend.domain.group.entity.GroupInvite;
 import matchuri.backend.domain.group.entity.GroupInviteStatus;
 import matchuri.backend.domain.group.entity.GroupMemberRole;
@@ -31,6 +33,7 @@ import matchuri.backend.domain.group.entity.GroupRoom;
 import matchuri.backend.domain.group.entity.GroupRoomMember;
 import matchuri.backend.domain.group.entity.GroupRoomStatus;
 import matchuri.backend.domain.group.repository.GroupInviteRepository;
+import matchuri.backend.domain.group.repository.GroupLocationRepository;
 import matchuri.backend.domain.group.repository.GroupMenuActionRepository;
 import matchuri.backend.domain.group.repository.GroupRecommendationCandidateRepository;
 import matchuri.backend.domain.group.repository.GroupRecommendationReadinessRepository;
@@ -96,6 +99,9 @@ class GroupIntegrationTest {
 
     @Autowired
     private GroupRoomRepository groupRoomRepository;
+
+    @Autowired
+    private GroupLocationRepository groupLocationRepository;
 
     @Autowired
     private GroupRoomMemberRepository groupRoomMemberRepository;
@@ -166,6 +172,7 @@ class GroupIntegrationTest {
         groupRecommendationCandidateRepository.deleteAll();
         groupRecommendationRepository.deleteAll();
         groupInviteRepository.deleteAll();
+        groupLocationRepository.deleteAll();
         groupRoomMemberRepository.deleteAll();
         groupRoomRepository.deleteAll();
         memberTasteProfileDislikedMenuItemRepository.deleteAll();
@@ -192,7 +199,9 @@ class GroupIntegrationTest {
                                 {
                                   "name": "오늘 점심 메뉴 회의",
                                   "latitude": 37.498095,
-                                  "longitude": 127.027610
+                                  "longitude": 127.027610,
+                                  "radiusMeters": 1000,
+                                  "address": "서울 강남구 테헤란로 123"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -211,8 +220,11 @@ class GroupIntegrationTest {
         assertThat(savedGroup.getName()).isEqualTo("오늘 점심 메뉴 회의");
         assertThat(savedGroup.getInviteCode()).hasSize(8);
         assertThat(savedGroup.getHostMember().getId()).isEqualTo(member.getId());
-        assertThat(savedGroup.getLatitude()).isEqualByComparingTo("37.498095");
-        assertThat(savedGroup.getLongitude()).isEqualByComparingTo("127.027610");
+        GroupLocation savedLocation = latestGroupLocation(savedGroup);
+        assertThat(savedLocation.getLatitude()).isEqualByComparingTo("37.498095");
+        assertThat(savedLocation.getLongitude()).isEqualByComparingTo("127.027610");
+        assertThat(savedLocation.getRadiusMeters()).isEqualTo(1000);
+        assertThat(savedLocation.getAddress()).isEqualTo("서울 강남구 테헤란로 123");
         assertThat(savedGroup.getStatus()).isEqualTo(GroupRoomStatus.ACTIVE);
         assertThat(savedMember.getRoom().getId()).isEqualTo(savedGroup.getId());
         assertThat(savedMember.getMember().getId()).isEqualTo(member.getId());
@@ -254,9 +266,6 @@ class GroupIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "contextJson": {
-                                    "mealTime": "LUNCH"
-                                  }
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -273,7 +282,37 @@ class GroupIntegrationTest {
 
         assertThat(savedRecommendation.getRoom().getId()).isEqualTo(groupRoom.getId());
         assertThat(savedRecommendation.getStatus()).isEqualTo(GroupRecommendationStatus.PREPARING);
-        assertThat(savedRecommendation.getContextJson()).contains("LUNCH");
+        assertThat(savedRecommendation.getContextJson()).isNull();
+    }
+
+    @Test
+    @DisplayName("그룹 추천 생성은 요청 위치를 그룹의 기억 위치로 갱신한다")
+    void createGroupRecommendationUpdatesRememberedGroupLocation() throws Exception {
+        Member owner = saveMember("recommendation-location-owner", "추천위치방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "추천 위치 그룹");
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/recommendations", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "latitude": 37.498095,
+                                  "longitude": 127.027610,
+                                  "radiusMeters": 1000,
+                                  "address": "서울 강남구 테헤란로 123"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(GroupRecommendationStatus.PREPARING.name()));
+
+        GroupLocation updatedLocation = latestGroupLocation(groupRoom);
+        assertThat(updatedLocation.getLatitude()).isEqualByComparingTo("37.498095");
+        assertThat(updatedLocation.getLongitude()).isEqualByComparingTo("127.027610");
+        assertThat(updatedLocation.getRadiusMeters()).isEqualTo(1000);
+        assertThat(updatedLocation.getAddress()).isEqualTo("서울 강남구 테헤란로 123");
+
+        GroupRecommendation savedRecommendation = groupRecommendationRepository.findAll().getFirst();
+        assertThat(savedRecommendation.getContextJson()).isNull();
     }
 
     @Test
@@ -294,7 +333,6 @@ class GroupIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "contextJson": {}
                                 }
                                 """))
                 .andExpect(status().isForbidden())
@@ -319,7 +357,6 @@ class GroupIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "contextJson": {}
                                 }
                                 """))
                 .andExpect(status().isConflict())
@@ -342,7 +379,6 @@ class GroupIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "contextJson": {}
                                 }
                                 """))
                 .andExpect(status().isConflict())
@@ -365,9 +401,6 @@ class GroupIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "contextJson": {
-                                    "mealTime": "LUNCH"
-                                  }
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -445,7 +478,6 @@ class GroupIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "contextJson": {}
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -634,6 +666,13 @@ class GroupIntegrationTest {
         Member owner = saveMember("ready-open-owner", "준비오픈방장");
         Member member = saveMember("ready-open-member", "준비오픈멤버");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "준비 오픈 그룹");
+        groupLocationRepository.save(new GroupLocation(
+                groupRoom,
+                new BigDecimal("37.498095"),
+                new BigDecimal("127.027610"),
+                1000,
+                "서울 강남구 테헤란로 123"
+        ));
         groupRoomMemberRepository.save(new GroupRoomMember(
                 groupRoom,
                 member,
@@ -644,7 +683,7 @@ class GroupIntegrationTest {
         saveMenu("ready-open-second", "준비오픈두번째");
         GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
                 groupRoom,
-                "{\"mealTime\":\"LUNCH\"}",
+                null,
                 LocalDateTime.now()
         ));
 
@@ -669,6 +708,10 @@ class GroupIntegrationTest {
         GroupRecommendation openedRecommendation =
                 groupRecommendationRepository.findById(recommendation.getId()).orElseThrow();
         assertThat(openedRecommendation.getStatus()).isEqualTo(GroupRecommendationStatus.OPEN);
+        assertThat(openedRecommendation.getContextJson()).contains("37.498095");
+        assertThat(openedRecommendation.getContextJson()).contains("127.027610");
+        assertThat(openedRecommendation.getContextJson()).contains("1000");
+        assertThat(openedRecommendation.getContextJson()).contains("서울 강남구 테헤란로 123");
         assertThat(groupRecommendationCandidateRepository
                 .findAllByGroupRecommendationIdOrderByRankNoAsc(recommendation.getId()))
                 .hasSize(2);
@@ -1723,7 +1766,7 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRoom deletedGroup = GroupRoom.createOwnedBy("삭제된 그룹", nextInviteCode(), member, null, null);
+        GroupRoom deletedGroup = GroupRoom.createOwnedBy("삭제된 그룹", nextInviteCode(), member);
         deletedGroup.delete();
         groupRoomRepository.save(deletedGroup);
         GroupRoom leftGroup = saveGroupOwnedBy(member, "나간 그룹");
@@ -1751,7 +1794,7 @@ class GroupIntegrationTest {
     void getMyGroupsAppliesStatusFilterAndPagination() throws Exception {
         Member member = saveMember("group-filter-user", "필터사용자");
         saveGroupOwnedBy(member, "활성 그룹");
-        GroupRoom closedGroup = GroupRoom.createOwnedBy("닫힌 그룹", nextInviteCode(), member, null, null);
+        GroupRoom closedGroup = GroupRoom.createOwnedBy("닫힌 그룹", nextInviteCode(), member);
         closedGroup.close();
         groupRoomRepository.save(closedGroup);
 
@@ -1889,7 +1932,9 @@ class GroupIntegrationTest {
                         .content("""
                                 {
                                   "latitude": 37.498095,
-                                  "longitude": 127.027610
+                                  "longitude": 127.027610,
+                                  "radiusMeters": 1000,
+                                  "address": "서울 강남구 테헤란로 123"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -1909,7 +1954,9 @@ class GroupIntegrationTest {
                         .content("""
                                 {
                                   "latitude": 37.498095,
-                                  "longitude": 127.027610
+                                  "longitude": 127.027610,
+                                  "radiusMeters": 1000,
+                                  "address": "서울 강남구 테헤란로 123"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -1917,12 +1964,17 @@ class GroupIntegrationTest {
                 .andExpect(jsonPath("$.data.name").value("위치 수정 그룹"))
                 .andExpect(jsonPath("$.data.latitude").value(37.498095))
                 .andExpect(jsonPath("$.data.longitude").value(127.027610))
+                .andExpect(jsonPath("$.data.radiusMeters").value(1000))
+                .andExpect(jsonPath("$.data.address").value("서울 강남구 테헤란로 123"))
                 .andExpect(jsonPath("$.data.status").value(GroupRoomStatus.ACTIVE.name()));
 
         GroupRoom updatedGroup = groupRoomRepository.findById(groupRoom.getId()).orElseThrow();
+        GroupLocation updatedLocation = latestGroupLocation(updatedGroup);
         assertThat(updatedGroup.getName()).isEqualTo("위치 수정 그룹");
-        assertThat(updatedGroup.getLatitude()).isEqualByComparingTo("37.498095");
-        assertThat(updatedGroup.getLongitude()).isEqualByComparingTo("127.027610");
+        assertThat(updatedLocation.getLatitude()).isEqualByComparingTo("37.498095");
+        assertThat(updatedLocation.getLongitude()).isEqualByComparingTo("127.027610");
+        assertThat(updatedLocation.getRadiusMeters()).isEqualTo(1000);
+        assertThat(updatedLocation.getAddress()).isEqualTo("서울 강남구 테헤란로 123");
     }
 
     @Test
@@ -2788,7 +2840,7 @@ class GroupIntegrationTest {
     }
 
     private GroupRoom saveGroupOwnedBy(Member member, String name) {
-        return groupRoomRepository.save(GroupRoom.createOwnedBy(name, nextInviteCode(), member, null, null));
+        return groupRoomRepository.save(GroupRoom.createOwnedBy(name, nextInviteCode(), member));
     }
 
     private AttributeCategory saveCategory(String code, String name, int sortOrder) {
@@ -2840,6 +2892,10 @@ class GroupIntegrationTest {
 
     private String nextInviteCode() {
         return "T%07d".formatted(groupRoomRepository.count() + 1);
+    }
+
+    private GroupLocation latestGroupLocation(GroupRoom groupRoom) {
+        return groupLocationRepository.findFirstByRoomIdOrderByCreatedAtDescIdDesc(groupRoom.getId()).orElseThrow();
     }
 
     private GroupInvite saveInvite(
