@@ -172,6 +172,7 @@ logging:
   level:
     root: INFO
     matchuri.backend: INFO
+    org.springframework.web: DEBUG
 
 springdoc:
   api-docs:
