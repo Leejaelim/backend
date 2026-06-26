@@ -3,6 +3,7 @@ package matchuri.backend.api.group.dto.response;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import java.util.List;
+import matchuri.backend.domain.group.entity.GroupMemberRole;
 import matchuri.backend.domain.group.entity.GroupRecommendationStatus;
 
 public record GroupRecommendationSessionResponse(
@@ -28,6 +29,9 @@ public record GroupRecommendationSessionResponse(
         @Schema(description = "투표 진행률입니다. PREPARING 상태이면 null입니다.", nullable = true)
         GroupVoteProgressResponse voteProgress,
 
+        @Schema(description = "현재 활성 그룹원별 투표 여부입니다. PREPARING 상태이면 빈 배열입니다.")
+        List<GroupMemberVoteResponse> memberVotes,
+
         @Schema(description = "최종 확정 후보입니다. 확정 전에는 null입니다.")
         GroupRecommendationCandidateResponse finalCandidate,
 
@@ -42,6 +46,10 @@ public record GroupRecommendationSessionResponse(
                 null,
                 GroupMocks.candidates(),
                 GroupVoteProgressResponse.mockInProgress(),
+                List.of(
+                        new GroupMemberVoteResponse(1L, "점심탐험가", GroupMemberRole.OWNER, true, true, 8001L),
+                        new GroupMemberVoteResponse(2L, "든든한한끼", GroupMemberRole.MEMBER, false, false, null)
+                ),
                 null,
                 LocalDateTime.of(2026, 5, 6, 12, 5)
         );

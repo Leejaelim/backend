@@ -14,6 +14,7 @@ import matchuri.backend.api.group.dto.response.DeleteGroupResponse;
 import matchuri.backend.api.group.dto.response.FinalizeGroupRecommendationResponse;
 import matchuri.backend.api.group.dto.response.GroupDetailResponse;
 import matchuri.backend.api.group.dto.response.GroupInviteSummaryResponse;
+import matchuri.backend.api.group.dto.response.GroupMemberVoteResponse;
 import matchuri.backend.api.group.dto.response.GroupMemberSummaryResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationCandidateListResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationCandidateResponse;
@@ -49,6 +50,7 @@ import matchuri.backend.domain.group.result.DeleteGroupResult;
 import matchuri.backend.domain.group.result.FinalizeGroupRecommendationResult;
 import matchuri.backend.domain.group.result.GroupDetailResult;
 import matchuri.backend.domain.group.result.GroupInviteSummaryResult;
+import matchuri.backend.domain.group.result.GroupMemberVoteResult;
 import matchuri.backend.domain.group.result.GroupMemberSummaryResult;
 import matchuri.backend.domain.group.result.GroupRecommendationCandidateListResult;
 import matchuri.backend.domain.group.result.GroupRecommendationCandidateResult;
@@ -270,6 +272,9 @@ public class GroupMapper {
                 result.voteProgress() == null
                         ? null
                         : toGroupVoteProgressResponse(result.voteProgress()),
+                result.memberVotes().stream()
+                        .map(this::toGroupMemberVoteResponse)
+                        .toList(),
                 result.finalCandidate() == null
                         ? null
                         : toGroupRecommendationCandidateResponse(result.finalCandidate()),
@@ -386,6 +391,17 @@ public class GroupMapper {
         return new GroupVoteProgressResponse(
                 result.totalMemberCount(),
                 result.votedMemberCount()
+        );
+    }
+
+    private GroupMemberVoteResponse toGroupMemberVoteResponse(GroupMemberVoteResult result) {
+        return new GroupMemberVoteResponse(
+                result.memberId(),
+                result.nickname(),
+                result.role(),
+                result.isMe(),
+                result.voted(),
+                result.candidateId()
         );
     }
 
