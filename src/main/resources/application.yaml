@@ -1,0 +1,186 @@
+server:
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: backend
+  profiles:
+    default: ${MATCHURI_SPRING_PROFILE:local}
+  servlet:
+    multipart:
+      max-file-size: ${MATCHURI_MULTIPART_MAX_FILE_SIZE:5MB}
+      max-request-size: ${MATCHURI_MULTIPART_MAX_REQUEST_SIZE:6MB}
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${MATCHURI_GOOGLE_CLIENT_ID:dummy-google-client-id}
+            client-secret: ${MATCHURI_GOOGLE_CLIENT_SECRET:dummy-google-client-secret}
+            scope:
+              - openid
+              - profile
+              - email
+          kakao:
+            client-id: ${MATCHURI_KAKAO_CLIENT_ID:dummy-kakao-client-id}
+            client-secret: ${MATCHURI_KAKAO_CLIENT_SECRET:dummy-kakao-client-secret}
+            client-authentication-method: client_secret_post
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope:
+              - profile_nickname
+              - profile_image
+              - account_email
+          naver:
+            client-id: ${MATCHURI_NAVER_CLIENT_ID:dummy-naver-client-id}
+            client-secret: ${MATCHURI_NAVER_CLIENT_SECRET:dummy-naver-client-secret}
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            authorization-grant-type: authorization_code
+            client-authentication-method: client_secret_post
+            scope:
+              - nickname
+              - email
+              - profile_image
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
+          naver:
+            authorization-uri: https://nid.naver.com/oauth2.0/authorize
+            token-uri: https://nid.naver.com/oauth2.0/token
+            user-info-uri: https://openapi.naver.com/v1/nid/me
+            user-name-attribute: response
+
+  mail:
+    host: ${MATCHURI_MAIL_HOST:smtp.gmail.com}
+    port: ${MATCHURI_MAIL_PORT:587}
+    username: you720223721@gmail.com
+    password: ${MATCHURI_GOOGLE_EMAIL_APP_PW}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          timeout: 5000
+          starttls:
+            enable: true
+
+  docker:
+    compose:
+      lifecycle-management: start-only
+  datasource:
+    url: jdbc:mysql://localhost:${MATCHURI_DB_PORT:3331}/${MATCHURI_DB_NAME:matchuri}?serverTimezone=UTC&characterEncoding=UTF-8
+    username: ${MATCHURI_DB_USER:matchuri}
+    password: ${MATCHURI_DB_PW:matchuri}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc.time_zone: UTC
+
+matchuri:
+  auth:
+    public-api-patterns:
+      - /error
+    public-get-api-patterns:
+      - /api/v1/members/exists/**
+      - /api/v1/attribute-categories
+      - /api/v1/restriction-ingredients
+      - /api/v1/menu-items
+      - /api/v1/menu-items/**
+      - /api/v1/auth/oauth2/**
+      - /oauth2/authorization/**
+      - /login/oauth2/code/**
+      - /docs/**
+      - /api/v1/health
+    public-post-api-patterns:
+      - /api/v1/members/signup
+      - /api/v1/members
+      - /api/v1/auth/login
+      - /api/v1/auth/refresh
+      - /api/v1/auth/oauth2/exchange
+      - /api/v1/auth/email
+      - /api/v1/auth/email/confirm
+      - /api/v1/auth/recovery/login-id
+      - /api/v1/auth/recovery/password
+      - /api/v1/guest/recommendations
+    public-options-api-patterns:
+      - /**
+    cors:
+      allowed-origins:
+        - ${MATCHURI_FRONTEND_ORIGIN:http://localhost:3000}
+      allowed-methods:
+        - GET
+        - POST
+        - PATCH
+        - DELETE
+        - OPTIONS
+      allowed-headers:
+        - Authorization
+        - Content-Type
+      exposed-headers:
+        - Authorization
+      allow-credentials: true
+      max-age: 3600
+    oauth2:
+      frontend-base-url: ${MATCHURI_FRONTEND_ORIGIN:http://localhost:3000}
+      success-path: /auth/callback
+      failure-path: /login
+      exchange-code-expiration-seconds: 300
+    cookie:
+      refresh-token-cookie-name: matchuri_refresh_token
+      oauth2-authorization-request-cookie-name: matchuri_oauth2_auth_request
+      secure: ${MATCHURI_COOKIE_SECURE:false}
+      path: /
+      domain: ${MATCHURI_COOKIE_DOMAIN:}
+      same-site: ${MATCHURI_COOKIE_SAME_SITE:Lax}
+      max-age-seconds: 1209600
+      oauth2-authorization-request-cookie-max-age-seconds: 180
+    jwt:
+      secret: ${MATCHURI_JWT_SECRET:matchuri-local-jwt-secret-key-matchuri-local-jwt-secret-key}
+      issuer: ${MATCHURI_JWT_ISSUER:matchuri-backend}
+      access-token-expiration-seconds: ${MATCHURI_JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:3600}
+      refresh-token-expiration-seconds: ${MATCHURI_JWT_REFRESH_TOKEN_EXPIRATION_SECONDS:1209600}
+    email-verification:
+      from: you720223721@gmail.com
+      code-ttl-seconds: ${MATCHURI_EMAIL_VERIFICATION_CODE_TTL_SECONDS:300}
+      token-ttl-seconds: ${MATCHURI_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS:600}
+      resend-cooldown-seconds: ${MATCHURI_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS:60}
+      max-attempts: ${MATCHURI_EMAIL_VERIFICATION_MAX_ATTEMPTS:5}
+
+cloudflare:
+  r2:
+    endpoint: ${MATCHURI_R2_ENDPOINT:http://localhost:9000}
+    access-key: ${MATCHURI_R2_ACCESS_KEY:dummy-r2-access-key}
+    secret-key: ${MATCHURI_R2_SECRET_KEY:dummy-r2-secret-key}
+    bucket: ${MATCHURI_R2_BUCKET:matchuri-image-bucket}
+    public-url: ${MATCHURI_R2_PUBLIC_URL:https://asset.matchuri.com}
+    region: ${MATCHURI_R2_REGION:auto}
+    max-upload-bytes: ${MATCHURI_IMAGE_MAX_UPLOAD_BYTES:5242880}
+    min-image-width: ${MATCHURI_IMAGE_MIN_WIDTH:300}
+    min-image-height: ${MATCHURI_IMAGE_MIN_HEIGHT:300}
+    max-image-width: ${MATCHURI_IMAGE_MAX_WIDTH:4096}
+    max-image-height: ${MATCHURI_IMAGE_MAX_HEIGHT:4096}
+    cache-control: ${MATCHURI_IMAGE_CACHE_CONTROL:public, max-age=604800}
+
+
+logging:
+  level:
+    root: INFO
+    matchuri.backend: INFO
+    org.springframework.web: DEBUG
+
+springdoc:
+  api-docs:
+    path: /docs/openapi
+  swagger-ui:
+    path: /docs/swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      base-path: /api/v1

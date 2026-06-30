@@ -1,0 +1,49 @@
+name: backend-ci
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  backend-ci:
+    runs-on: ubuntu-latest
+    env:
+      MATCHURI_SPRING_PROFILE: test
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v5
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build
+        run: ./gradlew --no-daemon clean build
+
+      - name: Generate JaCoCo Report
+        run: ./gradlew --no-daemon jacocoTestReport
+
+      - name: Upload JaCoCo Report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-jacoco-report
+          path: |
+            build/reports/jacoco/test/html
+            build/reports/jacoco/test/jacocoTestReport.xml

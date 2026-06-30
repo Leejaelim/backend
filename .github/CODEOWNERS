@@ -1,0 +1,5 @@
+# Replace placeholders with real GitHub IDs.
+* @yourjinKR
+
+/src/main/ @yourjinKR
+/src/test/ @yourjinKR
