@@ -31,17 +31,22 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AuthServiceImpl implements AuthService {
-
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final SessionTokenService sessionTokenService;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationFacade authenticationFacade;
     private final OnboardingStatusResolver onboardingStatusResolver;
+    private final CaptchaVerifier captchaVerifier;
 
     @Override
     @Transactional
     public LoginResult login(LoginCommand command, String clientIp) {
+        if (!captchaVerifier.verify(command.captchaToken(), CaptchaPurpose.LOGIN, clientIp)) {
+            log.warn("auth event=captcha_rejected purpose={} ip={}", CaptchaPurpose.LOGIN, clientIp);
+            throw new BusinessException(AuthErrorCode.CAPTCHA_VERIFICATION_FAILED);
+        }
+
         Member member = memberRepository.findByLoginId(command.loginId())
                 .orElseThrow(() -> new AuthenticationException(AuthErrorCode.LOGIN_FAILED));
 
