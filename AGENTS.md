@@ -1,6 +1,6 @@
 # Backend Agent Context
 
-백엔드 작업에서 반복 참조하는 최소 기준입니다. 상세 설명은 루트 `AGENTS.md`와 `docs/BACKEND.md`를 봅니다.
+백엔드 작업에서 반복 참조하는 최소 기준입니다. 상세 설명은 루트 `../AGENTS.md`와 `../docs/backend/index.md`를 봅니다.
 
 ## Stack
 
@@ -51,6 +51,10 @@ src/main/java/matchuri/backend
 
 - 기본: `./gradlew test`
 - 커버리지 필요 시: `./gradlew test jacocoTestReport`
-- API 계약 변경 시 OpenAPI metadata, Swagger 산출물, 관련 `docs/api/` 문서를 함께 확인합니다.
+- API 계약 변경 시 OpenAPI metadata, Swagger 산출물, 관련 `../docs/api/` 문서를 함께 확인합니다.
+- API 계약 변경은 `../.agents/skills/matchuri-backend-api-change/SKILL.md`를 우선 사용하고, 프론트엔드 소비 코드까지 움직이면 `../.agents/skills/matchuri-api-contract-sync/SKILL.md`도 사용합니다.
+- 품질 리뷰는 `../.agents/skills/matchuri-backend-quality-review/SKILL.md`를 사용합니다.
+- 인증/인가/시크릿 변경은 `../.agents/skills/matchuri-backend-security-review/SKILL.md`를 사용합니다.
+- 배포/로그/복구/운영 신뢰성 변경은 `../.agents/skills/matchuri-backend-reliability-review/SKILL.md`를 사용합니다.
 - Swagger/OpenAPI 산출물 전용 테스트는 작성하지 않습니다. API 변경은 service/domain 테스트나 필요한 controller 통합 테스트로 검증합니다.
-- 데이터 모델 변경 시 관련 `docs/data/`와 `docs/generated/db-schema.md`를 함께 확인합니다.
+- 데이터 모델 변경 시 관련 `../docs/data/`와 `../docs/generated/db-schema.md`를 함께 확인합니다.

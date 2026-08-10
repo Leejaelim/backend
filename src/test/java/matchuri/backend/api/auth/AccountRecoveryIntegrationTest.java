@@ -2,6 +2,9 @@ package matchuri.backend.api.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,6 +17,8 @@ import matchuri.backend.domain.auth.entity.EmailVerification;
 import matchuri.backend.domain.auth.entity.EmailVerificationPurpose;
 import matchuri.backend.domain.auth.repository.AuthRefreshTokenRepository;
 import matchuri.backend.domain.auth.repository.EmailVerificationRepository;
+import matchuri.backend.domain.auth.service.CaptchaPurpose;
+import matchuri.backend.domain.auth.service.CaptchaVerifier;
 import matchuri.backend.domain.auth.support.verification.EmailVerificationTokenGenerator;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberRole;
@@ -29,6 +34,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
@@ -54,8 +60,12 @@ class AccountRecoveryIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @MockitoBean
+    private CaptchaVerifier captchaVerifier;
+
     @BeforeEach
     void setUp() {
+        given(captchaVerifier.verify(anyString(), eq(CaptchaPurpose.LOGIN), anyString())).willReturn(true);
         authRefreshTokenRepository.deleteAll();
         emailVerificationRepository.deleteAll();
         memberRepository.deleteAll();
@@ -203,7 +213,8 @@ class AccountRecoveryIntegrationTest {
                         .content("""
                                 {
                                   "loginId": "tester01",
-                                  "password": "OldP@ssw0rd!"
+                                  "password": "OldP@ssw0rd!",
+                                  "captchaToken": "test-captcha-token"
                                 }
                                 """))
                 .andExpect(status().isUnauthorized())
@@ -214,7 +225,8 @@ class AccountRecoveryIntegrationTest {
                         .content("""
                                 {
                                   "loginId": "tester01",
-                                  "password": "N3wP@ssw0rd!"
+                                  "password": "N3wP@ssw0rd!",
+                                  "captchaToken": "test-captcha-token"
                                 }
                                 """))
                 .andExpect(status().isOk())

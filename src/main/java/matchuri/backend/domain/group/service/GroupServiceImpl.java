@@ -39,6 +39,7 @@ import matchuri.backend.domain.recommendation.algorithm.input.RecommendationCont
 import matchuri.backend.domain.recommendation.algorithm.input.TasteProfileSnapshot;
 import matchuri.backend.domain.recommendation.algorithm.output.MenuRecommendationCandidateResult;
 import matchuri.backend.domain.recommendation.algorithm.output.MenuRecommendationResult;
+import matchuri.backend.domain.recommendation.context.RecommendationLocationContextJsonFactory;
 import matchuri.backend.domain.realtime.event.GroupDeletedRealtimeEvent;
 import matchuri.backend.domain.realtime.event.GroupInviteCreatedRealtimeEvent;
 import matchuri.backend.domain.realtime.event.GroupMemberJoinedRealtimeEvent;
@@ -88,6 +89,7 @@ public class GroupServiceImpl implements GroupService {
     private final MenuRecommendationAlgorithmResolver menuRecommendationAlgorithmResolver;
     private final GroupInviteCodeGenerator groupInviteCodeGenerator;
     private final GroupRecommendationExpirationService groupRecommendationExpirationService;
+    private final RecommendationLocationContextJsonFactory recommendationLocationContextJsonFactory;
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -196,7 +198,6 @@ public class GroupServiceImpl implements GroupService {
 
         GroupRecommendation newRecommendation = groupRecommendationRepository.save(new GroupRecommendation(
                 room,
-                contextJson,
                 LocalDateTime.now()
         ));
         updateRoomLocationFromContextJson(room, contextJson);
@@ -255,7 +256,7 @@ public class GroupServiceImpl implements GroupService {
                 recommendationResult,
                 menuItemById
         );
-        recommendation.openWithContextJson(recommendationContextJson);
+        recommendation.open();
 
         return candidates;
     }
@@ -536,37 +537,44 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @Transactional(noRollbackFor = BusinessException.class)
-    public FinalizeGroupRecommendationResult finalizeGroupRecommendation(Long groupId, Long sessionId) {
+    public FinalizeGroupRecommendationResult finalizeGroupRecommendation(FinalizeGroupRecommendationCommand command) {
         Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
-        GroupRoomMember membership = validateActiveMembership(groupId, member.getId());
+        GroupRoomMember membership = validateActiveMembership(command.groupId(), member.getId());
 
         if (!membership.isOwner()) {
-            throw new BusinessException(GroupErrorCode.RECOMMENDATION_FINALIZE_FORBIDDEN, groupId);
+            throw new BusinessException(GroupErrorCode.RECOMMENDATION_FINALIZE_FORBIDDEN, command.groupId());
         }
 
-        GroupRecommendation recommendation = groupRecommendationRepository.findByIdAndRoomId(sessionId, groupId)
-                .orElseThrow(() -> new BusinessException(GroupErrorCode.RECOMMENDATION_NOT_FOUND, sessionId));
+        GroupRecommendation recommendation = groupRecommendationRepository
+                .findByIdAndRoomId(command.sessionId(), command.groupId())
+                .orElseThrow(() -> new BusinessException(GroupErrorCode.RECOMMENDATION_NOT_FOUND, command.sessionId()));
 
-        validateGroupRecommendationOpen(recommendation, sessionId);
+        validateGroupRecommendationOpen(recommendation, command.sessionId());
 
         List<GroupRecommendationCandidate> candidates = groupRecommendationCandidateRepository
                 .findAllByGroupRecommendationIdOrderByRankNoAsc(recommendation.getId());
 
         if (candidates.isEmpty()) {
-            throw new BusinessException(GroupErrorCode.RECOMMENDATION_NO_CANDIDATES, sessionId);
+            throw new BusinessException(GroupErrorCode.RECOMMENDATION_NO_CANDIDATES, command.sessionId());
         }
 
         Map<Long, Integer> voteCountsByCandidateId = countVotesByCandidateId(recommendation.getId());
         GroupRecommendationCandidate selectedCandidate = selectFinalCandidate(candidates, voteCountsByCandidateId);
         LocalDateTime finalizedAt = LocalDateTime.now();
         recommendation.finalizeWith(selectedCandidate, finalizedAt);
+        recommendationLocationContextJsonFactory.createIfComplete(
+                command.latitude(),
+                command.longitude(),
+                command.radiusMeters(),
+                command.address()
+        ).ifPresent(recommendation::saveContextJson);
         GroupRecommendationCandidateResult finalCandidate = GroupRecommendationCandidateResult.from(
                 selectedCandidate,
                 voteCountsByCandidateId.getOrDefault(selectedCandidate.getId(), 0)
         );
 
         eventPublisher.publishEvent(new GroupRecommendationFinalizedRealtimeEvent(
-                groupId,
+                command.groupId(),
                 recommendation.getId(),
                 member.getId(),
                 recommendation.getStatus(),

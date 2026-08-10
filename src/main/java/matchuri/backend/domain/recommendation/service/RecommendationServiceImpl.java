@@ -2,6 +2,7 @@ package matchuri.backend.domain.recommendation.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -38,6 +39,8 @@ import matchuri.backend.domain.recommendation.algorithm.input.TasteProfileSnapsh
 import matchuri.backend.domain.recommendation.algorithm.output.MenuRecommendationCandidateResult;
 import matchuri.backend.domain.recommendation.algorithm.output.MenuRecommendationResult;
 import matchuri.backend.domain.recommendation.command.GuestPersonalRecommendationCommand;
+import matchuri.backend.domain.recommendation.command.SelectPersonalRecommendationCommand;
+import matchuri.backend.domain.recommendation.context.RecommendationLocationContextJsonFactory;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendation;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationCandidate;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationRerollType;
@@ -79,6 +82,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final MenuRecommendationAlgorithmResolver menuRecommendationAlgorithmResolver;
     private final PersonalRecommendationExpirationService personalRecommendationExpirationService;
     private final MenuThumbnailUrlResolver menuThumbnailUrlResolver;
+    private final RecommendationLocationContextJsonFactory recommendationLocationContextJsonFactory;
     private final ObjectMapper objectMapper;
 
     /**
@@ -168,7 +172,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         );
         MenuRecommendationResult recommendationResult = algorithm.recommend(input);
 
-        PersonalRecommendation personalRecommendation = PersonalRecommendation.of(member, contextJson);
+        PersonalRecommendation personalRecommendation = PersonalRecommendation.of(member);
         PersonalRecommendation savedPersonalRecommendation =
                 personalRecommendationRepository.save(personalRecommendation);
 
@@ -280,24 +284,27 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     @Override
     @Transactional(noRollbackFor = BusinessException.class)
-    public SelectPersonalRecommendationResult selectPersonalRecommendationCandidate(
-            Long personalRecommendationId,
-            Long selectedCandidateId
-    ) {
+    public SelectPersonalRecommendationResult selectPersonalRecommendationCandidate(SelectPersonalRecommendationCommand command) {
         Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
-        PersonalRecommendation personalRecommendation = getOwnedPersonalRecommendation(personalRecommendationId,
+        PersonalRecommendation personalRecommendation = getOwnedPersonalRecommendation(command.personalRecommendationId(),
                 member.getId());
 
         validatePersonalRecommendationOpen(personalRecommendation, LocalDateTime.now());
 
         PersonalRecommendationCandidate selectedCandidate = personalRecommendationCandidateRepository
-                .findByIdAndPersonalRecommendationId(selectedCandidateId, personalRecommendationId)
+                .findByIdAndPersonalRecommendationId(command.selectedCandidateId(), command.personalRecommendationId())
                 .orElseThrow(() -> new BusinessException(
                         RecommendationErrorCode.CANDIDATE_NOT_FOUND,
-                        selectedCandidateId
+                        command.selectedCandidateId()
                 ));
 
         personalRecommendation.select(selectedCandidate, LocalDateTime.now());
+        recommendationLocationContextJsonFactory.createIfComplete(
+                command.latitude(),
+                command.longitude(),
+                command.radiusMeters(),
+                command.address()
+        ).ifPresent(personalRecommendation::saveContextJson);
         memberMenuActionRepository.save(new MemberMenuAction(
                 member,
                 selectedCandidate.getMenuItem(),

@@ -2,11 +2,15 @@ package matchuri.backend.api.member;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -28,6 +32,9 @@ import matchuri.backend.domain.auth.entity.EmailVerificationPurpose;
 import matchuri.backend.domain.auth.repository.AuthExchangeCodeRepository;
 import matchuri.backend.domain.auth.repository.AuthRefreshTokenRepository;
 import matchuri.backend.domain.auth.repository.EmailVerificationRepository;
+import matchuri.backend.domain.auth.exception.AuthErrorCode;
+import matchuri.backend.domain.auth.service.CaptchaPurpose;
+import matchuri.backend.domain.auth.service.CaptchaVerifier;
 import matchuri.backend.domain.auth.support.verification.EmailVerificationTokenGenerator;
 import matchuri.backend.domain.member.entity.AgreementType;
 import matchuri.backend.domain.member.entity.Member;
@@ -40,6 +47,7 @@ import matchuri.backend.domain.member.entity.MemberTasteProfileDislikedMenuItem;
 import matchuri.backend.domain.member.entity.MemberTasteProfileRestrictionIngredient;
 import matchuri.backend.domain.member.entity.SocialProviderType;
 import matchuri.backend.domain.member.repository.MemberAgreementRepository;
+import matchuri.backend.domain.member.repository.MemberLocationRepository;
 import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
@@ -53,7 +61,9 @@ import matchuri.backend.domain.menu.repository.AttributeCategoryRepository;
 import matchuri.backend.domain.menu.repository.IngredientRepository;
 import matchuri.backend.domain.menu.repository.MenuItemRepository;
 import matchuri.backend.global.config.MatchuriProperties;
+import matchuri.backend.global.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +72,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -107,6 +118,9 @@ class MemberAuthIntegrationTest {
     private MemberAgreementRepository memberAgreementRepository;
 
     @Autowired
+    private MemberLocationRepository memberLocationRepository;
+
+    @Autowired
     private AttributeCategoryRepository attributeCategoryRepository;
 
     @Autowired
@@ -118,11 +132,16 @@ class MemberAuthIntegrationTest {
     @Autowired
     private MatchuriProperties matchuriProperties;
 
+    @MockitoBean
+    private CaptchaVerifier captchaVerifier;
+
     @BeforeEach
     void setUp() {
+        given(captchaVerifier.verify(anyString(), eq(CaptchaPurpose.LOGIN), anyString())).willReturn(true);
         emailVerificationRepository.deleteAll();
         authExchangeCodeRepository.deleteAll();
         authRefreshTokenRepository.deleteAll();
+        memberLocationRepository.deleteAll();
         memberAgreementRepository.deleteAll();
         memberTasteProfileCategoryRepository.deleteAll();
         memberTasteProfileRestrictionIngredientRepository.deleteAll();
@@ -132,6 +151,65 @@ class MemberAuthIntegrationTest {
         ingredientRepository.deleteAll();
         menuItemRepository.deleteAll();
         memberRepository.deleteAll();
+    }
+
+    @Test
+    @DisplayName("로컬 로그인은 CAPTCHA 토큰이 누락되면 요청 검증에서 거절한다")
+    void loginRejectsMissingCaptchaToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "captcha-user",
+                                  "password": "P@ssw0rd!"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_INVALID_BODY_FIELD"))
+                .andExpect(jsonPath("$.error.details[0].field").value("captchaToken"));
+    }
+
+    @Test
+    @DisplayName("로컬 로그인은 CAPTCHA 검증 거절을 400으로 반환한다")
+    void loginRejectsInvalidCaptchaToken() throws Exception {
+        given(captchaVerifier.verify("rejected-captcha-token", CaptchaPurpose.LOGIN, "127.0.0.1"))
+                .willReturn(false);
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "captcha-user",
+                                  "password": "P@ssw0rd!",
+                                  "captchaToken": "rejected-captcha-token"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("AUTH_CAPTCHA_VERIFICATION_FAILED"));
+    }
+
+    @Test
+    @DisplayName("로컬 로그인은 CAPTCHA 서비스 장애를 503으로 반환한다")
+    void loginReturnsServiceUnavailableWhenCaptchaProviderFails() throws Exception {
+        given(captchaVerifier.verify("unavailable-captcha-token", CaptchaPurpose.LOGIN, "127.0.0.1"))
+                .willThrow(new BusinessException(AuthErrorCode.CAPTCHA_SERVICE_UNAVAILABLE));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "captcha-user",
+                                  "password": "P@ssw0rd!",
+                                  "captchaToken": "unavailable-captcha-token"
+                                }
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("AUTH_CAPTCHA_SERVICE_UNAVAILABLE"));
+    }
+
+    @AfterEach
+    void cleanUpMemberLocations() {
+        memberLocationRepository.deleteAll();
     }
 
     @Test
@@ -193,6 +271,84 @@ class MemberAuthIntegrationTest {
                 .andExpect(jsonPath("$.data.nickname").value("점심탐험가"))
                 .andExpect(jsonPath("$.data.isSocial").value(false))
                 .andExpect(jsonPath("$.data.email").value("signup@example.com"));
+    }
+
+    @Test
+    @DisplayName("내 개인 위치 PUT은 생성과 전체 교체를 처리하고 GET은 최신 위치를 반환한다")
+    void putAndGetMyLocation() throws Exception {
+        String accessToken = createFullyOnboardedMember("location-user");
+
+        mockMvc.perform(put("/api/v1/members/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "latitude": 37.498095,
+                                  "longitude": 127.027610,
+                                  "radiusMeters": 1000,
+                                  "address": " 서울 강남구 테헤란로 123 "
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.latitude").value(37.498095))
+                .andExpect(jsonPath("$.data.address").value("서울 강남구 테헤란로 123"));
+
+        mockMvc.perform(put("/api/v1/members/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "latitude": 35.1795543,
+                                  "longitude": 129.0756416,
+                                  "radiusMeters": 2000,
+                                  "address": "부산광역시 중구"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.radiusMeters").value(2000));
+
+        mockMvc.perform(get("/api/v1/members/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.latitude").value(35.1795543))
+                .andExpect(jsonPath("$.data.longitude").value(129.0756416))
+                .andExpect(jsonPath("$.data.radiusMeters").value(2000))
+                .andExpect(jsonPath("$.data.address").value("부산광역시 중구"));
+
+        assertThat(memberLocationRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("저장된 개인 위치가 없으면 GET은 200과 data null을 반환한다")
+    void getMyLocationReturnsNullDataWhenMissing() throws Exception {
+        String accessToken = createFullyOnboardedMember("missing-location-user");
+
+        mockMvc.perform(get("/api/v1/members/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(nullValue()))
+                .andExpect(jsonPath("$.error").value(nullValue()));
+    }
+
+    @Test
+    @DisplayName("개인 위치 PUT은 필수값과 값 범위를 검증한다")
+    void putMyLocationValidatesRequest() throws Exception {
+        String accessToken = createFullyOnboardedMember("invalid-location-user");
+
+        mockMvc.perform(put("/api/v1/members/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "latitude": 91,
+                                  "longitude": 127.027610,
+                                  "radiusMeters": -1,
+                                  "address": " "
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_INVALID_BODY_FIELD"));
     }
 
     @Test
@@ -395,7 +551,8 @@ class MemberAuthIntegrationTest {
                         .content("""
                                 {
                                   "loginId": "password-user",
-                                  "password": "P@ssw0rd!"
+                                  "password": "P@ssw0rd!",
+                                  "captchaToken": "test-captcha-token"
                                 }
                                 """))
                 .andExpect(status().isUnauthorized())
@@ -406,7 +563,8 @@ class MemberAuthIntegrationTest {
                         .content("""
                                 {
                                   "loginId": "password-user",
-                                  "password": "N3wP@ssw0rd!"
+                                  "password": "N3wP@ssw0rd!",
+                                  "captchaToken": "test-captcha-token"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -437,7 +595,8 @@ class MemberAuthIntegrationTest {
                         .content("""
                                 {
                                   "loginId": "password-fail-user",
-                                  "password": "P@ssw0rd!"
+                                  "password": "P@ssw0rd!",
+                                  "captchaToken": "test-captcha-token"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -1199,7 +1358,8 @@ class MemberAuthIntegrationTest {
                         .content("""
                                 {
                                   "loginId": "withdrawn-user",
-                                  "password": "P@ssw0rd!"
+                                  "password": "P@ssw0rd!",
+                                  "captchaToken": "test-captcha-token"
                                 }
                                 """))
                 .andExpect(status().isForbidden())
@@ -1230,6 +1390,24 @@ class MemberAuthIntegrationTest {
                 .andExpect(status().isOk());
     }
 
+    private String createFullyOnboardedMember(String loginId) throws Exception {
+        createMemberThroughApi(loginId, "P@ssw0rd!");
+        AuthSession authSession = login(loginId, "P@ssw0rd!");
+        String accessToken = submitRequiredAgreements(authSession.accessToken());
+
+        mockMvc.perform(patch("/api/v1/members/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "%s"
+                                }
+                                """.formatted(loginId)))
+                .andExpect(status().isOk());
+
+        return accessToken;
+    }
+
     private String issueSignupEmailVerificationToken(String email) {
         String token = "ev_test_" + email.replace("@", "_").replace(".", "_");
         EmailVerification verification = EmailVerification.issue(
@@ -1255,7 +1433,8 @@ class MemberAuthIntegrationTest {
                         .content("""
                                 {
                                   "loginId": "%s",
-                                  "password": "%s"
+                                  "password": "%s",
+                                  "captchaToken": "test-captcha-token"
                                 }
                                 """.formatted(loginId, password)))
                 .andExpect(status().isOk())

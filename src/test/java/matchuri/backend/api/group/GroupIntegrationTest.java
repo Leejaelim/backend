@@ -588,7 +588,9 @@ class GroupIntegrationTest {
         mockMvc.perform(get("/api/v1/groups/{groupId}/recommendations/{sessionId}/readiness",
                         groupRoom.getId(),
                         recommendation.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(finalizeLocationRequest()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("GROUP_RECOMMENDATION_NOT_FOUND"));
     }
@@ -716,10 +718,7 @@ class GroupIntegrationTest {
         GroupRecommendation openedRecommendation =
                 groupRecommendationRepository.findById(recommendation.getId()).orElseThrow();
         assertThat(openedRecommendation.getStatus()).isEqualTo(GroupRecommendationStatus.OPEN);
-        assertThat(openedRecommendation.getContextJson()).contains("37.498095");
-        assertThat(openedRecommendation.getContextJson()).contains("127.027610");
-        assertThat(openedRecommendation.getContextJson()).contains("1000");
-        assertThat(openedRecommendation.getContextJson()).contains("서울 강남구 테헤란로 123");
+        assertThat(openedRecommendation.getContextJson()).isNull();
         assertThat(groupRecommendationCandidateRepository
                 .findAllByGroupRecommendationIdOrderByRankNoAsc(recommendation.getId()))
                 .hasSize(2);
@@ -1460,7 +1459,9 @@ class GroupIntegrationTest {
         mockMvc.perform(patch("/api/v1/groups/{groupId}/recommendations/{sessionId}/finalize",
                         groupRoom.getId(),
                         recommendation.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(finalizeLocationRequest()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.sessionId").value(recommendation.getId()))
@@ -1476,6 +1477,41 @@ class GroupIntegrationTest {
         assertThat(finalizedRecommendation.getStatus()).isEqualTo(GroupRecommendationStatus.FINALIZED);
         assertThat(finalizedRecommendation.getSelectedCandidate().getId()).isEqualTo(secondCandidate.getId());
         assertThat(finalizedRecommendation.getEndedAt()).isNotNull();
+        assertThat(finalizedRecommendation.getContextJson()).contains("37.498095");
+        assertThat(finalizedRecommendation.getContextJson()).contains("127.027610");
+        assertThat(finalizedRecommendation.getContextJson()).contains("1000");
+        assertThat(finalizedRecommendation.getContextJson()).contains("서울 강남구 테헤란로 123");
+    }
+
+    @Test
+    @DisplayName("그룹 추천 최종 확정은 요청 body가 없어도 현재 응답 형태로 성공하고 위치 컨텍스트를 저장하지 않는다")
+    void finalizeGroupRecommendationWithoutRequestBodyDoesNotSaveContext() throws Exception {
+        Member owner = saveMember("legacy-finalize-owner", "기존확정방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "기존 확정 그룹");
+        MenuItem menuItem = saveMenu("legacy-finalize-menu", "기존확정메뉴");
+        GroupRecommendation recommendation = groupRecommendationRepository.save(new GroupRecommendation(
+                groupRoom,
+                "{}",
+                LocalDateTime.now()
+        ));
+        GroupRecommendationCandidate candidate = groupRecommendationCandidateRepository.save(
+                new GroupRecommendationCandidate(recommendation, menuItem, 1, 70.0, "{}")
+        );
+
+        mockMvc.perform(patch("/api/v1/groups/{groupId}/recommendations/{sessionId}/finalize",
+                        groupRoom.getId(),
+                        recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sessionId").value(recommendation.getId()))
+                .andExpect(jsonPath("$.data.status").value(GroupRecommendationStatus.FINALIZED.name()))
+                .andExpect(jsonPath("$.data.finalCandidate.candidateId").value(candidate.getId()))
+                .andExpect(jsonPath("$.data.finalizedAt").isNotEmpty());
+
+        GroupRecommendation finalizedRecommendation =
+                groupRecommendationRepository.findById(recommendation.getId()).orElseThrow();
+        assertThat(finalizedRecommendation.getContextJson())
+                .doesNotContain("latitude", "longitude", "radiusMeters", "address");
     }
 
     @Test
@@ -1509,7 +1545,9 @@ class GroupIntegrationTest {
         mockMvc.perform(patch("/api/v1/groups/{groupId}/recommendations/{sessionId}/finalize",
                         groupRoom.getId(),
                         recommendation.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(finalizeLocationRequest()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.finalCandidate.candidateId").value(firstCandidate.getId()))
                 .andExpect(jsonPath("$.data.finalCandidate.rankNo").value(1))
@@ -1538,7 +1576,9 @@ class GroupIntegrationTest {
         mockMvc.perform(patch("/api/v1/groups/{groupId}/recommendations/{sessionId}/finalize",
                         groupRoom.getId(),
                         recommendation.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(finalizeLocationRequest()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.finalCandidate.candidateId").value(firstCandidate.getId()))
                 .andExpect(jsonPath("$.data.finalCandidate.voteCount").value(0));
@@ -1569,7 +1609,9 @@ class GroupIntegrationTest {
         mockMvc.perform(patch("/api/v1/groups/{groupId}/recommendations/{sessionId}/finalize",
                         groupRoom.getId(),
                         recommendation.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member))))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(finalizeLocationRequest()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("GROUP_RECOMMENDATION_FINALIZE_FORBIDDEN"));
 
@@ -1597,7 +1639,9 @@ class GroupIntegrationTest {
         mockMvc.perform(patch("/api/v1/groups/{groupId}/recommendations/{sessionId}/finalize",
                         groupRoom.getId(),
                         recommendation.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(finalizeLocationRequest()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("GROUP_RECOMMENDATION_NOT_OPEN"));
     }
@@ -1616,7 +1660,9 @@ class GroupIntegrationTest {
         mockMvc.perform(patch("/api/v1/groups/{groupId}/recommendations/{sessionId}/finalize",
                         groupRoom.getId(),
                         recommendation.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(finalizeLocationRequest()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("GROUP_RECOMMENDATION_NO_CANDIDATES"));
 
@@ -3067,6 +3113,17 @@ class GroupIntegrationTest {
 
     private String bearer(String accessToken) {
         return "Bearer " + accessToken;
+    }
+
+    private String finalizeLocationRequest() {
+        return """
+                {
+                  "latitude": 37.498095,
+                  "longitude": 127.027610,
+                  "radiusMeters": 1000,
+                  "address": "서울 강남구 테헤란로 123"
+                }
+                """;
     }
 
     private String accessToken(Member member) {

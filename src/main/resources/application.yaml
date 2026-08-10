@@ -1,4 +1,6 @@
 server:
+  address: 127.0.0.1
+  port: 8080
   forward-headers-strategy: framework
 
 spring:
@@ -116,6 +118,7 @@ matchuri:
       allowed-methods:
         - GET
         - POST
+        - PUT
         - PATCH
         - DELETE
         - OPTIONS
@@ -167,6 +170,14 @@ cloudflare:
     max-image-height: ${MATCHURI_IMAGE_MAX_HEIGHT:4096}
     cache-control: ${MATCHURI_IMAGE_CACHE_CONTROL:public, max-age=604800}
 
+captcha:
+  provider: ${MATCHURI_CAPTCHA_PROVIDER:google}
+  google:
+    secret-key: ${MATCHURI_GOOGLE_RECAPTCHA_SECRET_KEY}
+    verify-url: "https://www.google.com/recaptcha/api/siteverify"
+    score-threshold: ${MATCHURI_GOOGLE_RECAPTCHA_SCORE_THRESHOLD:0.5}
+    connect-timeout-millis: ${MATCHURI_GOOGLE_RECAPTCHA_CONNECT_TIMEOUT_MILLIS:2000}
+    read-timeout-millis: ${MATCHURI_GOOGLE_RECAPTCHA_READ_TIMEOUT_MILLIS:3000}
 
 logging:
   level:
@@ -182,5 +193,18 @@ springdoc:
 
 management:
   endpoints:
+    access:
+      default: none
     web:
+      exposure:
+        include: health,prometheus
       base-path: /api/v1
+  endpoint:
+    health:
+      access: read-only
+    prometheus:
+      access: read_only
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
