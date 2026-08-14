@@ -2688,11 +2688,10 @@ class GroupIntegrationTest {
     }
 
     @Test
-    @DisplayName("그룹 초대 링크 신규 발급은 OWNER에게 1일 유효한 UUID 토큰을 발급한다")
-    void createInviteLinkCreatesOneDayUuidTokenForOwner() throws Exception {
+    @DisplayName("그룹 초대 링크 신규 발급은 OWNER에게 HTTP 응답 계약을 반환한다")
+    void createInviteLinkReturnsContractForOwner() throws Exception {
         Member owner = saveMember("link-create-owner", "링크발급방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 발급 그룹");
-        LocalDateTime requestedAt = LocalDateTime.now();
 
         mockMvc.perform(post("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
@@ -2701,25 +2700,6 @@ class GroupIntegrationTest {
                 .andExpect(jsonPath("$.data.groupId").value(groupRoom.getId()))
                 .andExpect(jsonPath("$.data.token").isString())
                 .andExpect(jsonPath("$.data.expiresAt").isNotEmpty());
-
-        GroupInviteLink inviteLink = groupInviteLinkRepository.findAll().getFirst();
-        assertThat(inviteLink.getToken())
-                .matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
-        assertThat(inviteLink.getExpiresAt()).isAfterOrEqualTo(requestedAt.plusDays(1));
-        assertThat(inviteLink.getExpiresAt()).isBefore(LocalDateTime.now().plusDays(1).plusSeconds(1));
-    }
-
-    @Test
-    @DisplayName("그룹 초대 링크 신규 발급은 활성 링크가 있으면 재발급 사용을 요구한다")
-    void createInviteLinkFailsWhenCurrentLinkExists() throws Exception {
-        Member owner = saveMember("link-duplicate-owner", "링크중복방장");
-        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 중복 그룹");
-        saveInviteLink(groupRoom, "11111111-1111-1111-1111-111111111111", LocalDateTime.now().plusHours(1));
-
-        mockMvc.perform(post("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_LINK_ALREADY_EXISTS"));
 
         assertThat(groupInviteLinkRepository.count()).isEqualTo(1);
     }
@@ -2788,31 +2768,6 @@ class GroupIntegrationTest {
     }
 
     @Test
-    @DisplayName("현재 그룹 초대 링크 조회는 만료된 링크를 노출하지 않는다")
-    void getCurrentInviteLinkDoesNotExposeExpiredLink() throws Exception {
-        Member owner = saveMember("link-expired-owner", "링크만료방장");
-        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 만료 그룹");
-        saveInviteLink(groupRoom, "33333333-3333-3333-3333-333333333333", LocalDateTime.now().minusSeconds(1));
-
-        mockMvc.perform(get("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_LINK_NOT_FOUND"));
-    }
-
-    @Test
-    @DisplayName("그룹 초대 링크 재발급은 현재 활성 링크가 없으면 실패한다")
-    void reissueInviteLinkFailsWithoutCurrentLink() throws Exception {
-        Member owner = saveMember("link-missing-reissue-owner", "링크없는재발급방장");
-        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 없는 재발급 그룹");
-
-        mockMvc.perform(post("/api/v1/groups/{groupId}/invite-link/reissue", groupRoom.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_LINK_NOT_FOUND"));
-    }
-
-    @Test
     @DisplayName("초대 링크 입장은 유효한 토큰으로 신규 멤버를 ACTIVE 상태로 저장한다")
     void joinGroupByInviteLinkCreatesActiveMember() throws Exception {
         Member owner = saveMember("link-join-owner", "링크입장방장");
@@ -2837,30 +2792,6 @@ class GroupIntegrationTest {
                 .get()
                 .extracting(GroupRoomMember::getStatus)
                 .isEqualTo(GroupMemberStatus.ACTIVE);
-    }
-
-    @Test
-    @DisplayName("초대 링크 입장은 만료된 토큰을 거절한다")
-    void joinGroupByInviteLinkFailsForExpiredToken() throws Exception {
-        Member owner = saveMember("link-expired-join-owner", "링크만료입장방장");
-        Member newMember = saveMember("link-expired-join-member", "링크만료입장멤버");
-        GroupRoom groupRoom = saveGroupOwnedBy(owner, "만료 링크 입장 그룹");
-        String token = "55555555-5555-4555-a555-555555555555";
-        saveInviteLink(groupRoom, token, LocalDateTime.now().minusSeconds(1));
-
-        mockMvc.perform(post("/api/v1/groups/invite-links/join")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(newMember)))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "token": "%s"
-                                }
-                                """.formatted(token)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_LINK_EXPIRED"));
-
-        assertThat(groupRoomMemberRepository.findByRoomIdAndMemberId(groupRoom.getId(), newMember.getId()))
-                .isEmpty();
     }
 
     @Test

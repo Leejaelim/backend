@@ -49,7 +49,11 @@ src/main/java/matchuri/backend
 
 ## Verification
 
-- 기본: `./gradlew test`
+- 개발 루프: 변경한 service/unit 테스트를 `./gradlew fastTest --tests "패키지.테스트클래스"`로 우선 실행합니다.
+- 통합 테스트는 OWNER·인증/인가, HTTP request/response 계약, JPA unique/lock, 대표 정상·실패 흐름에만 둡니다.
+- 정책 분기와 상태 계산은 Spring context 없이 service/support/entity 테스트로 검증하고 같은 분기를 통합 테스트에 반복하지 않습니다.
+- Spring context·WebMvc 테스트는 `*IntegrationTest`, JPA slice는 `*RepositoryTest`로 이름을 끝내 `fastTest` 제외 규칙을 유지합니다.
+- 전체 suite: 구현 완료 후 `./gradlew test`를 최종 1회 실행합니다.
 - API registry drift: `python scripts/audit_api_contract.py --root . --strict`
 - JPA mapping drift: `python scripts/audit_jpa_schema.py --root . --strict`
 - 커버리지 필요 시: `./gradlew test jacocoTestReport`
