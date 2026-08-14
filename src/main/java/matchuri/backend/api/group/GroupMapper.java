@@ -15,6 +15,7 @@ import matchuri.backend.api.group.dto.response.DeleteGroupResponse;
 import matchuri.backend.api.group.dto.response.FinalizeGroupRecommendationResponse;
 import matchuri.backend.api.group.dto.response.GroupDetailResponse;
 import matchuri.backend.api.group.dto.response.GroupInviteSummaryResponse;
+import matchuri.backend.api.group.dto.response.GroupInviteLinkResponse;
 import matchuri.backend.api.group.dto.response.GroupMemberVoteResponse;
 import matchuri.backend.api.group.dto.response.GroupMemberSummaryResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationCandidateListResponse;
@@ -52,6 +53,7 @@ import matchuri.backend.domain.group.result.DeleteGroupResult;
 import matchuri.backend.domain.group.result.FinalizeGroupRecommendationResult;
 import matchuri.backend.domain.group.result.GroupDetailResult;
 import matchuri.backend.domain.group.result.GroupInviteSummaryResult;
+import matchuri.backend.domain.group.result.GroupInviteLinkResult;
 import matchuri.backend.domain.group.result.GroupMemberVoteResult;
 import matchuri.backend.domain.group.result.GroupMemberSummaryResult;
 import matchuri.backend.domain.group.result.GroupRecommendationCandidateListResult;
@@ -163,6 +165,14 @@ public class GroupMapper {
                 result.targetNickname(),
                 result.expiresAt(),
                 result.status()
+        );
+    }
+
+    public GroupInviteLinkResponse toGroupInviteLinkResponse(GroupInviteLinkResult result) {
+        return new GroupInviteLinkResponse(
+                result.groupId(),
+                result.token(),
+                result.expiresAt()
         );
     }
 

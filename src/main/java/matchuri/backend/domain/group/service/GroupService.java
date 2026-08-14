@@ -20,6 +20,7 @@ import matchuri.backend.domain.group.result.DeleteGroupResult;
 import matchuri.backend.domain.group.result.FinalizeGroupRecommendationResult;
 import matchuri.backend.domain.group.result.GroupDetailResult;
 import matchuri.backend.domain.group.result.GroupInviteSummaryResult;
+import matchuri.backend.domain.group.result.GroupInviteLinkResult;
 import matchuri.backend.domain.group.result.GroupRecommendationCandidateListResult;
 import matchuri.backend.domain.group.result.GroupRecommendationReadinessResult;
 import matchuri.backend.domain.group.result.GroupRecommendationResult;
@@ -56,6 +57,14 @@ public interface GroupService {
     FinalizeGroupRecommendationResult finalizeGroupRecommendation(FinalizeGroupRecommendationCommand command);
 
     CreateNicknameGroupInviteResult createNicknameInvite(CreateNicknameGroupInviteCommand command);
+
+    GroupInviteLinkResult createInviteLink(Long groupId);
+
+    GroupInviteLinkResult reissueInviteLink(Long groupId);
+
+    GroupInviteLinkResult getCurrentInviteLink(Long groupId);
+
+    JoinGroupResult joinGroupByInviteLink(String token);
 
     JoinGroupResult joinGroup(JoinGroupCommand command);
 

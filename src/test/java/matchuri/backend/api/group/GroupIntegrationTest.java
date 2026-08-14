@@ -26,6 +26,7 @@ import matchuri.backend.domain.group.entity.GroupRecommendationStatus;
 import matchuri.backend.domain.group.entity.GroupRecommendationVote;
 import matchuri.backend.domain.group.entity.GroupLocation;
 import matchuri.backend.domain.group.entity.GroupInvite;
+import matchuri.backend.domain.group.entity.GroupInviteLink;
 import matchuri.backend.domain.group.entity.GroupInviteStatus;
 import matchuri.backend.domain.group.entity.GroupMemberRole;
 import matchuri.backend.domain.group.entity.GroupMemberStatus;
@@ -33,6 +34,7 @@ import matchuri.backend.domain.group.entity.GroupRoom;
 import matchuri.backend.domain.group.entity.GroupRoomMember;
 import matchuri.backend.domain.group.entity.GroupRoomStatus;
 import matchuri.backend.domain.group.repository.GroupInviteRepository;
+import matchuri.backend.domain.group.repository.GroupInviteLinkRepository;
 import matchuri.backend.domain.group.repository.GroupLocationRepository;
 import matchuri.backend.domain.group.repository.GroupMenuActionRepository;
 import matchuri.backend.domain.group.repository.GroupRecommendationCandidateRepository;
@@ -111,6 +113,9 @@ class GroupIntegrationTest {
     private GroupInviteRepository groupInviteRepository;
 
     @Autowired
+    private GroupInviteLinkRepository groupInviteLinkRepository;
+
+    @Autowired
     private GroupMenuActionRepository groupMenuActionRepository;
 
     @Autowired
@@ -175,6 +180,7 @@ class GroupIntegrationTest {
         groupRecommendationReadinessRepository.deleteAll();
         groupRecommendationCandidateRepository.deleteAll();
         groupRecommendationRepository.deleteAll();
+        groupInviteLinkRepository.deleteAll();
         groupInviteRepository.deleteAll();
         groupLocationRepository.deleteAll();
         groupRoomMemberRepository.deleteAll();
@@ -2682,6 +2688,196 @@ class GroupIntegrationTest {
     }
 
     @Test
+    @DisplayName("그룹 초대 링크 신규 발급은 OWNER에게 1일 유효한 UUID 토큰을 발급한다")
+    void createInviteLinkCreatesOneDayUuidTokenForOwner() throws Exception {
+        Member owner = saveMember("link-create-owner", "링크발급방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 발급 그룹");
+        LocalDateTime requestedAt = LocalDateTime.now();
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.groupId").value(groupRoom.getId()))
+                .andExpect(jsonPath("$.data.token").isString())
+                .andExpect(jsonPath("$.data.expiresAt").isNotEmpty());
+
+        GroupInviteLink inviteLink = groupInviteLinkRepository.findAll().getFirst();
+        assertThat(inviteLink.getToken())
+                .matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        assertThat(inviteLink.getExpiresAt()).isAfterOrEqualTo(requestedAt.plusDays(1));
+        assertThat(inviteLink.getExpiresAt()).isBefore(LocalDateTime.now().plusDays(1).plusSeconds(1));
+    }
+
+    @Test
+    @DisplayName("그룹 초대 링크 신규 발급은 활성 링크가 있으면 재발급 사용을 요구한다")
+    void createInviteLinkFailsWhenCurrentLinkExists() throws Exception {
+        Member owner = saveMember("link-duplicate-owner", "링크중복방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 중복 그룹");
+        saveInviteLink(groupRoom, "11111111-1111-1111-1111-111111111111", LocalDateTime.now().plusHours(1));
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_LINK_ALREADY_EXISTS"));
+
+        assertThat(groupInviteLinkRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("그룹 초대 링크 발급은 OWNER가 아니면 거절한다")
+    void createInviteLinkFailsForNonOwner() throws Exception {
+        Member owner = saveMember("link-forbidden-owner", "링크권한방장");
+        Member member = saveMember("link-forbidden-member", "링크권한멤버");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 권한 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(
+                groupRoom,
+                member,
+                GroupMemberRole.MEMBER,
+                LocalDateTime.now()
+        ));
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_FORBIDDEN"));
+
+        assertThat(groupInviteLinkRepository.count()).isZero();
+    }
+
+    @Test
+    @DisplayName("그룹 초대 링크 재발급은 기존 링크를 즉시 만료시키고 새 링크를 발급한다")
+    void reissueInviteLinkExpiresCurrentLinkAndCreatesNewLink() throws Exception {
+        Member owner = saveMember("link-reissue-owner", "링크재발급방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 재발급 그룹");
+        String oldToken = "22222222-2222-2222-2222-222222222222";
+        GroupInviteLink oldInviteLink = saveInviteLink(groupRoom, oldToken, LocalDateTime.now().plusHours(1));
+        LocalDateTime reissuedAt = LocalDateTime.now();
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/invite-link/reissue", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.groupId").value(groupRoom.getId()))
+                .andExpect(jsonPath("$.data.token").value(org.hamcrest.Matchers.not(oldToken)))
+                .andExpect(jsonPath("$.data.expiresAt").isNotEmpty());
+
+        GroupInviteLink expiredLink = groupInviteLinkRepository.findById(oldInviteLink.getId()).orElseThrow();
+        GroupInviteLink currentLink = groupInviteLinkRepository
+                .findFirstByRoomIdAndExpiresAtAfterOrderByCreatedAtDescIdDesc(groupRoom.getId(), LocalDateTime.now())
+                .orElseThrow();
+        assertThat(expiredLink.getExpiresAt()).isAfterOrEqualTo(reissuedAt);
+        assertThat(expiredLink.getExpiresAt()).isBeforeOrEqualTo(LocalDateTime.now());
+        assertThat(currentLink.getToken()).isNotEqualTo(oldToken);
+        assertThat(groupInviteLinkRepository.count()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("현재 그룹 초대 링크 조회는 OWNER에게 만료되지 않은 링크를 반환한다")
+    void getCurrentInviteLinkReturnsActiveLinkToOwner() throws Exception {
+        Member owner = saveMember("link-get-owner", "링크조회방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 조회 그룹");
+        String token = "77777777-7777-7777-7777-777777777777";
+        saveInviteLink(groupRoom, token, LocalDateTime.now().plusHours(1));
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.groupId").value(groupRoom.getId()))
+                .andExpect(jsonPath("$.data.token").value(token))
+                .andExpect(jsonPath("$.data.expiresAt").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("현재 그룹 초대 링크 조회는 만료된 링크를 노출하지 않는다")
+    void getCurrentInviteLinkDoesNotExposeExpiredLink() throws Exception {
+        Member owner = saveMember("link-expired-owner", "링크만료방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 만료 그룹");
+        saveInviteLink(groupRoom, "33333333-3333-3333-3333-333333333333", LocalDateTime.now().minusSeconds(1));
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_LINK_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("그룹 초대 링크 재발급은 현재 활성 링크가 없으면 실패한다")
+    void reissueInviteLinkFailsWithoutCurrentLink() throws Exception {
+        Member owner = saveMember("link-missing-reissue-owner", "링크없는재발급방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 없는 재발급 그룹");
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/invite-link/reissue", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_LINK_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("초대 링크 입장은 유효한 토큰으로 신규 멤버를 ACTIVE 상태로 저장한다")
+    void joinGroupByInviteLinkCreatesActiveMember() throws Exception {
+        Member owner = saveMember("link-join-owner", "링크입장방장");
+        Member newMember = saveMember("link-join-member", "링크입장멤버");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 입장 그룹");
+        String token = "44444444-4444-4444-8444-444444444444";
+        saveInviteLink(groupRoom, token, LocalDateTime.now().plusHours(1));
+
+        mockMvc.perform(post("/api/v1/groups/invite-links/join")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(newMember)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "token": "%s"
+                                }
+                                """.formatted(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.groupId").value(groupRoom.getId()))
+                .andExpect(jsonPath("$.data.memberStatus").value(GroupMemberStatus.ACTIVE.name()));
+
+        assertThat(groupRoomMemberRepository.findByRoomIdAndMemberId(groupRoom.getId(), newMember.getId()))
+                .get()
+                .extracting(GroupRoomMember::getStatus)
+                .isEqualTo(GroupMemberStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("초대 링크 입장은 만료된 토큰을 거절한다")
+    void joinGroupByInviteLinkFailsForExpiredToken() throws Exception {
+        Member owner = saveMember("link-expired-join-owner", "링크만료입장방장");
+        Member newMember = saveMember("link-expired-join-member", "링크만료입장멤버");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "만료 링크 입장 그룹");
+        String token = "55555555-5555-4555-a555-555555555555";
+        saveInviteLink(groupRoom, token, LocalDateTime.now().minusSeconds(1));
+
+        mockMvc.perform(post("/api/v1/groups/invite-links/join")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(newMember)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "token": "%s"
+                                }
+                                """.formatted(token)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_LINK_EXPIRED"));
+
+        assertThat(groupRoomMemberRepository.findByRoomIdAndMemberId(groupRoom.getId(), newMember.getId()))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("초대 링크 입장은 인증되지 않은 요청을 거절한다")
+    void joinGroupByInviteLinkRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/groups/invite-links/join")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "token": "550e8400-e29b-41d4-a716-446655440000"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_TOKEN_MISSING"));
+    }
+
+    @Test
     @DisplayName("초대 코드 입장은 신규 멤버를 ACTIVE 멤버로 저장한다")
     void joinGroupCreatesActiveMember() throws Exception {
         Member owner = saveMember("join-owner", "입장방장");
@@ -2938,6 +3134,11 @@ class GroupIntegrationTest {
         GroupInvite declinedInvite = saveInvite(groupRoom, owner, leftMember, LocalDateTime.now().plusHours(1));
         declinedInvite.decline(LocalDateTime.now());
         groupInviteRepository.save(declinedInvite);
+        GroupInviteLink inviteLink = saveInviteLink(
+                groupRoom,
+                "66666666-6666-6666-6666-666666666666",
+                LocalDateTime.now().plusHours(1)
+        );
 
         mockMvc.perform(delete("/api/v1/groups/{groupId}", groupRoom.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
@@ -2959,6 +3160,7 @@ class GroupIntegrationTest {
                 .orElseThrow();
         GroupInvite savedPendingInvite = groupInviteRepository.findById(pendingInvite.getId()).orElseThrow();
         GroupInvite savedDeclinedInvite = groupInviteRepository.findById(declinedInvite.getId()).orElseThrow();
+        GroupInviteLink expiredInviteLink = groupInviteLinkRepository.findById(inviteLink.getId()).orElseThrow();
 
         assertThat(deletedGroup.getStatus()).isEqualTo(GroupRoomStatus.DELETED);
         assertThat(ownerMembership.getStatus()).isEqualTo(GroupMemberStatus.LEFT);
@@ -2969,6 +3171,7 @@ class GroupIntegrationTest {
         assertThat(savedLeftMembership.getLeftAt()).isEqualTo(alreadyLeftAt);
         assertThat(savedPendingInvite.getStatus()).isEqualTo(GroupInviteStatus.REVOKED);
         assertThat(savedDeclinedInvite.getStatus()).isEqualTo(GroupInviteStatus.DECLINED);
+        assertThat(expiredInviteLink.isExpired(LocalDateTime.now())).isTrue();
     }
 
     @Test
@@ -3099,6 +3302,10 @@ class GroupIntegrationTest {
             LocalDateTime expiresAt
     ) {
         return groupInviteRepository.save(new GroupInvite(groupRoom, createdByMember, targetMember, expiresAt));
+    }
+
+    private GroupInviteLink saveInviteLink(GroupRoom groupRoom, String token, LocalDateTime expiresAt) {
+        return groupInviteLinkRepository.save(new GroupInviteLink(groupRoom, token, expiresAt));
     }
 
     private void leaveOwnerMembership(GroupRoom groupRoom, Member member) {
