@@ -51,6 +51,7 @@ src/main/java/matchuri/backend
 
 - 기본: `./gradlew test`
 - API registry drift: `python scripts/audit_api_contract.py --root . --strict`
+- JPA mapping drift: `python scripts/audit_jpa_schema.py --root . --strict`
 - 커버리지 필요 시: `./gradlew test jacocoTestReport`
 - API 계약 변경 시 OpenAPI metadata, Swagger 산출물, 관련 `../docs/api/` 문서를 함께 확인합니다.
 - API 계약 변경은 `../.agents/skills/matchuri-backend-api-change/SKILL.md`를 우선 사용하고, 프론트엔드 소비 코드까지 움직이면 `../.agents/skills/matchuri-api-contract-sync/SKILL.md`도 사용합니다.
@@ -58,4 +59,4 @@ src/main/java/matchuri/backend
 - 인증/인가/시크릿 변경은 `../.agents/skills/matchuri-backend-security-review/SKILL.md`를 사용합니다.
 - 배포/로그/복구/운영 신뢰성 변경은 `../.agents/skills/matchuri-backend-reliability-review/SKILL.md`를 사용합니다.
 - Swagger/OpenAPI 산출물 전용 테스트는 작성하지 않습니다. API 변경은 service/domain 테스트나 필요한 controller 통합 테스트로 검증합니다.
-- 데이터 모델 변경 시 관련 `../docs/data/`와 `../docs/generated/db-schema.md`를 함께 확인합니다.
+- 데이터 모델 변경 시 엔티티와 테스트를 기준으로 검증하고, 구조가 아닌 정책이 바뀐 경우에만 `../docs/data/policies.md`를 수정합니다.
