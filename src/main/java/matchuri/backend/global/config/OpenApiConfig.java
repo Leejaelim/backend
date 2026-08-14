@@ -186,6 +186,12 @@ public class OpenApiConfig {
                 key("/api/v1/members/me/taste-profile", PathItem.HttpMethod.PATCH),
                 meta("ONB.070.000", "02 Onboarding"));
         metadata.put(key("/api/v1/members/me", PathItem.HttpMethod.DELETE), meta("ONB.080.000", "02 Onboarding"));
+        metadata.put(
+                key("/api/v1/members/me/location", PathItem.HttpMethod.GET),
+                meta("ONB.090.000", "02 Onboarding"));
+        metadata.put(
+                key("/api/v1/members/me/location", PathItem.HttpMethod.PUT),
+                meta("ONB.100.000", "02 Onboarding"));
 
         metadata.put(
                 key("/api/v1/attribute-categories", PathItem.HttpMethod.GET),
@@ -240,6 +246,18 @@ public class OpenApiConfig {
                 key("/api/v1/groups/{groupId}/leave", PathItem.HttpMethod.POST),
                 meta("GROUP.090.000", "05 Group"));
         metadata.put(key("/api/v1/groups/{groupId}", PathItem.HttpMethod.DELETE), meta("GROUP.100.000", "05 Group"));
+        metadata.put(
+                key("/api/v1/groups/{groupId}/invite-link", PathItem.HttpMethod.POST),
+                meta("GROUP.110.000", "05 Group"));
+        metadata.put(
+                key("/api/v1/groups/{groupId}/invite-link/reissue", PathItem.HttpMethod.POST),
+                meta("GROUP.120.000", "05 Group"));
+        metadata.put(
+                key("/api/v1/groups/{groupId}/invite-link", PathItem.HttpMethod.GET),
+                meta("GROUP.130.000", "05 Group"));
+        metadata.put(
+                key("/api/v1/groups/invite-links/join", PathItem.HttpMethod.POST),
+                meta("GROUP.140.000", "05 Group"));
 
         metadata.put(
                 key("/api/v1/groups/{groupId}/recommendations", PathItem.HttpMethod.POST),
@@ -307,6 +325,15 @@ public class OpenApiConfig {
         metadata.put(
                 key("/api/v1/admin/menu-items/{menuItemId}/images/primary", PathItem.HttpMethod.DELETE),
                 meta("ADMIN.130.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/menu-items/{menuItemId}", PathItem.HttpMethod.GET),
+                meta("ADMIN.135.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/menu-items", PathItem.HttpMethod.POST),
+                meta("ADMIN.140.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/menu-items/{menuItemId}/references", PathItem.HttpMethod.PATCH),
+                meta("ADMIN.150.000", "09 Admin"));
 
         return metadata;
     }
