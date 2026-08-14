@@ -260,6 +260,54 @@ public final class GroupApiExamples {
             }
             """;
 
+    public static final String GROUP_INVITE_LINK_SUCCESS = """
+            {
+              "success": true,
+              "data": {
+                "groupId": 3001,
+                "token": "550e8400-e29b-41d4-a716-446655440000",
+                "expiresAt": "2026-08-15T12:00:00"
+              },
+              "error": null
+            }
+            """;
+
+    public static final String GROUP_INVITE_LINK_ALREADY_EXISTS = """
+            {
+              "success": false,
+              "data": null,
+              "error": {
+                "status": 409,
+                "code": "GROUP_INVITE_LINK_ALREADY_EXISTS",
+                "message": "아직 만료되지 않은 그룹 초대 링크가 있습니다. groupId : 3,001"
+              }
+            }
+            """;
+
+    public static final String GROUP_INVITE_LINK_NOT_FOUND = """
+            {
+              "success": false,
+              "data": null,
+              "error": {
+                "status": 404,
+                "code": "GROUP_INVITE_LINK_NOT_FOUND",
+                "message": "유효한 그룹 초대 링크를 찾을 수 없습니다."
+              }
+            }
+            """;
+
+    public static final String GROUP_INVITE_LINK_EXPIRED = """
+            {
+              "success": false,
+              "data": null,
+              "error": {
+                "status": 409,
+                "code": "GROUP_INVITE_LINK_EXPIRED",
+                "message": "만료된 그룹 초대 링크입니다."
+              }
+            }
+            """;
+
     public static final String MY_INVITES_SUCCESS = """
             {
               "success": true,

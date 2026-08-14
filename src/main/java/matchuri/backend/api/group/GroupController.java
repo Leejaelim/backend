@@ -10,6 +10,7 @@ import matchuri.backend.api.group.dto.request.FinalizeGroupRecommendationRequest
 import matchuri.backend.api.group.dto.request.CreateGroupRequest;
 import matchuri.backend.api.group.dto.request.CreateNicknameGroupInviteRequest;
 import matchuri.backend.api.group.dto.request.JoinGroupRequest;
+import matchuri.backend.api.group.dto.request.JoinGroupByInviteLinkRequest;
 import matchuri.backend.api.group.dto.request.RespondGroupInviteRequest;
 import matchuri.backend.api.group.dto.request.RerollGroupRecommendationRequest;
 import matchuri.backend.api.group.dto.request.UpdateGroupRequest;
@@ -21,6 +22,7 @@ import matchuri.backend.api.group.dto.response.DeleteGroupResponse;
 import matchuri.backend.api.group.dto.response.FinalizeGroupRecommendationResponse;
 import matchuri.backend.api.group.dto.response.GroupDetailResponse;
 import matchuri.backend.api.group.dto.response.GroupInviteSummaryResponse;
+import matchuri.backend.api.group.dto.response.GroupInviteLinkResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationCandidateListResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationReadinessResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationSessionResponse;
@@ -53,6 +55,7 @@ import matchuri.backend.domain.group.result.DeleteGroupResult;
 import matchuri.backend.domain.group.result.FinalizeGroupRecommendationResult;
 import matchuri.backend.domain.group.result.GroupDetailResult;
 import matchuri.backend.domain.group.result.GroupInviteSummaryResult;
+import matchuri.backend.domain.group.result.GroupInviteLinkResult;
 import matchuri.backend.domain.group.result.GroupRecommendationCandidateListResult;
 import matchuri.backend.domain.group.result.GroupRecommendationReadinessResult;
 import matchuri.backend.domain.group.result.GroupRecommendationResult;
@@ -124,6 +127,27 @@ public class GroupController implements GroupApi {
     }
 
     @Override
+    @PostMapping("/{groupId}/invite-link")
+    public ApiResponse<GroupInviteLinkResponse> createInviteLink(@PathVariable Long groupId) {
+        GroupInviteLinkResult result = groupService.createInviteLink(groupId);
+        return ApiResponse.success(groupMapper.toGroupInviteLinkResponse(result));
+    }
+
+    @Override
+    @PostMapping("/{groupId}/invite-link/reissue")
+    public ApiResponse<GroupInviteLinkResponse> reissueInviteLink(@PathVariable Long groupId) {
+        GroupInviteLinkResult result = groupService.reissueInviteLink(groupId);
+        return ApiResponse.success(groupMapper.toGroupInviteLinkResponse(result));
+    }
+
+    @Override
+    @GetMapping("/{groupId}/invite-link")
+    public ApiResponse<GroupInviteLinkResponse> getCurrentInviteLink(@PathVariable Long groupId) {
+        GroupInviteLinkResult result = groupService.getCurrentInviteLink(groupId);
+        return ApiResponse.success(groupMapper.toGroupInviteLinkResponse(result));
+    }
+
+    @Override
     @PostMapping("/invites/nickname")
     public ApiResponse<CreateNicknameGroupInviteResponse> createNicknameInvite(
             @Valid @RequestBody CreateNicknameGroupInviteRequest request
@@ -182,6 +206,15 @@ public class GroupController implements GroupApi {
         JoinGroupCommand command = groupMapper.toJoinGroupCommand(request);
         JoinGroupResult result = groupService.joinGroup(command);
 
+        return ApiResponse.success(groupMapper.toJoinGroupResponse(result));
+    }
+
+    @Override
+    @PostMapping("/invite-links/join")
+    public ApiResponse<JoinGroupResponse> joinGroupByInviteLink(
+            @Valid @RequestBody JoinGroupByInviteLinkRequest request
+    ) {
+        JoinGroupResult result = groupService.joinGroupByInviteLink(request.token());
         return ApiResponse.success(groupMapper.toJoinGroupResponse(result));
     }
 
