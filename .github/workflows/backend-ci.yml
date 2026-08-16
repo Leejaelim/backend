@@ -33,6 +33,12 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      - name: Audit API ID registry
+        run: python3 scripts/audit_api_contract.py --root . --strict
+
+      - name: Audit JPA mappings
+        run: python3 scripts/audit_jpa_schema.py --root . --strict
+
       - name: Build
         run: ./gradlew --no-daemon clean build
 

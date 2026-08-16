@@ -17,7 +17,7 @@ import matchuri.backend.domain.group.exception.GroupErrorCode;
 import matchuri.backend.domain.group.repository.*;
 import matchuri.backend.domain.group.result.*;
 import matchuri.backend.domain.group.support.GroupInviteCodeGenerator;
-import matchuri.backend.domain.group.support.GroupInviteLinkTokenGenerator;
+import matchuri.backend.domain.group.support.GroupInviteLinkManager;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberTasteProfile;
 import matchuri.backend.domain.member.entity.MemberStatus;
@@ -65,9 +65,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GroupServiceImpl implements GroupService {
 
     private static final int MAX_INVITE_CODE_GENERATION_ATTEMPTS = 5;
-    private static final int MAX_INVITE_LINK_TOKEN_GENERATION_ATTEMPTS = 5;
     private static final int NICKNAME_INVITE_EXPIRATION_HOURS = 24;
-    private static final int INVITE_LINK_EXPIRATION_DAYS = 1;
     private static final int GROUP_RECOMMENDATION_CANDIDATE_LIMIT = 3;
     private static final long RECENT_GROUP_SKIPPED_MENU_EXCLUSION_HOURS = 24;
     private static final List<GroupRecommendationStatus> ACTIVE_RECOMMENDATION_STATUSES = List.of(
@@ -81,7 +79,6 @@ public class GroupServiceImpl implements GroupService {
     private final GroupLocationRepository groupLocationRepository;
     private final GroupRoomMemberRepository groupRoomMemberRepository;
     private final GroupInviteRepository groupInviteRepository;
-    private final GroupInviteLinkRepository groupInviteLinkRepository;
     private final GroupMenuActionRepository groupMenuActionRepository;
     private final GroupRecommendationRepository groupRecommendationRepository;
     private final GroupRecommendationCandidateRepository groupRecommendationCandidateRepository;
@@ -92,7 +89,7 @@ public class GroupServiceImpl implements GroupService {
     private final MenuThumbnailUrlResolver menuThumbnailUrlResolver;
     private final MenuRecommendationAlgorithmResolver menuRecommendationAlgorithmResolver;
     private final GroupInviteCodeGenerator groupInviteCodeGenerator;
-    private final GroupInviteLinkTokenGenerator groupInviteLinkTokenGenerator;
+    private final GroupInviteLinkManager groupInviteLinkManager;
     private final GroupRecommendationExpirationService groupRecommendationExpirationService;
     private final RecommendationLocationContextJsonFactory recommendationLocationContextJsonFactory;
     private final ObjectMapper objectMapper;
@@ -663,62 +660,33 @@ public class GroupServiceImpl implements GroupService {
     @Override
     public GroupInviteLinkResult createInviteLink(Long groupId) {
         Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
-        GroupRoom room = getActiveGroupRoomForInviteLinkUpdate(groupId, member.getId());
-        LocalDateTime now = LocalDateTime.now();
-
-        if (findCurrentInviteLink(room.getId(), now) != null) {
-            throw new BusinessException(GroupErrorCode.INVITE_LINK_ALREADY_EXISTS, room.getId());
-        }
-
-        return GroupInviteLinkResult.from(createInviteLink(room, now));
+        return GroupInviteLinkResult.from(
+                groupInviteLinkManager.create(groupId, member.getId(), LocalDateTime.now())
+        );
     }
 
     @Override
     public GroupInviteLinkResult reissueInviteLink(Long groupId) {
         Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
-        GroupRoom room = getActiveGroupRoomForInviteLinkUpdate(groupId, member.getId());
-        LocalDateTime now = LocalDateTime.now();
-        GroupInviteLink currentInviteLink = findCurrentInviteLink(room.getId(), now);
-
-        if (currentInviteLink == null) {
-            throw new BusinessException(GroupErrorCode.INVITE_LINK_NOT_FOUND);
-        }
-
-        currentInviteLink.expire(now);
-        return GroupInviteLinkResult.from(createInviteLink(room, now));
+        return GroupInviteLinkResult.from(
+                groupInviteLinkManager.reissue(groupId, member.getId(), LocalDateTime.now())
+        );
     }
 
     @Override
     @Transactional(readOnly = true)
     public GroupInviteLinkResult getCurrentInviteLink(Long groupId) {
         Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
-        GroupRoom room = getActiveGroupRoom(groupId);
-        validateInviteLinkOwner(room.getId(), member.getId());
-        GroupInviteLink inviteLink = findCurrentInviteLink(room.getId(), LocalDateTime.now());
-
-        if (inviteLink == null) {
-            throw new BusinessException(GroupErrorCode.INVITE_LINK_NOT_FOUND);
-        }
-
-        return GroupInviteLinkResult.from(inviteLink);
+        return GroupInviteLinkResult.from(
+                groupInviteLinkManager.getCurrent(groupId, member.getId(), LocalDateTime.now())
+        );
     }
 
     @Override
     public JoinGroupResult joinGroupByInviteLink(String token) {
         Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
-        GroupInviteLink inviteLink = groupInviteLinkRepository.findByToken(token)
-                .orElseThrow(() -> new BusinessException(GroupErrorCode.INVITE_LINK_NOT_FOUND));
-
-        if (inviteLink.isExpired(LocalDateTime.now())) {
-            throw new BusinessException(GroupErrorCode.INVITE_LINK_EXPIRED);
-        }
-
-        GroupRoom room = inviteLink.getRoom();
-        if (!room.isActive()) {
-            throw new BusinessException(GroupErrorCode.NOT_ACTIVE, room.getId());
-        }
-
-        return joinGroup(room, member);
+        GroupInviteLink inviteLink = groupInviteLinkManager.getJoinable(token, LocalDateTime.now());
+        return joinGroup(inviteLink.getRoom(), member);
     }
 
     @Override
@@ -790,7 +758,7 @@ public class GroupServiceImpl implements GroupService {
 
         room.delete();
         revokeActiveInvites(room);
-        expireActiveInviteLinks(room, deletedAt);
+        groupInviteLinkManager.expireAllActive(room, deletedAt);
         leaveActiveMembers(room, deletedAt);
 
         eventPublisher.publishEvent(new GroupDeletedRealtimeEvent(
@@ -1462,54 +1430,6 @@ public class GroupServiceImpl implements GroupService {
         }
 
         throw new BusinessException(GroupErrorCode.INVITE_CODE_GENERATION_FAILED);
-    }
-
-    private GroupRoom getActiveGroupRoomForInviteLinkUpdate(Long groupId, Long memberId) {
-        GroupRoom room = groupRoomRepository.findByIdAndStatusNotForUpdate(groupId, GroupRoomStatus.DELETED)
-                .orElseThrow(() -> new BusinessException(GroupErrorCode.NOT_FOUND, groupId));
-
-        if (!room.isActive()) {
-            throw new BusinessException(GroupErrorCode.NOT_ACTIVE, room.getId());
-        }
-
-        validateInviteLinkOwner(room.getId(), memberId);
-        return room;
-    }
-
-    private void validateInviteLinkOwner(Long groupId, Long memberId) {
-        GroupRoomMember membership = groupRoomMemberRepository
-                .findActiveMembershipInNotDeletedRoom(groupId, memberId)
-                .orElseThrow(() -> new BusinessException(GroupErrorCode.INVITE_FORBIDDEN, groupId));
-
-        if (!membership.isOwner()) {
-            throw new BusinessException(GroupErrorCode.INVITE_FORBIDDEN, groupId);
-        }
-    }
-
-    private GroupInviteLink findCurrentInviteLink(Long groupId, LocalDateTime now) {
-        return groupInviteLinkRepository
-                .findFirstByRoomIdAndExpiresAtAfterOrderByCreatedAtDescIdDesc(groupId, now)
-                .orElse(null);
-    }
-
-    private GroupInviteLink createInviteLink(GroupRoom room, LocalDateTime issuedAt) {
-        for (int attempt = 0; attempt < MAX_INVITE_LINK_TOKEN_GENERATION_ATTEMPTS; attempt++) {
-            String token = groupInviteLinkTokenGenerator.generate();
-            if (!groupInviteLinkRepository.existsByToken(token)) {
-                return groupInviteLinkRepository.save(new GroupInviteLink(
-                        room,
-                        token,
-                        issuedAt.plusDays(INVITE_LINK_EXPIRATION_DAYS)
-                ));
-            }
-        }
-
-        throw new BusinessException(GroupErrorCode.INVITE_LINK_TOKEN_GENERATION_FAILED);
-    }
-
-    private void expireActiveInviteLinks(GroupRoom room, LocalDateTime expiredAt) {
-        groupInviteLinkRepository.findAllByRoomIdAndExpiresAtAfter(room.getId(), expiredAt)
-                .forEach(inviteLink -> inviteLink.expire(expiredAt));
     }
 
     private JoinGroupResult joinGroup(GroupRoom room, Member member) {

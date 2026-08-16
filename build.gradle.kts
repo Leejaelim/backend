@@ -59,6 +59,23 @@ tasks.withType<Test> {
     useJUnitPlatform()
     systemProperty("spring.docker.compose.enabled", "false")
     outputs.dir(snippetsDir)
+}
+
+val fastTest by tasks.registering(Test::class) {
+    description = "Runs tests that do not start Spring MVC, full application, or JPA contexts."
+    group = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    exclude(
+        "**/*IntegrationTest*.class",
+        "**/*RepositoryTest*.class",
+        "**/*SecurityConfigTest*.class",
+        "**/ApiDocumentationSampleTest*.class",
+        "**/GlobalExceptionHandlerTest*.class"
+    )
+}
+
+tasks.test {
     finalizedBy(tasks.jacocoTestReport)
 }
 
