@@ -36,49 +36,49 @@ import org.springframework.data.domain.Page;
 
 public interface GroupService {
 
-    CreateGroupResult createGroup(CreateGroupCommand command);
+    CreateGroupResult createGroup(Long memberId, CreateGroupCommand command);
 
-    CreateGroupRecommendationResult createGroupRecommendation(CreateGroupRecommendationCommand command);
+    CreateGroupRecommendationResult createGroupRecommendation(Long memberId, CreateGroupRecommendationCommand command);
 
-    CreateGroupRecommendationResult rerollGroupRecommendation(Long groupId, Long sessionId, GroupRecommendationRerollType rerollType, String contextJson);
+    CreateGroupRecommendationResult rerollGroupRecommendation(Long memberId, Long groupId, Long sessionId, GroupRecommendationRerollType rerollType, String contextJson);
 
-    GroupRecommendationResult getGroupRecommendation(Long groupId, Long sessionId);
+    GroupRecommendationResult getGroupRecommendation(Long memberId, Long groupId, Long sessionId);
 
-    GroupRecommendationCandidateListResult getGroupRecommendationCandidates(Long groupId, Long sessionId);
+    GroupRecommendationCandidateListResult getGroupRecommendationCandidates(Long memberId, Long groupId, Long sessionId);
 
-    Page<GroupRecommendationSummaryResult> getGroupRecommendations(Long groupId, int page, int size);
+    Page<GroupRecommendationSummaryResult> getGroupRecommendations(Long memberId, Long groupId, int page, int size);
 
-    GroupRecommendationReadinessResult getGroupRecommendationReadiness(Long groupId, Long sessionId);
+    GroupRecommendationReadinessResult getGroupRecommendationReadiness(Long memberId, Long groupId, Long sessionId);
 
-    ReadyGroupRecommendationResult readyGroupRecommendation(Long groupId, Long sessionId);
+    ReadyGroupRecommendationResult readyGroupRecommendation(Long memberId, Long groupId, Long sessionId);
 
-    GroupVoteResult voteGroupRecommendation(Long groupId, Long sessionId, Long candidateId);
+    GroupVoteResult voteGroupRecommendation(Long memberId, Long groupId, Long sessionId, Long candidateId);
 
-    FinalizeGroupRecommendationResult finalizeGroupRecommendation(FinalizeGroupRecommendationCommand command);
+    FinalizeGroupRecommendationResult finalizeGroupRecommendation(Long memberId, FinalizeGroupRecommendationCommand command);
 
-    CreateNicknameGroupInviteResult createNicknameInvite(CreateNicknameGroupInviteCommand command);
+    CreateNicknameGroupInviteResult createNicknameInvite(Long memberId, CreateNicknameGroupInviteCommand command);
 
-    GroupInviteLinkResult createInviteLink(Long groupId);
+    GroupInviteLinkResult createInviteLink(Long memberId, Long groupId);
 
-    GroupInviteLinkResult reissueInviteLink(Long groupId);
+    GroupInviteLinkResult reissueInviteLink(Long memberId, Long groupId);
 
-    GroupInviteLinkResult getCurrentInviteLink(Long groupId);
+    GroupInviteLinkResult getCurrentInviteLink(Long memberId, Long groupId);
 
-    JoinGroupResult joinGroupByInviteLink(String token);
+    JoinGroupResult joinGroupByInviteLink(Long memberId, String token);
 
-    JoinGroupResult joinGroup(JoinGroupCommand command);
+    JoinGroupResult joinGroup(Long memberId, JoinGroupCommand command);
 
-    LeaveGroupResult leaveGroup(LeaveGroupCommand command);
+    LeaveGroupResult leaveGroup(Long memberId, LeaveGroupCommand command);
 
-    DeleteGroupResult deleteGroup(DeleteGroupCommand command);
+    DeleteGroupResult deleteGroup(Long memberId, DeleteGroupCommand command);
 
-    UpdateGroupResult updateGroup(UpdateGroupCommand command);
+    UpdateGroupResult updateGroup(Long memberId, UpdateGroupCommand command);
 
-    Page<@NonNull GroupSummaryResult> getMyGroups(GetMyGroupsCommand command);
+    Page<@NonNull GroupSummaryResult> getMyGroups(Long memberId, GetMyGroupsCommand command);
 
-    Page<@NonNull GroupInviteSummaryResult> getMyInvites(GetMyGroupInvitesCommand command);
+    Page<@NonNull GroupInviteSummaryResult> getMyInvites(Long memberId, GetMyGroupInvitesCommand command);
 
-    RespondGroupInviteResult respondGroupInvite(RespondGroupInviteCommand command);
+    RespondGroupInviteResult respondGroupInvite(Long memberId, RespondGroupInviteCommand command);
 
-    GroupDetailResult getGroup(Long groupId);
+    GroupDetailResult getGroup(Long memberId, Long groupId);
 }

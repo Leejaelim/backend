@@ -18,6 +18,7 @@ import matchuri.backend.api.auth.dto.response.LoginResponse;
 import matchuri.backend.api.auth.dto.response.LogoutResponse;
 import matchuri.backend.api.common.docs.ErrorExamples;
 import matchuri.backend.global.api.ApiResponse;
+import matchuri.backend.global.security.AuthenticatedMemberId;
 
 @Tag(name = "Auth", description = "로그인, 로그아웃, 소셜 OAuth2 로그인 관련 API")
 public interface AuthApi {
@@ -300,7 +301,11 @@ public interface AuthApi {
                     )
             )
     })
-    ApiResponse<LogoutResponse> logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse);
+    ApiResponse<LogoutResponse> logout(
+            @AuthenticatedMemberId Long memberId,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse
+    );
 
     @Operation(
             summary = "소셜 OAuth2 로그인 시작",

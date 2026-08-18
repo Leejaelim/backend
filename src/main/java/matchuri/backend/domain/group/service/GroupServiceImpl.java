@@ -22,7 +22,7 @@ import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberTasteProfile;
 import matchuri.backend.domain.member.entity.MemberStatus;
 import matchuri.backend.domain.member.repository.MemberRepository;
-import matchuri.backend.domain.member.support.member.ActiveMemberReader;
+import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.menu.entity.AttributeCategory;
 import matchuri.backend.domain.menu.entity.Ingredient;
 import matchuri.backend.domain.menu.entity.MenuAttributeCategory;
@@ -73,7 +73,7 @@ public class GroupServiceImpl implements GroupService {
             GroupRecommendationStatus.OPEN
     );
 
-    private final ActiveMemberReader activeMemberReader;
+    private final MemberReader memberReader;
     private final MemberRepository memberRepository;
     private final GroupRoomRepository groupRoomRepository;
     private final GroupLocationRepository groupLocationRepository;
@@ -96,8 +96,8 @@ public class GroupServiceImpl implements GroupService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
-    public CreateGroupResult createGroup(CreateGroupCommand command) {
-        Member hostMember = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public CreateGroupResult createGroup(Long memberId, CreateGroupCommand command) {
+        Member hostMember = memberReader.getActiveMember(memberId);
         String inviteCode = createUniqueInviteCode();
 
         GroupRoom groupRoom = GroupRoom.createOwnedBy(
@@ -122,8 +122,11 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public CreateGroupRecommendationResult createGroupRecommendation(CreateGroupRecommendationCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public CreateGroupRecommendationResult createGroupRecommendation(
+            Long memberId,
+            CreateGroupRecommendationCommand command
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
         GroupRoom room = getActiveGroupRoom(command.groupId());
 
         if (!validateActiveMembership(room.getId(), member.getId()).isOwner()) {
@@ -169,6 +172,7 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     public CreateGroupRecommendationResult rerollGroupRecommendation(
+            Long memberId,
             Long groupId,
             Long sessionId,
             GroupRecommendationRerollType rerollType,
@@ -265,8 +269,8 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public GroupRecommendationResult getGroupRecommendation(Long groupId, Long sessionId) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public GroupRecommendationResult getGroupRecommendation(Long memberId, Long groupId, Long sessionId) {
+        Member member = memberReader.getActiveMember(memberId);
         validateActiveMembership(groupId, member.getId());
 
         GroupRecommendation recommendation = groupRecommendationRepository.findByIdAndRoomId(sessionId, groupId)
@@ -278,8 +282,12 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @Transactional(noRollbackFor = BusinessException.class)
-    public GroupRecommendationCandidateListResult getGroupRecommendationCandidates(Long groupId, Long sessionId) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public GroupRecommendationCandidateListResult getGroupRecommendationCandidates(
+            Long memberId,
+            Long groupId,
+            Long sessionId
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
         validateActiveMembership(groupId, member.getId());
 
         GroupRecommendation recommendation = groupRecommendationRepository.findByIdAndRoomId(sessionId, groupId)
@@ -294,8 +302,13 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public Page<@NonNull GroupRecommendationSummaryResult> getGroupRecommendations(Long groupId, int page, int size) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public Page<@NonNull GroupRecommendationSummaryResult> getGroupRecommendations(
+            Long memberId,
+            Long groupId,
+            int page,
+            int size
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
         GroupRoom room = getActiveGroupRoom(groupId);
         validateActiveMembership(room.getId(), member.getId());
 
@@ -307,8 +320,12 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public GroupRecommendationReadinessResult getGroupRecommendationReadiness(Long groupId, Long sessionId) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public GroupRecommendationReadinessResult getGroupRecommendationReadiness(
+            Long memberId,
+            Long groupId,
+            Long sessionId
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
         GroupRoom room = getActiveGroupRoom(groupId);
         validateActiveMembership(room.getId(), member.getId());
 
@@ -345,8 +362,8 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @Transactional(noRollbackFor = BusinessException.class)
-    public ReadyGroupRecommendationResult readyGroupRecommendation(Long groupId, Long sessionId) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public ReadyGroupRecommendationResult readyGroupRecommendation(Long memberId, Long groupId, Long sessionId) {
+        Member member = memberReader.getActiveMember(memberId);
         GroupRoom room = getActiveGroupRoom(groupId);
         validateActiveMembership(room.getId(), member.getId());
 
@@ -443,8 +460,8 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @Transactional(noRollbackFor = BusinessException.class)
-    public GroupVoteResult voteGroupRecommendation(Long groupId, Long sessionId, Long candidateId) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public GroupVoteResult voteGroupRecommendation(Long memberId, Long groupId, Long sessionId, Long candidateId) {
+        Member member = memberReader.getActiveMember(memberId);
         validateActiveMembership(groupId, member.getId());
 
         GroupRecommendation recommendation = groupRecommendationRepository.findByIdAndRoomId(sessionId, groupId)
@@ -499,8 +516,11 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @Transactional(noRollbackFor = BusinessException.class)
-    public FinalizeGroupRecommendationResult finalizeGroupRecommendation(FinalizeGroupRecommendationCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public FinalizeGroupRecommendationResult finalizeGroupRecommendation(
+            Long memberId,
+            FinalizeGroupRecommendationCommand command
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
         GroupRoomMember membership = validateActiveMembership(command.groupId(), member.getId());
 
         if (!membership.isOwner()) {
@@ -553,8 +573,11 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public CreateNicknameGroupInviteResult createNicknameInvite(CreateNicknameGroupInviteCommand command) {
-        Member requestMember = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public CreateNicknameGroupInviteResult createNicknameInvite(
+            Long memberId,
+            CreateNicknameGroupInviteCommand command
+    ) {
+        Member requestMember = memberReader.getActiveMember(memberId);
         GroupRoom room = groupRoomRepository.findByIdAndStatusNot(command.groupId(), GroupRoomStatus.DELETED)
                 .orElseThrow(() -> new BusinessException(GroupErrorCode.NOT_FOUND, command.groupId()));
 
@@ -618,16 +641,16 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public GroupInviteLinkResult createInviteLink(Long groupId) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public GroupInviteLinkResult createInviteLink(Long memberId, Long groupId) {
+        Member member = memberReader.getActiveMember(memberId);
         return GroupInviteLinkResult.from(
                 groupInviteLinkManager.create(groupId, member.getId(), LocalDateTime.now())
         );
     }
 
     @Override
-    public GroupInviteLinkResult reissueInviteLink(Long groupId) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public GroupInviteLinkResult reissueInviteLink(Long memberId, Long groupId) {
+        Member member = memberReader.getActiveMember(memberId);
         return GroupInviteLinkResult.from(
                 groupInviteLinkManager.reissue(groupId, member.getId(), LocalDateTime.now())
         );
@@ -635,23 +658,23 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @Transactional(readOnly = true)
-    public GroupInviteLinkResult getCurrentInviteLink(Long groupId) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public GroupInviteLinkResult getCurrentInviteLink(Long memberId, Long groupId) {
+        Member member = memberReader.getActiveMember(memberId);
         return GroupInviteLinkResult.from(
                 groupInviteLinkManager.getCurrent(groupId, member.getId(), LocalDateTime.now())
         );
     }
 
     @Override
-    public JoinGroupResult joinGroupByInviteLink(String token) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public JoinGroupResult joinGroupByInviteLink(Long memberId, String token) {
+        Member member = memberReader.getActiveMember(memberId);
         GroupInviteLink inviteLink = groupInviteLinkManager.getJoinable(token, LocalDateTime.now());
         return joinGroup(inviteLink.getRoom(), member);
     }
 
     @Override
-    public JoinGroupResult joinGroup(JoinGroupCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public JoinGroupResult joinGroup(Long memberId, JoinGroupCommand command) {
+        Member member = memberReader.getActiveMember(memberId);
         GroupRoom room = groupRoomRepository.findByInviteCode(command.inviteCode())
                 .orElseThrow(() -> new BusinessException(GroupErrorCode.INVITE_NOT_FOUND, command.inviteCode()));
 
@@ -663,9 +686,8 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public LeaveGroupResult leaveGroup(LeaveGroupCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
-        Long memberId = member.getId();
+    public LeaveGroupResult leaveGroup(Long memberId, LeaveGroupCommand command) {
+        Member member = memberReader.getActiveMember(memberId);
         GroupRoom room = groupRoomRepository.findByIdAndStatusNot(command.groupId(), GroupRoomStatus.DELETED)
                 .orElseThrow(() -> new BusinessException(GroupErrorCode.NOT_FOUND, command.groupId()));
         GroupRoomMember membership = room.getGroupRoomMemberById(memberId)
@@ -698,8 +720,8 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @Transactional
-    public DeleteGroupResult deleteGroup(DeleteGroupCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public DeleteGroupResult deleteGroup(Long memberId, DeleteGroupCommand command) {
+        Member member = memberReader.getActiveMember(memberId);
         GroupRoom room = groupRoomRepository.findByIdAndStatusNotForUpdate(command.groupId(), GroupRoomStatus.DELETED)
                 .orElseThrow(() -> new BusinessException(GroupErrorCode.NOT_FOUND, command.groupId()));
         GroupRoomMember membership = groupRoomMemberRepository
@@ -732,12 +754,12 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public UpdateGroupResult updateGroup(UpdateGroupCommand command) {
+    public UpdateGroupResult updateGroup(Long memberId, UpdateGroupCommand command) {
         if (command.hasNoFields()) {
             throw new BusinessException(GroupErrorCode.UPDATE_EMPTY_REQUEST);
         }
 
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+        Member member = memberReader.getActiveMember(memberId);
         GroupRoom room = groupRoomRepository.findByIdAndStatusNot(command.groupId(), GroupRoomStatus.DELETED)
                 .orElseThrow(() -> new BusinessException(GroupErrorCode.NOT_FOUND, command.groupId()));
 
@@ -777,8 +799,8 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public Page<@NonNull GroupSummaryResult> getMyGroups(GetMyGroupsCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public Page<@NonNull GroupSummaryResult> getMyGroups(Long memberId, GetMyGroupsCommand command) {
+        Member member = memberReader.getActiveMember(memberId);
         Page<@NonNull GroupRoomMember> memberships = groupRoomMemberRepository.findMyActiveMemberships(
                 member.getId(),
                 command.status(),
@@ -797,8 +819,8 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<@NonNull GroupInviteSummaryResult> getMyInvites(GetMyGroupInvitesCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public Page<@NonNull GroupInviteSummaryResult> getMyInvites(Long memberId, GetMyGroupInvitesCommand command) {
+        Member member = memberReader.getActiveMember(memberId);
         GroupInviteStatus status = command.status() == null ? GroupInviteStatus.PENDING : command.status();
 
         return groupInviteRepository.findMyInvites(
@@ -809,8 +831,8 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public RespondGroupInviteResult respondGroupInvite(RespondGroupInviteCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public RespondGroupInviteResult respondGroupInvite(Long memberId, RespondGroupInviteCommand command) {
+        Member member = memberReader.getActiveMember(memberId);
         GroupInvite invite = groupInviteRepository.findById(command.inviteId())
                 .orElseThrow(() -> new BusinessException(GroupErrorCode.INVITE_REQUEST_NOT_FOUND, command.inviteId()));
 
@@ -853,8 +875,8 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public GroupDetailResult getGroup(Long groupId) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public GroupDetailResult getGroup(Long memberId, Long groupId) {
+        Member member = memberReader.getActiveMember(memberId);
         GroupRoom room = groupRoomRepository.findByIdAndStatusNot(groupId, GroupRoomStatus.DELETED)
                 .orElseThrow(() -> new BusinessException(GroupErrorCode.NOT_FOUND, groupId));
 

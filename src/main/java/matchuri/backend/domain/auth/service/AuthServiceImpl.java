@@ -20,8 +20,6 @@ import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.domain.member.support.onboarding.OnboardingStatusResolver;
 import matchuri.backend.global.exception.AuthenticationException;
 import matchuri.backend.global.exception.BusinessException;
-import matchuri.backend.global.security.AuthenticatedMember;
-import matchuri.backend.global.security.AuthenticationFacade;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +33,6 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final SessionTokenService sessionTokenService;
     private final JwtTokenProvider jwtTokenProvider;
-    private final AuthenticationFacade authenticationFacade;
     private final OnboardingStatusResolver onboardingStatusResolver;
     private final CaptchaVerifier captchaVerifier;
 
@@ -76,10 +73,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public LogoutResult logout(String refreshToken, String clientIp) {
+    public LogoutResult logout(Long memberId, String refreshToken, String clientIp) {
         sessionTokenService.revokeRefreshToken(refreshToken);
-        AuthenticatedMember authenticatedMember = authenticationFacade.getCurrentMember();
-        log.info("auth event=logout provider=local memberId={} ip={}", authenticatedMember.memberId(), clientIp);
+        log.info("auth event=logout provider=local memberId={} ip={}", memberId, clientIp);
 
         return new LogoutResult(true);
     }

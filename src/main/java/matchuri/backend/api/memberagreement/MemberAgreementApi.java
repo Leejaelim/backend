@@ -13,6 +13,7 @@ import matchuri.backend.api.memberagreement.dto.request.SubmitRequiredAgreements
 import matchuri.backend.api.memberagreement.dto.response.RequiredAgreementStatusResponse;
 import matchuri.backend.api.memberagreement.dto.response.SubmitRequiredAgreementsResponse;
 import matchuri.backend.global.api.ApiResponse;
+import matchuri.backend.global.security.AuthenticatedMemberId;
 
 @Tag(name = "Member Agreement", description = "회원 필수 약관 상태 조회 및 동의 API")
 public interface MemberAgreementApi {
@@ -64,7 +65,7 @@ public interface MemberAgreementApi {
                     )
             )
     })
-    ApiResponse<RequiredAgreementStatusResponse> getRequiredAgreementStatus();
+    ApiResponse<RequiredAgreementStatusResponse> getRequiredAgreementStatus(@AuthenticatedMemberId Long memberId);
 
     @Operation(
             summary = "필수 약관 동의 제출",
@@ -200,5 +201,8 @@ public interface MemberAgreementApi {
                     )
             )
     })
-    ApiResponse<SubmitRequiredAgreementsResponse> submitRequiredAgreements(SubmitRequiredAgreementsRequest request);
+    ApiResponse<SubmitRequiredAgreementsResponse> submitRequiredAgreements(
+            @AuthenticatedMemberId Long memberId,
+            SubmitRequiredAgreementsRequest request
+    );
 }

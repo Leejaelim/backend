@@ -25,6 +25,7 @@ import matchuri.backend.domain.recommendation.result.SelectPersonalRecommendatio
 import matchuri.backend.domain.recommendation.service.RecommendationService;
 import matchuri.backend.global.api.ApiResponse;
 import matchuri.backend.global.api.PageResponse;
+import matchuri.backend.global.security.AuthenticatedMemberId;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -59,11 +60,12 @@ public class RecommendationController implements RecommendationApi {
     @Override
     @GetMapping("/personal/recommendations")
     public ApiResponse<PageResponse<PersonalRecommendationResponse>> getMyPersonalRecommendationList(
+            @AuthenticatedMemberId Long memberId,
             @Min(0) @RequestParam(defaultValue = "0") Integer page,
             @Min(1) @Max(100) @RequestParam(defaultValue = "20") Integer size
     ) {
         Page<PersonalRecommendationSummaryResult> results =
-                recommendationService.getMyPersonalRecommendations(page, size);
+                recommendationService.getMyPersonalRecommendations(memberId, page, size);
 
         PageResponse<PersonalRecommendationResponse> response =
                 PageResponse.of(results, recommendationMapper::toSummaryResponse);
@@ -74,10 +76,11 @@ public class RecommendationController implements RecommendationApi {
     @Override
     @PostMapping("/personal/recommendations")
     public ApiResponse<PersonalRecommendationRequestResponse> createPersonalRecommendation(
+            @AuthenticatedMemberId Long memberId,
             @Valid @RequestBody CreatePersonalRecommendationRequest request
     ) {
         String contextJson = recommendationMapper.toContextJson(request);
-        PersonalRecommendationResult result = recommendationService.createPersonalRecommendation(contextJson);
+        PersonalRecommendationResult result = recommendationService.createPersonalRecommendation(memberId, contextJson);
 
         return ApiResponse.success(recommendationMapper.toCreateResponse(result));
     }
@@ -85,11 +88,13 @@ public class RecommendationController implements RecommendationApi {
     @Override
     @PostMapping("/personal/recommendations/{requestId}/reroll")
     public ApiResponse<PersonalRecommendationRequestResponse> rerollPersonalRecommendation(
+            @AuthenticatedMemberId Long memberId,
             @PathVariable Long requestId,
             @Valid @RequestBody RerollPersonalRecommendationRequest request
     ) {
         String contextJson = recommendationMapper.toContextJson(request);
         PersonalRecommendationResult result = recommendationService.rerollPersonalRecommendation(
+                memberId,
                 requestId,
                 request.rerollType(),
                 contextJson
@@ -100,8 +105,11 @@ public class RecommendationController implements RecommendationApi {
 
     @Override
     @GetMapping("/personal/recommendations/{requestId}")
-    public ApiResponse<PersonalRecommendationDetailResponse> getPersonalRecommendation(@PathVariable Long requestId) {
-        PersonalRecommendationResult result = recommendationService.getPersonalRecommendation(requestId);
+    public ApiResponse<PersonalRecommendationDetailResponse> getPersonalRecommendation(
+            @AuthenticatedMemberId Long memberId,
+            @PathVariable Long requestId
+    ) {
+        PersonalRecommendationResult result = recommendationService.getPersonalRecommendation(memberId, requestId);
 
         return ApiResponse.success(recommendationMapper.toDetailResponse(result));
     }
@@ -109,10 +117,11 @@ public class RecommendationController implements RecommendationApi {
     @Override
     @GetMapping("/personal/recommendations/{requestId}/candidates")
     public ApiResponse<PersonalRecommendationCandidateListResponse> getPersonalRecommendationCandidates(
+            @AuthenticatedMemberId Long memberId,
             @PathVariable Long requestId
     ) {
         List<PersonalRecommendationCandidateResult> results =
-                recommendationService.getPersonalRecommendationCandidates(requestId);
+                recommendationService.getPersonalRecommendationCandidates(memberId, requestId);
 
         return ApiResponse.success(recommendationMapper.toCandidateListResponse(requestId, results));
     }
@@ -120,11 +129,13 @@ public class RecommendationController implements RecommendationApi {
     @Override
     @PatchMapping("/personal/recommendations/{requestId}")
     public ApiResponse<SelectPersonalRecommendationResponse> selectPersonalRecommendationCandidate(
+            @AuthenticatedMemberId Long memberId,
             @PathVariable Long requestId,
             @Valid @RequestBody SelectPersonalRecommendationRequest request
     ) {
         SelectPersonalRecommendationCommand command = recommendationMapper.toSelectCommand(requestId, request);
-        SelectPersonalRecommendationResult result = recommendationService.selectPersonalRecommendationCandidate(command);
+        SelectPersonalRecommendationResult result =
+                recommendationService.selectPersonalRecommendationCandidate(memberId, command);
 
         return ApiResponse.success(recommendationMapper.toSelectResponse(result));
     }

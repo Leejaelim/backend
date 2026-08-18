@@ -1,5 +1,6 @@
 package matchuri.backend.api.realtime;
 
+import matchuri.backend.global.security.AuthenticatedMemberId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -88,7 +89,7 @@ public interface RealtimeApi {
                     )
             )
     })
-    SseEmitter connectMemberStream();
+    SseEmitter connectMemberStream(@AuthenticatedMemberId Long memberId);
 
     @Operation(
             summary = "그룹 실시간 이벤트 스트림",
@@ -233,5 +234,5 @@ public interface RealtimeApi {
                     )
             )
     })
-    SseEmitter connectGroupStream(Long groupId);
+    SseEmitter connectGroupStream(@AuthenticatedMemberId Long memberId, Long groupId);
 }

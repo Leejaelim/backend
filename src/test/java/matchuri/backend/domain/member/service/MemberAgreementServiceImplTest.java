@@ -23,7 +23,7 @@ import matchuri.backend.domain.member.result.SubmitRequiredAgreementsResult;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementRequestValidator;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementRevisionResolver;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementVersions;
-import matchuri.backend.domain.member.support.member.ActiveMemberReader;
+import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.member.support.onboarding.OnboardingStatusResolver;
 import matchuri.backend.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
@@ -41,7 +41,7 @@ class MemberAgreementServiceImplTest {
     private MemberAgreementRepository memberAgreementRepository;
 
     @Mock
-    private ActiveMemberReader activeMemberReader;
+    private MemberReader memberReader;
 
     @Mock
     private JwtTokenProvider jwtTokenProvider;
@@ -62,13 +62,13 @@ class MemberAgreementServiceImplTest {
     @DisplayName("필수 약관 중 일부가 빠지면 MEMBER_AGREEMENT_REQUIRED_TYPES_MISSING을 반환한다")
     void submitRequiredAgreementsFailsWhenRequiredTypesMissing() {
         Member member = activeMember(1L);
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
 
         SubmitRequiredAgreementsCommand command = new SubmitRequiredAgreementsCommand(List.of(
                 new SubmitRequiredAgreementsCommand.AgreementConsentCommand("TERMS_OF_SERVICE", "2026-04-10")
         ));
 
-        assertThatThrownBy(() -> memberAgreementService.submitRequiredAgreements(command))
+        assertThatThrownBy(() -> memberAgreementService.submitRequiredAgreements(1L, command))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MemberAgreementErrorCode.REQUIRED_TYPES_MISSING);
@@ -78,14 +78,14 @@ class MemberAgreementServiceImplTest {
     @DisplayName("최신 필수 버전과 다르면 MEMBER_AGREEMENT_VERSION_MISMATCH를 반환한다")
     void submitRequiredAgreementsFailsWhenVersionMismatch() {
         Member member = activeMember(1L);
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
 
         SubmitRequiredAgreementsCommand command = new SubmitRequiredAgreementsCommand(List.of(
                 new SubmitRequiredAgreementsCommand.AgreementConsentCommand("TERMS_OF_SERVICE", "2026-03-01"),
                 new SubmitRequiredAgreementsCommand.AgreementConsentCommand("PRIVACY_POLICY", "2026-04-10")
         ));
 
-        assertThatThrownBy(() -> memberAgreementService.submitRequiredAgreements(command))
+        assertThatThrownBy(() -> memberAgreementService.submitRequiredAgreements(1L, command))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MemberAgreementErrorCode.VERSION_MISMATCH);
@@ -104,7 +104,7 @@ class MemberAgreementServiceImplTest {
     @DisplayName("필수 약관 동의 제출 후 현재 revision으로 access token을 재발급한다")
     void submitRequiredAgreementsIssuesAccessTokenWithCurrentRevision() {
         Member member = activeMember(1L);
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberAgreementRepository.existsByMemberIdAndAgreementTypeAndAgreementVersion(anyLong(), any(), any()))
                 .thenReturn(false);
         when(jwtTokenProvider.issueAccessToken(member, RequiredAgreementVersions.currentRevision()))
@@ -119,7 +119,7 @@ class MemberAgreementServiceImplTest {
                 new SubmitRequiredAgreementsCommand.AgreementConsentCommand("PRIVACY_POLICY", "2026-04-10")
         ));
 
-        SubmitRequiredAgreementsResult result = memberAgreementService.submitRequiredAgreements(command);
+        SubmitRequiredAgreementsResult result = memberAgreementService.submitRequiredAgreements(1L, command);
 
         assertThat(result.status().requiredAgreementsCompleted()).isTrue();
         assertThat(result.issuedAccessToken().accessToken()).isEqualTo("new-access-token");
