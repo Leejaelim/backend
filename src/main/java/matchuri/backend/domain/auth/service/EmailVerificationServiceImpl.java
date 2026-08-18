@@ -24,6 +24,7 @@ import matchuri.backend.domain.member.exception.MemberErrorCode;
 import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.global.exception.AuthenticationException;
 import matchuri.backend.global.exception.BusinessException;
+import matchuri.backend.global.exception.RequestValidationException;
 import org.springframework.mail.MailException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +45,8 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     @Override
     @Transactional(noRollbackFor = BusinessException.class)
     public SendEmailVerificationResult sendVerificationEmail(SendEmailVerificationCommand command) {
+        validateConditionalFields(command);
+
         LocalDateTime now = LocalDateTime.now();
         List<EmailVerification> pendingVerifications = repository.findAllByTargetAndStatus(
                 command.email(),
@@ -97,6 +100,8 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     @Override
     @Transactional(noRollbackFor = AuthenticationException.class)
     public ConfirmEmailVerificationResult confirmVerificationEmail(ConfirmEmailVerificationCommand command) {
+        validateConditionalFields(command);
+
         LocalDateTime now = LocalDateTime.now();
         EmailVerification verification = findLatestPending(command)
                 .orElseThrow(() -> new AuthenticationException(AuthErrorCode.EMAIL_VERIFICATION_FAILED));
@@ -122,6 +127,26 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
         log.info("Email verification confirmed: purpose={}, email={}",
                 command.purpose(), maskEmail(command.email()));
         return ConfirmEmailVerificationResult.verified(token, policy.tokenTtlSeconds());
+    }
+
+    private void validateConditionalFields(SendEmailVerificationCommand command) {
+        if (command.purpose() == EmailVerificationPurpose.RESET_PASSWORD
+                && (command.loginId() == null || command.loginId().isBlank())) {
+            throw RequestValidationException.invalidBodyField(
+                    "loginId",
+                    "RESET_PASSWORD 목적에서는 loginId가 필요합니다."
+            );
+        }
+    }
+
+    private void validateConditionalFields(ConfirmEmailVerificationCommand command) {
+        if (command.purpose() == EmailVerificationPurpose.RESET_PASSWORD
+                && (command.loginId() == null || command.loginId().isBlank())) {
+            throw RequestValidationException.invalidBodyField(
+                    "loginId",
+                    "RESET_PASSWORD 목적에서는 loginId가 필요합니다."
+            );
+        }
     }
 
     private long resendCooldownRemainingSeconds(List<EmailVerification> pendingVerifications, LocalDateTime now) {

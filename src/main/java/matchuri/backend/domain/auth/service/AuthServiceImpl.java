@@ -77,11 +77,20 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public LogoutResult logout(String refreshToken, String clientIp) {
-        AuthenticatedMember authenticatedMember = authenticationFacade.getCurrentMember();
         sessionTokenService.revokeRefreshToken(refreshToken);
+        AuthenticatedMember authenticatedMember = authenticationFacade.getCurrentMember();
         log.info("auth event=logout provider=local memberId={} ip={}", authenticatedMember.memberId(), clientIp);
 
         return new LogoutResult(true);
+    }
+
+    @Override
+    public SocialProviderType resolveOAuth2LoginProvider(String provider) {
+        SocialProviderType socialProviderType = SocialProviderType.fromRegistrationId(provider);
+        if (!socialProviderType.isOAuth2LoginSupported()) {
+            throw new AuthenticationException(AuthErrorCode.OAUTH2_PROVIDER_NOT_SUPPORTED);
+        }
+        return socialProviderType;
     }
 
     @Override
