@@ -50,6 +50,7 @@ import matchuri.backend.domain.menu.repository.MenuItemRepository;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationStatus;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationRepository;
 import matchuri.backend.global.exception.BusinessException;
+import matchuri.backend.global.exception.RequestValidationException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -80,12 +81,47 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     public boolean existsByLoginId(String loginId) {
+        validateLoginId(loginId);
         return memberRepository.existsByLoginId(loginId);
+    }
+
+    private void validateLoginId(String loginId) {
+        if (loginId == null || loginId.isBlank()) {
+            throw RequestValidationException.invalidPathVariable("loginId", "로그인 아이디는 비어 있을 수 없습니다.");
+        }
+
+        if (loginId.length() > Member.LOGIN_ID_MAX_SIZE) {
+            throw RequestValidationException.invalidPathVariable(
+                    "loginId",
+                    "로그인 아이디는 " + Member.LOGIN_ID_MAX_SIZE + "자를 초과할 수 없습니다."
+            );
+        }
+
+        if (!loginId.matches(Member.LOGIN_ID_PATTERN)) {
+            throw RequestValidationException.invalidPathVariable(
+                    "loginId",
+                    "로그인 아이디는 영문, 숫자, 점(.), 밑줄(_), 하이픈(-)만 사용할 수 있습니다."
+            );
+        }
     }
 
     @Override
     public boolean existsByNickname(String nickname) {
+        validateNickname(nickname);
         return memberRepository.existsByNickname(nickname);
+    }
+
+    private void validateNickname(String nickname) {
+        if (nickname == null || nickname.isBlank()) {
+            throw RequestValidationException.invalidPathVariable("nickname", "닉네임은 비어 있을 수 없습니다.");
+        }
+
+        if (nickname.length() > Member.NICKNAME_MAX_SIZE) {
+            throw RequestValidationException.invalidPathVariable(
+                    "nickname",
+                    "닉네임은 " + Member.NICKNAME_MAX_SIZE + "자를 초과할 수 없습니다."
+            );
+        }
     }
 
     @Override

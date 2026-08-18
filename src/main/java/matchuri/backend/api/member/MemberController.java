@@ -20,10 +20,8 @@ import matchuri.backend.api.member.dto.response.UpdateMemberPasswordResponse;
 import matchuri.backend.api.member.dto.response.UpdateMemberResponse;
 import matchuri.backend.api.member.dto.response.WithdrawMemberResponse;
 import matchuri.backend.api.member.mapper.MemberMapper;
-import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.service.MemberService;
 import matchuri.backend.global.api.ApiResponse;
-import matchuri.backend.global.exception.RequestValidationException;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -69,7 +67,6 @@ public class MemberController implements MemberApi {
     public ApiResponse<LoginIdExistsResponse> checkLoginIdExists(
             @PathVariable String loginId
     ) {
-        validateLoginId(loginId);
         boolean exists = memberService.existsByLoginId(loginId);
         LoginIdExistsResponse response = memberMapper.toLoginIdExistsResponse(loginId, exists);
 
@@ -79,7 +76,6 @@ public class MemberController implements MemberApi {
     @Override
     @GetMapping("/exists/nickname/{nickname}")
     public ApiResponse<NicknameExistsResponse> checkNicknameExists(@PathVariable String nickname) {
-        validateNickname(nickname);
         boolean exists = memberService.existsByNickname(nickname);
         NicknameExistsResponse response = memberMapper.toNicknameExistsResponse(nickname, exists);
 
@@ -160,38 +156,5 @@ public class MemberController implements MemberApi {
         WithdrawMemberResponse response = memberMapper.toWithdrawMemberResponse(withdraw);
 
         return ApiResponse.success(response);
-    }
-
-    private void validateLoginId(String loginId) {
-        if (loginId == null || loginId.isBlank()) {
-            throw RequestValidationException.invalidPathVariable("loginId", "로그인 아이디는 비어 있을 수 없습니다.");
-        }
-
-        if (loginId.length() > Member.LOGIN_ID_MAX_SIZE) {
-            throw RequestValidationException.invalidPathVariable(
-                    "loginId",
-                    "로그인 아이디는 " + Member.LOGIN_ID_MAX_SIZE + "자를 초과할 수 없습니다."
-            );
-        }
-
-        if (!loginId.matches(Member.LOGIN_ID_PATTERN)) {
-            throw RequestValidationException.invalidPathVariable(
-                    "loginId",
-                    "로그인 아이디는 영문, 숫자, 점(.), 밑줄(_), 하이픈(-)만 사용할 수 있습니다."
-            );
-        }
-    }
-
-    private void validateNickname(String nickname) {
-        if (nickname == null || nickname.isBlank()) {
-            throw RequestValidationException.invalidPathVariable("nickname", "닉네임은 비어 있을 수 없습니다.");
-        }
-
-        if (nickname.length() > Member.NICKNAME_MAX_SIZE) {
-            throw RequestValidationException.invalidPathVariable(
-                    "nickname",
-                    "닉네임은 " + Member.NICKNAME_MAX_SIZE + "자를 초과할 수 없습니다."
-            );
-        }
     }
 }

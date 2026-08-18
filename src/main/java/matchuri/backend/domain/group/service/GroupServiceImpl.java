@@ -174,47 +174,7 @@ public class GroupServiceImpl implements GroupService {
             GroupRecommendationRerollType rerollType,
             String contextJson
     ) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
-        GroupRoom room = getActiveGroupRoom(groupId);
-        GroupRoomMember membership = validateActiveMembership(room.getId(), member.getId());
-
-        if (!membership.isOwner()) {
-            throw new BusinessException(GroupErrorCode.RECOMMENDATION_REROLL_FORBIDDEN, room.getId());
-        }
-
-        GroupRecommendation sourceRecommendation = groupRecommendationRepository.findByIdAndRoomId(sessionId, groupId)
-                .orElseThrow(() -> new BusinessException(GroupErrorCode.RECOMMENDATION_NOT_FOUND, sessionId));
-
-        validateGroupRecommendationOpen(sourceRecommendation, sessionId);
-
-        LocalDateTime endedAt = LocalDateTime.now();
-
-        if (rerollType == GroupRecommendationRerollType.NOT_SATISFIED) {
-            saveGroupSkipActions(room, sourceRecommendation, member);
-            sourceRecommendation.rerollWithSkip(endedAt);
-        } else if (rerollType == GroupRecommendationRerollType.INPUT_CHANGED) {
-            sourceRecommendation.rerollWithoutSkip(endedAt);
-        } else {
-            throw new IllegalArgumentException("지원하지 않는 그룹 추천 재요청 타입입니다. rerollType=" + rerollType);
-        }
-
-        GroupRecommendation newRecommendation = groupRecommendationRepository.save(new GroupRecommendation(
-                room,
-                LocalDateTime.now()
-        ));
-        updateRoomLocationFromContextJson(room, contextJson);
-        List<GroupRecommendationCandidate> candidates = generateCandidatesForRecommendation(
-                room,
-                newRecommendation,
-                contextJson,
-                recentlySkippedMenuIds(room.getId())
-        );
-
-        return new CreateGroupRecommendationResult(
-                newRecommendation.getId(),
-                newRecommendation.getStatus(),
-                toCandidateResults(candidates, 0)
-        );
+        throw new BusinessException(GroupErrorCode.RECOMMENDATION_REROLL_DISABLED);
     }
 
     private boolean hasActiveRecommendation(Long roomId) {
