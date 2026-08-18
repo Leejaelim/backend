@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,7 @@ import matchuri.backend.domain.auth.support.verification.EmailVerificationTokenV
 import matchuri.backend.domain.member.command.CreateMemberCommand;
 import matchuri.backend.domain.member.command.PutMemberLocationCommand;
 import matchuri.backend.domain.member.command.RegisterLocalMemberCommand;
+import matchuri.backend.domain.member.command.RegisterLocalMemberV2Command;
 import matchuri.backend.domain.member.command.SubmitRequiredAgreementsCommand;
 import matchuri.backend.domain.member.command.UpdateMemberBasicInfoCommand;
 import matchuri.backend.domain.member.command.UpdateMemberTasteProfileCommand;
@@ -229,6 +231,70 @@ class MemberServiceImplTest {
     }
 
     @Test
+    @DisplayName("자체 회원가입 v2는 회원, 필수 약관, 초기 취향 프로필을 함께 저장한다")
+    void registerLocalMemberV2InitializesTasteProfile() {
+        RegisterLocalMemberCommand memberCommand = new RegisterLocalMemberCommand(
+                "tester02",
+                "P@ssw0rd!",
+                "취향탐험가",
+                "taste@example.com",
+                "ev_signup-token",
+                List.of(
+                        new SubmitRequiredAgreementsCommand.AgreementConsentCommand("TERMS_OF_SERVICE", "2026-04-10"),
+                        new SubmitRequiredAgreementsCommand.AgreementConsentCommand("PRIVACY_POLICY", "2026-04-10")
+                )
+        );
+        UpdateMemberTasteProfileCommand tasteProfileCommand = new UpdateMemberTasteProfileCommand(
+                List.of(1L),
+                List.of(101L),
+                List.of(1001L)
+        );
+        Member savedMember = Member.builder()
+                .id(2L)
+                .loginId("tester02")
+                .passwordHash("encoded-password")
+                .email("taste@example.com")
+                .nickname("취향탐험가")
+                .memberRole(MemberRole.MEMBER)
+                .status(MemberStatus.ACTIVE)
+                .social(false)
+                .build();
+        AttributeCategory attributeCategory = new AttributeCategory(CategoryType.FLAVOR, "SPICY", "매운맛", 10);
+        Ingredient ingredient = new Ingredient("PEANUT", "땅콩", true, 10);
+        MenuItem menuItem = new MenuItem("PORK_CUTLET", "돈까스", "바삭한 돼지고기 튀김");
+
+        when(memberRepository.existsByNickname("취향탐험가")).thenReturn(false);
+        when(memberRepository.existsByEmailAndSocialFalseAndStatus("taste@example.com", MemberStatus.ACTIVE))
+                .thenReturn(false);
+        when(passwordEncoder.encode("P@ssw0rd!")).thenReturn("encoded-password");
+        when(memberRepository.saveAndFlush(any(Member.class))).thenReturn(savedMember);
+        when(requiredAgreementRequestValidator.validateAndIndex(any())).thenReturn(Map.of(
+                AgreementType.TERMS_OF_SERVICE, "2026-04-10",
+                AgreementType.PRIVACY_POLICY, "2026-04-10"
+        ));
+        when(attributeCategoryRepository.findAllByIdInAndActiveTrue(List.of(1L)))
+                .thenReturn(List.of(attributeCategory));
+        when(ingredientRepository.findAllByIdInAndActiveTrue(List.of(101L))).thenReturn(List.of(ingredient));
+        when(menuItemRepository.findAllByIdInAndActiveTrue(List.of(1001L))).thenReturn(List.of(menuItem));
+        when(memberTasteProfileRepository.saveAndFlush(any(MemberTasteProfile.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        RegisterLocalMemberResult result = memberService.registerLocalMemberV2(
+                new RegisterLocalMemberV2Command(memberCommand, tasteProfileCommand)
+        );
+
+        assertThat(result.memberId()).isEqualTo(2L);
+        verify(memberAgreementRepository, times(2)).save(any(MemberAgreement.class));
+        verify(memberTasteProfileRepository).saveAndFlush(any(MemberTasteProfile.class));
+        verify(memberTasteProfileCategoryRepository).saveAll(any());
+        verify(memberTasteProfileRestrictionIngredientRepository).saveAll(any());
+        verify(memberTasteProfileDislikedMenuItemRepository).saveAll(any());
+        verify(memberTasteProfileCategoryRepository, never()).deleteAllInBatch(any());
+        verify(memberTasteProfileRestrictionIngredientRepository, never()).deleteAllInBatch(any());
+        verify(memberTasteProfileDislikedMenuItemRepository, never()).deleteAllInBatch(any());
+    }
+
+    @Test
     @DisplayName("회원 가입 저장 충돌은 MEMBER_DUPLICATE_LOGIN_ID로 번역한다")
     void createMemberTranslatesIntegrityViolationToDuplicateLoginId() {
         CreateMemberCommand command = new CreateMemberCommand("tester01", "P@ssw0rd!");
@@ -409,12 +475,6 @@ class MemberServiceImplTest {
                 List.of(attributeCategory));
         when(ingredientRepository.findAllByIdInAndActiveTrue(List.of(101L))).thenReturn(List.of(ingredient));
         when(menuItemRepository.findAllByIdInAndActiveTrue(List.of(1001L))).thenReturn(List.of(menuItem));
-        when(memberTasteProfileCategoryRepository.findAllByProfileId(savedProfile.getId())).thenReturn(
-                Collections.emptyList());
-        when(memberTasteProfileRestrictionIngredientRepository.findAllByProfileId(savedProfile.getId())).thenReturn(
-                Collections.emptyList());
-        when(memberTasteProfileDislikedMenuItemRepository.findAllByProfileId(savedProfile.getId())).thenReturn(
-                Collections.emptyList());
         when(memberTasteProfileCategoryRepository.findAllByProfileIdOrderByDisplay(savedProfile.getId()))
                 .thenReturn(List.of(new MemberTasteProfileCategory(savedProfile, attributeCategory)));
         when(memberTasteProfileRestrictionIngredientRepository.findAllByProfileIdOrderByDisplay(savedProfile.getId()))

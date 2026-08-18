@@ -41,6 +41,7 @@ public class MemberController implements MemberApi {
     private final MemberService memberService;
     private final MemberMapper memberMapper;
 
+    @Deprecated
     @Override
     @PostMapping("/signup")
     public ApiResponse<RegisterLocalMemberResponse> registerLocalMember(
@@ -53,6 +54,7 @@ public class MemberController implements MemberApi {
         return ApiResponse.success(response);
     }
 
+    @Deprecated
     @Override
     @PostMapping
     public ApiResponse<CreateMemberResponse> createMember(@Valid @RequestBody CreateMemberRequest request) {

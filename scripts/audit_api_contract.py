@@ -60,7 +60,7 @@ def parse_backend_endpoints(root: Path) -> list[Endpoint]:
     api_root = root / "src" / "main" / "java" / "matchuri" / "backend" / "api"
     endpoints: list[Endpoint] = []
 
-    for source in sorted(api_root.rglob("*Controller.java")):
+    for source in sorted(api_root.rglob("*Controller*.java")):
         text = source.read_text(encoding="utf-8")
         class_match = re.search(r"\bclass\s+\w+", text)
         class_prefix = text[: class_match.start()] if class_match else text
@@ -71,7 +71,7 @@ def parse_backend_endpoints(root: Path) -> list[Endpoint]:
         for match in pattern.finditer(text):
             method_path = normalize_path(annotation_value(match.group(0)))
             full_path = normalize_path(base + ("" if method_path == "/" else method_path))
-            if not full_path.startswith("/api/v1/") and full_path != "/api/v1":
+            if not re.match(r"^/api/v\d+(?:/|$)", full_path):
                 continue
             endpoints.append(
                 Endpoint(
@@ -143,7 +143,7 @@ def report(root: Path) -> tuple[str, bool]:
     lines = [
         "# Backend API Contract Audit",
         "",
-        f"- Backend `/api/v1` endpoints: {len(endpoints)}",
+        f"- Backend versioned API endpoints: {len(endpoints)}",
         f"- OpenAPI operation metadata entries: {len(metadata)}",
         f"- Duplicate backend endpoint keys: {len(duplicate_endpoints)}",
         f"- Duplicate OpenAPI metadata keys: {len(duplicate_metadata)}",

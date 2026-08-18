@@ -3,6 +3,7 @@ package matchuri.backend.domain.member.service;
 import matchuri.backend.domain.member.command.CreateMemberCommand;
 import matchuri.backend.domain.member.command.PutMemberLocationCommand;
 import matchuri.backend.domain.member.command.RegisterLocalMemberCommand;
+import matchuri.backend.domain.member.command.RegisterLocalMemberV2Command;
 import matchuri.backend.domain.member.command.UpdateMemberBasicInfoCommand;
 import matchuri.backend.domain.member.command.UpdateMemberPasswordCommand;
 import matchuri.backend.domain.member.command.UpdateMemberTasteProfileCommand;
@@ -24,6 +25,8 @@ public interface MemberService {
     boolean existsByNickname(String nickname);
 
     RegisterLocalMemberResult registerLocalMember(RegisterLocalMemberCommand command);
+
+    RegisterLocalMemberResult registerLocalMemberV2(RegisterLocalMemberV2Command command);
 
     CreateMemberResult createMember(CreateMemberCommand command);
 

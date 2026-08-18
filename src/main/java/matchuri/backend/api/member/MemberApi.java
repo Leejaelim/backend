@@ -43,6 +43,7 @@ public interface MemberApi {
 
     @Operation(
             summary = "자체 회원가입 통합",
+            deprecated = true,
             description = """
                     자체 회원가입에서 `loginId`, `password`, `nickname`, 검증된 `email`, 필수 약관 동의를 하나의 요청으로 원자적으로 처리합니다.
                     
@@ -52,6 +53,7 @@ public interface MemberApi {
                     - 회원 생성 전에 `SIGNUP` 목적의 `emailVerificationToken`이 필요합니다.
                     - 한 이메일에 여러 자체 로그인 ID는 허용하지 않습니다.
                     - 처리 중 하나라도 실패하면 회원과 약관 동의 기록은 저장되지 않습니다.
+                    - 초기 취향 프로필까지 함께 저장하는 신규 가입은 `POST /api/v2/members/signup`을 사용합니다.
                     """
     )
     @SecurityRequirements
@@ -185,6 +187,7 @@ public interface MemberApi {
 
     @Operation(
             summary = "회원 가입 레거시 생성",
+            deprecated = true,
             description = """
                     일반 회원 계정을 최소 정보(`loginId`, `password`)만으로 생성합니다.
                     
