@@ -153,6 +153,7 @@ public class OpenApiConfig {
                 key("/api/v1/members/exists/nickname/{nickname}", PathItem.HttpMethod.GET),
                 meta("AUTH.040.000", "01 Auth"));
         metadata.put(key("/api/v1/members/signup", PathItem.HttpMethod.POST), meta("AUTH.050.000", "01 Auth"));
+        metadata.put(key("/api/v2/members/signup", PathItem.HttpMethod.POST), meta("AUTH.050.500", "01 Auth"));
         metadata.put(key("/api/v1/auth/oauth2/{provider}", PathItem.HttpMethod.GET), meta("AUTH.060.000", "01 Auth"));
         metadata.put(
                 key("/api/v1/auth/oauth2/exchange", PathItem.HttpMethod.POST),

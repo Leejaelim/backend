@@ -274,6 +274,111 @@ class MemberAuthIntegrationTest {
     }
 
     @Test
+    @DisplayName("자체 회원가입 v2는 회원과 약관, 초기 취향 프로필을 원자적으로 저장한다")
+    void registerLocalMemberV2WithTasteProfile() throws Exception {
+        AttributeCategory attributeCategory = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FLAVOR, "SIGNUP_SPICY", "가입 매운맛", 10)
+        );
+        Ingredient ingredient = ingredientRepository.save(
+                new Ingredient("SIGNUP_PEANUT", "가입 땅콩", true, 10)
+        );
+        MenuItem menuItem = menuItemRepository.save(
+                new MenuItem("SIGNUP_PORK_CUTLET", "가입 돈까스", "가입용 돈까스")
+        );
+        String emailVerificationToken = issueSignupEmailVerificationToken("signup-v2@example.com");
+
+        mockMvc.perform(post("/api/v2/members/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "signup-v2-user",
+                                  "password": "P@ssw0rd!",
+                                  "nickname": "취향가입자",
+                                  "email": "signup-v2@example.com",
+                                  "emailVerificationToken": "%s",
+                                  "agreements": [
+                                    {
+                                      "agreementType": "TERMS_OF_SERVICE",
+                                      "agreementVersion": "2026-04-10"
+                                    },
+                                    {
+                                      "agreementType": "PRIVACY_POLICY",
+                                      "agreementVersion": "2026-04-10"
+                                    }
+                                  ],
+                                  "tasteProfile": {
+                                    "attributeCategoryIds": [%d],
+                                    "restrictionIngredientIds": [%d],
+                                    "dislikedMenuItemIds": [%d]
+                                  }
+                                }
+                                """.formatted(
+                                emailVerificationToken,
+                                attributeCategory.getId(),
+                                ingredient.getId(),
+                                menuItem.getId()
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.loginId").value("signup-v2-user"))
+                .andExpect(jsonPath("$.data.email").value("signup-v2@example.com"))
+                .andExpect(jsonPath("$.data.nickname").value("취향가입자"))
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+
+        Member member = memberRepository.findByLoginId("signup-v2-user").orElseThrow();
+        MemberTasteProfile profile = memberTasteProfileRepository.findByMemberId(member.getId()).orElseThrow();
+        assertThat(memberAgreementRepository.count()).isEqualTo(2);
+        assertThat(memberTasteProfileCategoryRepository.findAllByProfileId(profile.getId())).hasSize(1);
+        assertThat(memberTasteProfileRestrictionIngredientRepository.findAllByProfileId(profile.getId())).hasSize(1);
+        assertThat(memberTasteProfileDislikedMenuItemRepository.findAllByProfileId(profile.getId())).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("자체 회원가입 v2는 취향 프로필 검증 실패 시 회원과 약관, 이메일 token 사용을 롤백한다")
+    void registerLocalMemberV2RollsBackWhenTasteProfileIsInvalid() throws Exception {
+        String emailVerificationToken = issueSignupEmailVerificationToken("signup-v2-rollback@example.com");
+
+        mockMvc.perform(post("/api/v2/members/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "signup-v2-rollback",
+                                  "password": "P@ssw0rd!",
+                                  "nickname": "취향롤백",
+                                  "email": "signup-v2-rollback@example.com",
+                                  "emailVerificationToken": "%s",
+                                  "agreements": [
+                                    {
+                                      "agreementType": "TERMS_OF_SERVICE",
+                                      "agreementVersion": "2026-04-10"
+                                    },
+                                    {
+                                      "agreementType": "PRIVACY_POLICY",
+                                      "agreementVersion": "2026-04-10"
+                                    }
+                                  ],
+                                  "tasteProfile": {
+                                    "attributeCategoryIds": [999999],
+                                    "restrictionIngredientIds": [],
+                                    "dislikedMenuItemIds": []
+                                  }
+                                }
+                                """.formatted(emailVerificationToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("MEMBER_INVALID_TASTE_ATTRIBUTE_CATEGORY"));
+
+        assertThat(memberRepository.findByLoginId("signup-v2-rollback")).isEmpty();
+        assertThat(memberAgreementRepository.count()).isZero();
+        assertThat(memberTasteProfileRepository.count()).isZero();
+        assertThat(emailVerificationRepository.findByVerificationTokenHash(
+                emailVerificationTokenGenerator.hashToken(emailVerificationToken)
+        )).isPresent()
+                .get()
+                .extracting(EmailVerification::getVerificationTokenUsedAt)
+                .isNull();
+    }
+
+    @Test
     @DisplayName("내 개인 위치 PUT은 생성과 전체 교체를 처리하고 GET은 최신 위치를 반환한다")
     void putAndGetMyLocation() throws Exception {
         String accessToken = createFullyOnboardedMember("location-user");

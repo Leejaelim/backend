@@ -10,6 +10,8 @@ import matchuri.backend.domain.auth.support.verification.EmailVerificationTokenV
 import matchuri.backend.domain.member.command.CreateMemberCommand;
 import matchuri.backend.domain.member.command.PutMemberLocationCommand;
 import matchuri.backend.domain.member.command.RegisterLocalMemberCommand;
+import matchuri.backend.domain.member.command.RegisterLocalMemberV2Command;
+import matchuri.backend.domain.member.command.SubmitRequiredAgreementsCommand;
 import matchuri.backend.domain.member.command.UpdateMemberBasicInfoCommand;
 import matchuri.backend.domain.member.command.UpdateMemberPasswordCommand;
 import matchuri.backend.domain.member.command.UpdateMemberTasteProfileCommand;
@@ -127,20 +129,35 @@ public class MemberServiceImpl implements MemberService {
     @Override
     @Transactional
     public RegisterLocalMemberResult registerLocalMember(RegisterLocalMemberCommand command) {
+        Member member = saveMember(command);
+        saveRequiredAgreement(member, command.agreements());
+        return RegisterLocalMemberResult.from(member);
+    }
+
+    @Override
+    @Transactional
+    public RegisterLocalMemberResult registerLocalMemberV2(RegisterLocalMemberV2Command command) {
+        Member member = saveMember(command.member());
+        saveRequiredAgreement(member, command.member().agreements());
+        initializeTasteProfile(member, command.tasteProfile());
+        return RegisterLocalMemberResult.from(member);
+    }
+
+    private Member saveMember(RegisterLocalMemberCommand command) {
         String loginId = command.loginId();
 
         emailVerificationTokenVerifier.verifySignupToken(command.email(), command.emailVerificationToken());
         validateEmailDuplication(command.email());
 
         String passwordHash = passwordEncoder.encode(command.password());
-        Member member = createLocalMember(loginId, passwordHash, command.nickname(), command.email());
+        return createLocalMember(loginId, passwordHash, command.nickname(), command.email());
+    }
 
-        requiredAgreementRequestValidator.validateAndIndex(command.agreements())
+    private void saveRequiredAgreement(Member member, List<SubmitRequiredAgreementsCommand.AgreementConsentCommand> agreements) {
+        requiredAgreementRequestValidator.validateAndIndex(agreements)
                 .forEach((agreementType, agreementVersion) ->
                         memberAgreementRepository.save(MemberAgreement.create(member, agreementType, agreementVersion))
                 );
-
-        return RegisterLocalMemberResult.from(member);
     }
 
     @Override
@@ -249,26 +266,9 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public MemberTasteUpdateResult updateMyTasteProfile(Long memberId, UpdateMemberTasteProfileCommand command) {
         Member member = memberReader.getActiveMember(memberId);
-        List<Long> attributeCategoryIds = command.attributeCategoryIds();
-        List<Long> restrictionIngredientIds = command.restrictionIngredientIds();
-        List<Long> dislikedMenuItemIds = command.dislikedMenuItemIds();
-
-        validateNoDuplicateIds(attributeCategoryIds, MemberErrorCode.DUPLICATE_TASTE_ATTRIBUTE_CATEGORY);
-        validateNoDuplicateIds(restrictionIngredientIds, MemberErrorCode.DUPLICATE_TASTE_RESTRICTION_INGREDIENT);
-        validateNoDuplicateIds(dislikedMenuItemIds, MemberErrorCode.DUPLICATE_TASTE_DISLIKED_MENU_ITEM);
-
-        Map<Long, AttributeCategory> attributeCategoriesById = loadActiveAttributeCategories(attributeCategoryIds);
-        Map<Long, Ingredient> ingredientsById = loadActiveIngredients(restrictionIngredientIds);
-        Map<Long, MenuItem> menuItemsById = loadActiveMenuItems(dislikedMenuItemIds);
-
         MemberTasteProfile tasteProfile = memberTasteProfileRepository.findByMemberId(member.getId())
-                .orElseGet(() -> memberTasteProfileRepository.saveAndFlush(
-                        new MemberTasteProfile(member, MemberTasteProfileSummaryResult.DEFAULT_PROFILE_VERSION)
-                ));
-
-        replaceAttributeCategoryMappings(tasteProfile, attributeCategoryIds, attributeCategoriesById);
-        replaceRestrictionIngredientMappings(tasteProfile, restrictionIngredientIds, ingredientsById);
-        replaceDislikedMenuItemMappings(tasteProfile, dislikedMenuItemIds, menuItemsById);
+                .map(profile -> replaceTasteProfile(profile, command))
+                .orElseGet(() -> initializeTasteProfile(member, command));
 
         Long openPersonalRecommendationId =
                 personalRecommendationRepository
@@ -380,18 +380,51 @@ public class MemberServiceImpl implements MemberService {
                 .collect(Collectors.toMap(MenuItem::getId, Function.identity()));
     }
 
-    private void replaceAttributeCategoryMappings(
-            MemberTasteProfile tasteProfile,
-            List<Long> attributeCategoryIds,
-            Map<Long, AttributeCategory> attributeCategoriesById
-    ) {
-        memberTasteProfileCategoryRepository.deleteAllInBatch(
-                memberTasteProfileCategoryRepository.findAllByProfileId(tasteProfile.getId())
+    private MemberTasteProfile initializeTasteProfile(Member member, UpdateMemberTasteProfileCommand command) {
+        TasteProfileReferences references = resolveTasteProfileReferences(command);
+        MemberTasteProfile tasteProfile = memberTasteProfileRepository.saveAndFlush(
+                new MemberTasteProfile(member, MemberTasteProfileSummaryResult.DEFAULT_PROFILE_VERSION)
         );
+        saveTasteProfileMappings(tasteProfile, command, references);
+        return tasteProfile;
+    }
 
-        if (attributeCategoryIds.isEmpty()) {
-            return;
-        }
+    private MemberTasteProfile replaceTasteProfile(
+            MemberTasteProfile tasteProfile,
+            UpdateMemberTasteProfileCommand command
+    ) {
+        TasteProfileReferences references = resolveTasteProfileReferences(command);
+        deleteTasteProfileMappings(tasteProfile);
+        saveTasteProfileMappings(tasteProfile, command, references);
+        return tasteProfile;
+    }
+
+    private TasteProfileReferences resolveTasteProfileReferences(UpdateMemberTasteProfileCommand command) {
+        validateNoDuplicateIds(command.attributeCategoryIds(), MemberErrorCode.DUPLICATE_TASTE_ATTRIBUTE_CATEGORY);
+        validateNoDuplicateIds(command.restrictionIngredientIds(), MemberErrorCode.DUPLICATE_TASTE_RESTRICTION_INGREDIENT);
+        validateNoDuplicateIds(command.dislikedMenuItemIds(), MemberErrorCode.DUPLICATE_TASTE_DISLIKED_MENU_ITEM);
+
+        return new TasteProfileReferences(
+                loadActiveAttributeCategories(command.attributeCategoryIds()),
+                loadActiveIngredients(command.restrictionIngredientIds()),
+                loadActiveMenuItems(command.dislikedMenuItemIds())
+        );
+    }
+
+    private void deleteTasteProfileMappings(MemberTasteProfile tasteProfile) {
+        memberTasteProfileCategoryRepository.deleteAllInBatch(memberTasteProfileCategoryRepository.findAllByProfileId(tasteProfile.getId()));
+        memberTasteProfileRestrictionIngredientRepository.deleteAllInBatch(memberTasteProfileRestrictionIngredientRepository.findAllByProfileId(tasteProfile.getId()));
+        memberTasteProfileDislikedMenuItemRepository.deleteAllInBatch(memberTasteProfileDislikedMenuItemRepository.findAllByProfileId(tasteProfile.getId()));
+    }
+
+    private void saveTasteProfileMappings(MemberTasteProfile tasteProfile, UpdateMemberTasteProfileCommand command, TasteProfileReferences references) {
+        saveAttributeCategoryMappings(tasteProfile, command.attributeCategoryIds(), references.attributeCategoriesById());
+        saveRestrictionIngredientMappings(tasteProfile, command.restrictionIngredientIds(), references.ingredientsById());
+        saveDislikedMenuItemMappings(tasteProfile, command.dislikedMenuItemIds(), references.menuItemsById());
+    }
+
+    private void saveAttributeCategoryMappings(MemberTasteProfile tasteProfile, List<Long> attributeCategoryIds, Map<Long, AttributeCategory> attributeCategoriesById) {
+        if (attributeCategoryIds.isEmpty()) return;
 
         memberTasteProfileCategoryRepository.saveAll(
                 attributeCategoryIds.stream()
@@ -403,18 +436,8 @@ public class MemberServiceImpl implements MemberService {
         );
     }
 
-    private void replaceRestrictionIngredientMappings(
-            MemberTasteProfile tasteProfile,
-            List<Long> restrictionIngredientIds,
-            Map<Long, Ingredient> ingredientsById
-    ) {
-        memberTasteProfileRestrictionIngredientRepository.deleteAllInBatch(
-                memberTasteProfileRestrictionIngredientRepository.findAllByProfileId(tasteProfile.getId())
-        );
-
-        if (restrictionIngredientIds.isEmpty()) {
-            return;
-        }
+    private void saveRestrictionIngredientMappings(MemberTasteProfile tasteProfile, List<Long> restrictionIngredientIds, Map<Long, Ingredient> ingredientsById) {
+        if (restrictionIngredientIds.isEmpty()) return;
 
         memberTasteProfileRestrictionIngredientRepository.saveAll(
                 restrictionIngredientIds.stream()
@@ -426,18 +449,8 @@ public class MemberServiceImpl implements MemberService {
         );
     }
 
-    private void replaceDislikedMenuItemMappings(
-            MemberTasteProfile tasteProfile,
-            List<Long> dislikedMenuItemIds,
-            Map<Long, MenuItem> menuItemsById
-    ) {
-        memberTasteProfileDislikedMenuItemRepository.deleteAllInBatch(
-                memberTasteProfileDislikedMenuItemRepository.findAllByProfileId(tasteProfile.getId())
-        );
-
-        if (dislikedMenuItemIds.isEmpty()) {
-            return;
-        }
+    private void saveDislikedMenuItemMappings(MemberTasteProfile tasteProfile, List<Long> dislikedMenuItemIds, Map<Long, MenuItem> menuItemsById) {
+        if (dislikedMenuItemIds.isEmpty()) return;
 
         memberTasteProfileDislikedMenuItemRepository.saveAll(
                 dislikedMenuItemIds.stream()
@@ -447,5 +460,12 @@ public class MemberServiceImpl implements MemberService {
                         ))
                         .toList()
         );
+    }
+
+    private record TasteProfileReferences(
+            Map<Long, AttributeCategory> attributeCategoriesById,
+            Map<Long, Ingredient> ingredientsById,
+            Map<Long, MenuItem> menuItemsById
+    ) {
     }
 }

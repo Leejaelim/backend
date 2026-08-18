@@ -4,6 +4,7 @@ import matchuri.backend.api.auth.dto.response.LoginResponse;
 import matchuri.backend.api.auth.dto.response.LogoutResponse;
 import matchuri.backend.api.common.dto.OnboardingStatusResponse;
 import matchuri.backend.api.member.dto.request.RegisterLocalMemberRequest;
+import matchuri.backend.api.member.dto.request.RegisterLocalMemberV2Request;
 import matchuri.backend.api.member.dto.request.PutMemberLocationRequest;
 import matchuri.backend.api.member.dto.request.UpdateMemberPasswordRequest;
 import matchuri.backend.api.member.dto.request.UpdateMemberTasteProfileRequest;
@@ -28,6 +29,7 @@ import matchuri.backend.domain.auth.result.LogoutResult;
 import matchuri.backend.domain.member.command.CreateMemberCommand;
 import matchuri.backend.domain.member.command.PutMemberLocationCommand;
 import matchuri.backend.domain.member.command.RegisterLocalMemberCommand;
+import matchuri.backend.domain.member.command.RegisterLocalMemberV2Command;
 import matchuri.backend.domain.member.command.SubmitRequiredAgreementsCommand;
 import matchuri.backend.domain.member.command.UpdateMemberBasicInfoCommand;
 import matchuri.backend.domain.member.command.UpdateMemberPasswordCommand;
@@ -96,6 +98,29 @@ public class MemberMapper {
                         ))
                         .toList()
         );
+    }
+
+    public RegisterLocalMemberV2Command toRegisterLocalMemberV2Command(RegisterLocalMemberV2Request request) {
+        var memberCommand = new RegisterLocalMemberCommand(
+                request.loginId(),
+                request.password(),
+                request.nickname(),
+                request.email(),
+                request.emailVerificationToken(),
+                request.agreements().stream()
+                        .map(agreement -> new SubmitRequiredAgreementsCommand.AgreementConsentCommand(
+                                agreement.agreementType(),
+                                agreement.agreementVersion()
+                        ))
+                        .toList()
+        );
+        var tasteProfileCommand = new UpdateMemberTasteProfileCommand(
+                request.tasteProfile().attributeCategoryIds(),
+                request.tasteProfile().restrictionIngredientIds(),
+                request.tasteProfile().dislikedMenuItemIds()
+        );
+
+        return new RegisterLocalMemberV2Command(memberCommand, tasteProfileCommand);
     }
 
     public RegisterLocalMemberResponse toRegisterLocalMemberResponse(RegisterLocalMemberResult result) {

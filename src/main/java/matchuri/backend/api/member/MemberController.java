@@ -53,6 +53,7 @@ public class MemberController implements MemberApi {
         return ApiResponse.success(response);
     }
 
+    @Deprecated
     @Override
     @PostMapping
     public ApiResponse<CreateMemberResponse> createMember(@Valid @RequestBody CreateMemberRequest request) {
