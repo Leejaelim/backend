@@ -36,6 +36,7 @@ import matchuri.backend.api.member.dto.response.UpdateMemberPasswordResponse;
 import matchuri.backend.api.member.dto.response.UpdateMemberResponse;
 import matchuri.backend.api.member.dto.response.WithdrawMemberResponse;
 import matchuri.backend.global.api.ApiResponse;
+import matchuri.backend.global.security.AuthenticatedMemberId;
 
 @Tag(name = "Member", description = "회원 관련 공개/인증 API")
 public interface MemberApi {
@@ -454,7 +455,7 @@ public interface MemberApi {
                     )
             )
     })
-    ApiResponse<MemberProfileResponse> getMyProfile();
+    ApiResponse<MemberProfileResponse> getMyProfile(@AuthenticatedMemberId Long memberId);
 
     @Operation(
             summary = "내 개인 위치 조회",
@@ -514,7 +515,7 @@ public interface MemberApi {
                     })
             )
     })
-    ApiResponse<MemberLocationResponse> getMyLocation();
+    ApiResponse<MemberLocationResponse> getMyLocation(@AuthenticatedMemberId Long memberId);
 
     @Operation(
             summary = "내 개인 위치 전체 교체 저장",
@@ -591,7 +592,10 @@ public interface MemberApi {
                     })
             )
     })
-    ApiResponse<MemberLocationResponse> putMyLocation(PutMemberLocationRequest request);
+    ApiResponse<MemberLocationResponse> putMyLocation(
+            @AuthenticatedMemberId Long memberId,
+            PutMemberLocationRequest request
+    );
 
     @Operation(
             summary = "내 취향 프로필 조회",
@@ -697,7 +701,7 @@ public interface MemberApi {
                     )
             )
     })
-    ApiResponse<MemberTasteProfileSummaryResponse> getMyTasteProfile();
+    ApiResponse<MemberTasteProfileSummaryResponse> getMyTasteProfile(@AuthenticatedMemberId Long memberId);
 
     @Operation(
             summary = "내 기본 정보 수정",
@@ -710,7 +714,10 @@ public interface MemberApi {
                     - 닉네임 수정 성공 시 닉네임 온보딩 완료 상태로 처리됩니다.
                     - 성공 시 최신 수정 시각(`updatedAt`)을 반환합니다.
                     """)
-    ApiResponse<UpdateMemberResponse> updateMyProfile(UpdateMemberBasicInfoRequest request);
+    ApiResponse<UpdateMemberResponse> updateMyProfile(
+            @AuthenticatedMemberId Long memberId,
+            UpdateMemberBasicInfoRequest request
+    );
 
     @Operation(
             summary = "내 비밀번호 변경",
@@ -777,7 +784,10 @@ public interface MemberApi {
                     )
             )
     })
-    ApiResponse<UpdateMemberPasswordResponse> updateMyPassword(UpdateMemberPasswordRequest request);
+    ApiResponse<UpdateMemberPasswordResponse> updateMyPassword(
+            @AuthenticatedMemberId Long memberId,
+            UpdateMemberPasswordRequest request
+    );
 
     @Operation(
             summary = "내 취향 프로필 전체 교체 저장",
@@ -970,7 +980,10 @@ public interface MemberApi {
                     )
             )
     })
-    ApiResponse<MemberTasteProfileUpdateResponse> updateMyTasteProfile(UpdateMemberTasteProfileRequest request);
+    ApiResponse<MemberTasteProfileUpdateResponse> updateMyTasteProfile(
+            @AuthenticatedMemberId Long memberId,
+            UpdateMemberTasteProfileRequest request
+    );
 
     @Operation(
             summary = "회원 탈퇴",
@@ -981,5 +994,5 @@ public interface MemberApi {
                     - 탈퇴 후 같은 계정으로 다시 로그인할 수 없습니다.
                     - 이미 발급된 access token이 남아 있어도 이후 보호 API에서는 비활성 회원으로 거절됩니다.
                     """)
-    ApiResponse<WithdrawMemberResponse> withdraw();
+    ApiResponse<WithdrawMemberResponse> withdraw(@AuthenticatedMemberId Long memberId);
 }

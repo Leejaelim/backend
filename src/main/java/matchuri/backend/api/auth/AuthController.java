@@ -16,6 +16,7 @@ import matchuri.backend.domain.member.entity.SocialProviderType;
 import matchuri.backend.global.api.ApiResponse;
 import matchuri.backend.global.exception.AuthenticationException;
 import matchuri.backend.global.exception.BusinessException;
+import matchuri.backend.global.security.AuthenticatedMemberId;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -67,11 +68,15 @@ public class AuthController implements AuthApi {
 
     @Override
     @PostMapping("/logout")
-    public ApiResponse<LogoutResponse> logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+    public ApiResponse<LogoutResponse> logout(
+            @AuthenticatedMemberId Long memberId,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse
+    ) {
         String refreshToken = refreshTokenCookieService.resolveRefreshToken(httpRequest)
                 .orElse(null);
 
-        var result = authService.logout(refreshToken, resolveClientIp(httpRequest));
+        var result = authService.logout(memberId, refreshToken, resolveClientIp(httpRequest));
         LogoutResponse response = memberMapper.toLogoutResponse(result);
 
         refreshTokenCookieService.clearRefreshToken(httpResponse);

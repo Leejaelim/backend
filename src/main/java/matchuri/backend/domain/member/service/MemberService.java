@@ -27,19 +27,19 @@ public interface MemberService {
 
     CreateMemberResult createMember(CreateMemberCommand command);
 
-    MemberProfileResult getMyProfile();
+    MemberProfileResult getMyProfile(Long memberId);
 
-    @Nullable MemberLocationResult getMyLocation();
+    @Nullable MemberLocationResult getMyLocation(Long memberId);
 
-    MemberLocationResult putMyLocation(PutMemberLocationCommand command);
+    MemberLocationResult putMyLocation(Long memberId, PutMemberLocationCommand command);
 
-    MemberTasteProfileSummaryResult getMyTasteProfile();
+    MemberTasteProfileSummaryResult getMyTasteProfile(Long memberId);
 
-    UpdateMemberResult updateMyProfile(UpdateMemberBasicInfoCommand command);
+    UpdateMemberResult updateMyProfile(Long memberId, UpdateMemberBasicInfoCommand command);
 
-    UpdateMemberPasswordResult updateMyPassword(UpdateMemberPasswordCommand command);
+    UpdateMemberPasswordResult updateMyPassword(Long memberId, UpdateMemberPasswordCommand command);
 
-    MemberTasteUpdateResult updateMyTasteProfile(UpdateMemberTasteProfileCommand command);
+    MemberTasteUpdateResult updateMyTasteProfile(Long memberId, UpdateMemberTasteProfileCommand command);
 
-    WithdrawMemberResult withdraw();
+    WithdrawMemberResult withdraw(Long memberId);
 }

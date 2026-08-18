@@ -7,6 +7,7 @@ import matchuri.backend.api.memberagreement.dto.response.RequiredAgreementStatus
 import matchuri.backend.api.memberagreement.dto.response.SubmitRequiredAgreementsResponse;
 import matchuri.backend.domain.member.service.MemberAgreementService;
 import matchuri.backend.global.api.ApiResponse;
+import matchuri.backend.global.security.AuthenticatedMemberId;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,20 +24,26 @@ public class MemberAgreementController implements MemberAgreementApi {
 
     @Override
     @GetMapping("/required-status")
-    public ApiResponse<RequiredAgreementStatusResponse> getRequiredAgreementStatus() {
+    public ApiResponse<RequiredAgreementStatusResponse> getRequiredAgreementStatus(
+            @AuthenticatedMemberId Long memberId
+    ) {
         return ApiResponse.success(
-                memberAgreementMapper.toResponse(memberAgreementService.getRequiredAgreementStatus())
+                memberAgreementMapper.toResponse(memberAgreementService.getRequiredAgreementStatus(memberId))
         );
     }
 
     @Override
     @PostMapping("/consents")
     public ApiResponse<SubmitRequiredAgreementsResponse> submitRequiredAgreements(
+            @AuthenticatedMemberId Long memberId,
             @Valid @RequestBody SubmitRequiredAgreementsRequest request
     ) {
         return ApiResponse.success(
                 memberAgreementMapper.toResponse(
-                        memberAgreementService.submitRequiredAgreements(memberAgreementMapper.toCommand(request))
+                        memberAgreementService.submitRequiredAgreements(
+                                memberId,
+                                memberAgreementMapper.toCommand(request)
+                        )
                 )
         );
     }

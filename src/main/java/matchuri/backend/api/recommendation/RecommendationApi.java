@@ -30,6 +30,7 @@ import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationRe
 import matchuri.backend.api.recommendation.dto.response.SelectPersonalRecommendationResponse;
 import matchuri.backend.global.api.ApiResponse;
 import matchuri.backend.global.api.PageResponse;
+import matchuri.backend.global.security.AuthenticatedMemberId;
 
 @Tag(name = "Personal Recommendation", description = "개인 메뉴 추천 API")
 public interface RecommendationApi {
@@ -118,6 +119,7 @@ public interface RecommendationApi {
             )
     })
     ApiResponse<PageResponse<PersonalRecommendationResponse>> getMyPersonalRecommendationList(
+            @AuthenticatedMemberId Long memberId,
             @Parameter(description = "0부터 시작하는 페이지 번호입니다.", example = "0")
             @Min(0)
             Integer page,
@@ -176,6 +178,7 @@ public interface RecommendationApi {
             )
     })
     ApiResponse<PersonalRecommendationRequestResponse> createPersonalRecommendation(
+            @AuthenticatedMemberId Long memberId,
             @Valid
             CreatePersonalRecommendationRequest request
     );
@@ -237,6 +240,7 @@ public interface RecommendationApi {
             )
     })
     ApiResponse<PersonalRecommendationRequestResponse> rerollPersonalRecommendation(
+            @AuthenticatedMemberId Long memberId,
             Long requestId,
             @Valid
             RerollPersonalRecommendationRequest request
@@ -275,7 +279,10 @@ public interface RecommendationApi {
                     )
             )
     })
-    ApiResponse<PersonalRecommendationDetailResponse> getPersonalRecommendation(Long requestId);
+    ApiResponse<PersonalRecommendationDetailResponse> getPersonalRecommendation(
+            @AuthenticatedMemberId Long memberId,
+            Long requestId
+    );
 
     @Operation(
             summary = "개인 추천 후보 목록 조회",
@@ -310,7 +317,10 @@ public interface RecommendationApi {
                     )
             )
     })
-    ApiResponse<PersonalRecommendationCandidateListResponse> getPersonalRecommendationCandidates(Long requestId);
+    ApiResponse<PersonalRecommendationCandidateListResponse> getPersonalRecommendationCandidates(
+            @AuthenticatedMemberId Long memberId,
+            Long requestId
+    );
 
     @Operation(
             summary = "개인 추천 후보 선택",
@@ -372,6 +382,7 @@ public interface RecommendationApi {
             )
     })
     ApiResponse<SelectPersonalRecommendationResponse> selectPersonalRecommendationCandidate(
+            @AuthenticatedMemberId Long memberId,
             Long requestId,
             @Valid
             SelectPersonalRecommendationRequest request

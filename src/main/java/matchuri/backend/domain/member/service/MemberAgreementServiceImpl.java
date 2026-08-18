@@ -14,7 +14,7 @@ import matchuri.backend.domain.member.result.SubmitRequiredAgreementsResult;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementRequestValidator;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementRevisionResolver;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementVersions;
-import matchuri.backend.domain.member.support.member.ActiveMemberReader;
+import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.member.support.onboarding.OnboardingStatusResolver;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,19 +28,22 @@ public class MemberAgreementServiceImpl implements MemberAgreementService {
     private final RequiredAgreementRequestValidator requiredAgreementRequestValidator;
     private final JwtTokenProvider jwtTokenProvider;
     private final RequiredAgreementRevisionResolver requiredAgreementRevisionResolver;
-    private final ActiveMemberReader activeMemberReader;
+    private final MemberReader memberReader;
     private final OnboardingStatusResolver onboardingStatusResolver;
 
     @Override
-    public RequiredAgreementStatusResult getRequiredAgreementStatus() {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public RequiredAgreementStatusResult getRequiredAgreementStatus(Long memberId) {
+        Member member = memberReader.getActiveMember(memberId);
         return requiredAgreementRevisionResolver.calculateStatus(member.getId());
     }
 
     @Override
     @Transactional
-    public SubmitRequiredAgreementsResult submitRequiredAgreements(SubmitRequiredAgreementsCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public SubmitRequiredAgreementsResult submitRequiredAgreements(
+            Long memberId,
+            SubmitRequiredAgreementsCommand command
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
 
         Map<AgreementType, String> requestedVersions = requiredAgreementRequestValidator.validateAndIndex(
                 command.agreements());

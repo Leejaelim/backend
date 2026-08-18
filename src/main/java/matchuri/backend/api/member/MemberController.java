@@ -22,6 +22,7 @@ import matchuri.backend.api.member.dto.response.WithdrawMemberResponse;
 import matchuri.backend.api.member.mapper.MemberMapper;
 import matchuri.backend.domain.member.service.MemberService;
 import matchuri.backend.global.api.ApiResponse;
+import matchuri.backend.global.security.AuthenticatedMemberId;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -84,34 +85,35 @@ public class MemberController implements MemberApi {
 
     @Override
     @GetMapping("/me")
-    public ApiResponse<MemberProfileResponse> getMyProfile() {
-        var myProfile = memberService.getMyProfile();
-        MemberProfileResponse response = memberMapper.toMemberProfileResponse(myProfile);
+    public ApiResponse<MemberProfileResponse> getMyProfile(@AuthenticatedMemberId Long memberId) {
+        var myProfile = memberService.getMyProfile(memberId);
+        var response = memberMapper.toMemberProfileResponse(myProfile);
 
         return ApiResponse.success(response);
     }
 
     @Override
     @GetMapping("/me/location")
-    public ApiResponse<MemberLocationResponse> getMyLocation() {
-        var result = memberService.getMyLocation();
+    public ApiResponse<MemberLocationResponse> getMyLocation(@AuthenticatedMemberId Long memberId) {
+        var result = memberService.getMyLocation(memberId);
         return ApiResponse.success(result == null ? null : memberMapper.toMemberLocationResponse(result));
     }
 
     @Override
     @PutMapping("/me/location")
     public ApiResponse<MemberLocationResponse> putMyLocation(
+            @AuthenticatedMemberId Long memberId,
             @Valid @RequestBody PutMemberLocationRequest request
     ) {
         var command = memberMapper.toPutMemberLocationCommand(request);
-        var result = memberService.putMyLocation(command);
+        var result = memberService.putMyLocation(memberId, command);
         return ApiResponse.success(memberMapper.toMemberLocationResponse(result));
     }
 
     @Override
     @GetMapping("/me/taste-profile")
-    public ApiResponse<MemberTasteProfileSummaryResponse> getMyTasteProfile() {
-        var myTasteProfile = memberService.getMyTasteProfile();
+    public ApiResponse<MemberTasteProfileSummaryResponse> getMyTasteProfile(@AuthenticatedMemberId Long memberId) {
+        var myTasteProfile = memberService.getMyTasteProfile(memberId);
         MemberTasteProfileSummaryResponse response = memberMapper.toMemberTasteProfileSummaryResponse(myTasteProfile);
 
         return ApiResponse.success(response);
@@ -119,9 +121,12 @@ public class MemberController implements MemberApi {
 
     @Override
     @PatchMapping("/me")
-    public ApiResponse<UpdateMemberResponse> updateMyProfile(@Valid @RequestBody UpdateMemberBasicInfoRequest request) {
+    public ApiResponse<UpdateMemberResponse> updateMyProfile(
+            @AuthenticatedMemberId Long memberId,
+            @Valid @RequestBody UpdateMemberBasicInfoRequest request
+    ) {
         var command = memberMapper.toUpdateMemberBasicInfoCommand(request.nickname());
-        var result = memberService.updateMyProfile(command);
+        var result = memberService.updateMyProfile(memberId, command);
         UpdateMemberResponse response = memberMapper.toUpdateMemberResponse(result);
 
         return ApiResponse.success(response);
@@ -130,10 +135,11 @@ public class MemberController implements MemberApi {
     @Override
     @PatchMapping("/me/password")
     public ApiResponse<UpdateMemberPasswordResponse> updateMyPassword(
+            @AuthenticatedMemberId Long memberId,
             @Valid @RequestBody UpdateMemberPasswordRequest request
     ) {
         var command = memberMapper.toUpdateMemberPasswordCommand(request);
-        var result = memberService.updateMyPassword(command);
+        var result = memberService.updateMyPassword(memberId, command);
         UpdateMemberPasswordResponse response = memberMapper.toUpdateMemberPasswordResponse(result);
 
         return ApiResponse.success(response);
@@ -142,17 +148,18 @@ public class MemberController implements MemberApi {
     @Override
     @PatchMapping("/me/taste-profile")
     public ApiResponse<MemberTasteProfileUpdateResponse> updateMyTasteProfile(
+            @AuthenticatedMemberId Long memberId,
             @Valid @RequestBody UpdateMemberTasteProfileRequest request) {
         var command = memberMapper.toUpdateMemberTasteProfileCommand(request);
-        var result = memberService.updateMyTasteProfile(command);
+        var result = memberService.updateMyTasteProfile(memberId, command);
         var response = memberMapper.toMemberTasteProfileUpdateResponse(result);
         return ApiResponse.success(response);
     }
 
     @Override
     @DeleteMapping("/me")
-    public ApiResponse<WithdrawMemberResponse> withdraw() {
-        var withdraw = memberService.withdraw();
+    public ApiResponse<WithdrawMemberResponse> withdraw(@AuthenticatedMemberId Long memberId) {
+        var withdraw = memberService.withdraw(memberId);
         WithdrawMemberResponse response = memberMapper.toWithdrawMemberResponse(withdraw);
 
         return ApiResponse.success(response);

@@ -13,7 +13,7 @@ public interface AuthService {
 
     LoginResult refresh(String refreshToken, String clientIp);
 
-    LogoutResult logout(String refreshToken, String clientIp);
+    LogoutResult logout(Long memberId, String refreshToken, String clientIp);
 
     SocialProviderType resolveOAuth2LoginProvider(String provider);
 

@@ -18,7 +18,7 @@ import matchuri.backend.domain.behavior.entity.MemberMenuAction;
 import matchuri.backend.domain.behavior.repository.MemberMenuActionRepository;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberTasteProfile;
-import matchuri.backend.domain.member.support.member.ActiveMemberReader;
+import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.menu.entity.AttributeCategory;
 import matchuri.backend.domain.menu.entity.Ingredient;
 import matchuri.backend.domain.menu.entity.MenuAttributeCategory;
@@ -71,7 +71,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private static final long RECENT_SKIPPED_MENU_EXCLUSION_HOURS = 24;
     private static final String GUEST_PARTICIPANT_KEY = "guest";
 
-    private final ActiveMemberReader activeMemberReader;
+    private final MemberReader memberReader;
     private final PersonalRecommendationRepository personalRecommendationRepository;
     private final AttributeCategoryRepository attributeCategoryRepository;
     private final IngredientRepository ingredientRepository;
@@ -93,8 +93,8 @@ public class RecommendationServiceImpl implements RecommendationService {
      */
     @Override
     @Transactional
-    public PersonalRecommendationResult createPersonalRecommendation(String contextJson) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public PersonalRecommendationResult createPersonalRecommendation(Long memberId, String contextJson) {
+        Member member = memberReader.getActiveMember(memberId);
 
         List<PersonalRecommendation> recommendations =
                 personalRecommendationRepository.findByMemberIdOrderByRequestedAtDescIdDesc(member.getId());
@@ -106,11 +106,12 @@ public class RecommendationServiceImpl implements RecommendationService {
     @Override
     @Transactional(noRollbackFor = BusinessException.class)
     public PersonalRecommendationResult rerollPersonalRecommendation(
+            Long memberId,
             Long sourcePersonalRecommendationId,
             PersonalRecommendationRerollType rerollType,
             String contextJson
     ) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+        Member member = memberReader.getActiveMember(memberId);
         PersonalRecommendation sourceRecommendation = getOwnedPersonalRecommendation(sourcePersonalRecommendationId,
                 member.getId());
 
@@ -241,8 +242,8 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     @Override
-    public PersonalRecommendationResult getPersonalRecommendation(Long personalRecommendationId) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public PersonalRecommendationResult getPersonalRecommendation(Long memberId, Long personalRecommendationId) {
+        Member member = memberReader.getActiveMember(memberId);
         PersonalRecommendation personalRecommendation = getOwnedPersonalRecommendation(personalRecommendationId,
                 member.getId());
         expirePersonalRecommendationIfNeeded(personalRecommendation, LocalDateTime.now());
@@ -255,9 +256,10 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     @Override
     public List<PersonalRecommendationCandidateResult> getPersonalRecommendationCandidates(
+            Long memberId,
             Long personalRecommendationId
     ) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+        Member member = memberReader.getActiveMember(memberId);
         PersonalRecommendation personalRecommendation = getOwnedPersonalRecommendation(personalRecommendationId,
                 member.getId());
         expirePersonalRecommendationIfNeeded(personalRecommendation, LocalDateTime.now());
@@ -273,8 +275,12 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     @Override
-    public Page<@NonNull PersonalRecommendationSummaryResult> getMyPersonalRecommendations(int page, int size) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public Page<@NonNull PersonalRecommendationSummaryResult> getMyPersonalRecommendations(
+            Long memberId,
+            int page,
+            int size
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
         expireOpenPersonalRecommendations(member.getId(), LocalDateTime.now());
 
         return personalRecommendationRepository
@@ -284,8 +290,11 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     @Override
     @Transactional(noRollbackFor = BusinessException.class)
-    public SelectPersonalRecommendationResult selectPersonalRecommendationCandidate(SelectPersonalRecommendationCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public SelectPersonalRecommendationResult selectPersonalRecommendationCandidate(
+            Long memberId,
+            SelectPersonalRecommendationCommand command
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
         PersonalRecommendation personalRecommendation = getOwnedPersonalRecommendation(command.personalRecommendationId(),
                 member.getId());
 

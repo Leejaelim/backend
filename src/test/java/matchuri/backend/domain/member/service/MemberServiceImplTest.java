@@ -47,7 +47,7 @@ import matchuri.backend.domain.member.result.OnboardingStatusResult;
 import matchuri.backend.domain.member.result.RegisterLocalMemberResult;
 import matchuri.backend.domain.member.result.UpdateMemberResult;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementRequestValidator;
-import matchuri.backend.domain.member.support.member.ActiveMemberReader;
+import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.member.support.onboarding.OnboardingStatusResolver;
 import matchuri.backend.domain.menu.entity.AttributeCategory;
 import matchuri.backend.domain.menu.entity.CategoryType;
@@ -109,7 +109,7 @@ class MemberServiceImplTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private ActiveMemberReader activeMemberReader;
+    private MemberReader memberReader;
 
     @Mock
     private OnboardingStatusResolver onboardingStatusResolver;
@@ -134,12 +134,12 @@ class MemberServiceImplTest {
                 " 서울 강남구 테헤란로 123 "
         );
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberLocationRepository.findByMemberId(1L)).thenReturn(Optional.empty());
         when(memberLocationRepository.save(any(MemberLocation.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        MemberLocationResult result = memberService.putMyLocation(command);
+        MemberLocationResult result = memberService.putMyLocation(1L, command);
 
         assertThat(result.latitude()).isEqualByComparingTo("37.4980950");
         assertThat(result.longitude()).isEqualByComparingTo("127.0276100");
@@ -159,10 +159,10 @@ class MemberServiceImplTest {
                 new BigDecimal("35.1795543"), new BigDecimal("129.0756416"), 2000, "부산광역시 중구"
         );
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberLocationRepository.findByMemberId(1L)).thenReturn(Optional.of(location));
 
-        MemberLocationResult result = memberService.putMyLocation(command);
+        MemberLocationResult result = memberService.putMyLocation(1L, command);
 
         assertThat(result.latitude()).isEqualByComparingTo("35.1795543");
         assertThat(result.longitude()).isEqualByComparingTo("129.0756416");
@@ -174,10 +174,10 @@ class MemberServiceImplTest {
     @DisplayName("저장된 개인 위치가 없으면 null을 반환한다")
     void getMyLocationReturnsNullWhenMissing() {
         Member member = Member.builder().id(1L).memberRole(MemberRole.MEMBER).status(MemberStatus.ACTIVE).build();
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberLocationRepository.findByMemberId(1L)).thenReturn(Optional.empty());
 
-        assertThat(memberService.getMyLocation()).isNull();
+        assertThat(memberService.getMyLocation(1L)).isNull();
     }
 
     @Test
@@ -256,10 +256,10 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberRepository.existsByNickname("중복닉네임")).thenReturn(true);
 
-        assertThatThrownBy(() -> memberService.updateMyProfile(new UpdateMemberBasicInfoCommand("중복닉네임")))
+        assertThatThrownBy(() -> memberService.updateMyProfile(1L, new UpdateMemberBasicInfoCommand("중복닉네임")))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MemberErrorCode.DUPLICATE_NICKNAME);
@@ -277,11 +277,11 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(onboardingStatusResolver.resolve(member))
                 .thenReturn(new OnboardingStatusResult(true, true, true, OnboardingNextStep.READY));
 
-        UpdateMemberResult result = memberService.updateMyProfile(new UpdateMemberBasicInfoCommand("현재닉네임"));
+        UpdateMemberResult result = memberService.updateMyProfile(1L, new UpdateMemberBasicInfoCommand("현재닉네임"));
 
         assertThat(result.id()).isEqualTo(1L);
         assertThat(result.onboarding().nextStep()).isEqualTo(OnboardingNextStep.READY);
@@ -302,9 +302,9 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
 
-        MemberProfileResult result = memberService.getMyProfile();
+        MemberProfileResult result = memberService.getMyProfile(1L);
 
         assertThat(result.id()).isEqualTo(1L);
         assertThat(result.loginId()).isEqualTo("tester01");
@@ -324,10 +324,10 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberTasteProfileRepository.findByMemberId(1L)).thenReturn(java.util.Optional.empty());
 
-        MemberTasteProfileSummaryResult result = memberService.getMyTasteProfile();
+        MemberTasteProfileSummaryResult result = memberService.getMyTasteProfile(1L);
 
         assertThat(result.memberId()).isEqualTo(1L);
         assertThat(result.profileVersion()).isEqualTo(MemberTasteProfileSummaryResult.DEFAULT_PROFILE_VERSION);
@@ -352,7 +352,7 @@ class MemberServiceImplTest {
         Ingredient ingredient = new Ingredient("PEANUT", "땅콩", true, 10);
         MenuItem menuItem = new MenuItem("PORK_CUTLET", "돈까스", "바삭한 돼지고기 튀김");
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberTasteProfileRepository.findByMemberId(1L)).thenReturn(java.util.Optional.of(profile));
         when(memberTasteProfileCategoryRepository.findAllByProfileIdOrderByDisplay(profile.getId()))
                 .thenReturn(List.of(new MemberTasteProfileCategory(profile, attributeCategory)));
@@ -361,7 +361,7 @@ class MemberServiceImplTest {
         when(memberTasteProfileDislikedMenuItemRepository.findAllByProfileIdOrderByDisplay(profile.getId()))
                 .thenReturn(List.of(new MemberTasteProfileDislikedMenuItem(profile, menuItem)));
 
-        MemberTasteProfileSummaryResult result = memberService.getMyTasteProfile();
+        MemberTasteProfileSummaryResult result = memberService.getMyTasteProfile(1L);
 
         assertThat(result.memberId()).isEqualTo(1L);
         assertThat(result.profileVersion()).isEqualTo("v2");
@@ -402,7 +402,7 @@ class MemberServiceImplTest {
         MenuItem menuItem = new MenuItem("PORK_CUTLET", "돈까스", "바삭한 돼지고기 튀김");
         MemberTasteProfile savedProfile = new MemberTasteProfile(member, "v1");
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberTasteProfileRepository.findByMemberId(1L)).thenReturn(Optional.empty());
         when(memberTasteProfileRepository.saveAndFlush(any(MemberTasteProfile.class))).thenReturn(savedProfile);
         when(attributeCategoryRepository.findAllByIdInAndActiveTrue(List.of(1L))).thenReturn(
@@ -423,6 +423,7 @@ class MemberServiceImplTest {
                 .thenReturn(List.of(new MemberTasteProfileDislikedMenuItem(savedProfile, menuItem)));
 
         MemberTasteUpdateResult result = memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(1L), List.of(101L), List.of(1001L))
         );
         MemberTasteProfileSummaryResult profile = result.profile();
@@ -451,7 +452,7 @@ class MemberServiceImplTest {
         MemberTasteProfile profile = new MemberTasteProfile(member, "v1");
         PersonalRecommendation openRecommendation = mock(PersonalRecommendation.class);
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberTasteProfileRepository.findByMemberId(1L)).thenReturn(Optional.of(profile));
         when(attributeCategoryRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
         when(ingredientRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
@@ -473,6 +474,7 @@ class MemberServiceImplTest {
         when(openRecommendation.getId()).thenReturn(9001L);
 
         MemberTasteUpdateResult result = memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(), List.of(), List.of())
         );
 
@@ -490,9 +492,10 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
 
         assertThatThrownBy(() -> memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(1L, 1L), List.of(), List.of())
         ))
                 .isInstanceOf(BusinessException.class)
@@ -511,9 +514,10 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
 
         assertThatThrownBy(() -> memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(), List.of(), List.of(1001L, 1001L))
         ))
                 .isInstanceOf(BusinessException.class)
@@ -532,11 +536,12 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(attributeCategoryRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
         when(ingredientRepository.findAllByIdInAndActiveTrue(List.of(999L))).thenReturn(List.of());
 
         assertThatThrownBy(() -> memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(), List.of(999L), List.of())
         ))
                 .isInstanceOf(BusinessException.class)
@@ -555,12 +560,13 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(attributeCategoryRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
         when(ingredientRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
         when(menuItemRepository.findAllByIdInAndActiveTrue(List.of(999L))).thenReturn(List.of());
 
         assertThatThrownBy(() -> memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(), List.of(), List.of(999L))
         ))
                 .isInstanceOf(BusinessException.class)
@@ -580,7 +586,7 @@ class MemberServiceImplTest {
                 .build();
         MemberTasteProfile profile = new MemberTasteProfile(member, "v1");
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberTasteProfileRepository.findByMemberId(1L)).thenReturn(Optional.of(profile));
         when(attributeCategoryRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
         when(ingredientRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
@@ -599,6 +605,7 @@ class MemberServiceImplTest {
                 List.of());
 
         MemberTasteUpdateResult result = memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(), List.of(), List.of())
         );
         MemberTasteProfileSummaryResult profileResult = result.profile();

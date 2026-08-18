@@ -63,6 +63,7 @@ import matchuri.backend.domain.group.entity.GroupInviteStatus;
 import matchuri.backend.domain.group.entity.GroupRoomStatus;
 import matchuri.backend.global.api.ApiResponse;
 import matchuri.backend.global.api.PageResponse;
+import matchuri.backend.global.security.AuthenticatedMemberId;
 
 @Tag(name = "Group Decision", description = "그룹 메뉴 의사결정 API")
 public interface GroupApi {
@@ -92,7 +93,10 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<CreateGroupResponse> createGroup(@Valid CreateGroupRequest request);
+    ApiResponse<CreateGroupResponse> createGroup(
+            @AuthenticatedMemberId Long memberId,
+            @Valid CreateGroupRequest request
+    );
 
     @Operation(
             summary = "내 그룹 목록 조회",
@@ -121,6 +125,7 @@ public interface GroupApi {
             )
     })
     ApiResponse<PageResponse<GroupSummaryResponse>> getMyGroups(
+            @AuthenticatedMemberId Long memberId,
             @Parameter(description = "그룹 상태 필터입니다. 생략하면 전체 상태를 조회합니다.", example = "ACTIVE")
             GroupRoomStatus status,
 
@@ -170,7 +175,7 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<GroupDetailResponse> getGroup(Long groupId);
+    ApiResponse<GroupDetailResponse> getGroup(@AuthenticatedMemberId Long memberId, Long groupId);
 
     @Operation(
             summary = "그룹 초대 링크 신규 발급",
@@ -203,7 +208,7 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<GroupInviteLinkResponse> createInviteLink(Long groupId);
+    ApiResponse<GroupInviteLinkResponse> createInviteLink(@AuthenticatedMemberId Long memberId, Long groupId);
 
     @Operation(
             summary = "그룹 초대 링크 재발급",
@@ -235,7 +240,7 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<GroupInviteLinkResponse> reissueInviteLink(Long groupId);
+    ApiResponse<GroupInviteLinkResponse> reissueInviteLink(@AuthenticatedMemberId Long memberId, Long groupId);
 
     @Operation(
             summary = "현재 그룹 초대 링크 조회",
@@ -266,7 +271,7 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<GroupInviteLinkResponse> getCurrentInviteLink(Long groupId);
+    ApiResponse<GroupInviteLinkResponse> getCurrentInviteLink(@AuthenticatedMemberId Long memberId, Long groupId);
 
     @Operation(
             summary = "닉네임 기반 그룹 초대 생성",
@@ -296,6 +301,7 @@ public interface GroupApi {
             )
     })
     ApiResponse<CreateNicknameGroupInviteResponse> createNicknameInvite(
+            @AuthenticatedMemberId Long memberId,
             @Valid CreateNicknameGroupInviteRequest request
     );
 
@@ -325,6 +331,7 @@ public interface GroupApi {
             )
     })
     ApiResponse<PageResponse<GroupInviteSummaryResponse>> getMyInvites(
+            @AuthenticatedMemberId Long memberId,
             @Parameter(description = "초대 상태 필터입니다. 생략하면 PENDING 초대만 조회합니다.", example = "PENDING")
             GroupInviteStatus status,
 
@@ -366,6 +373,7 @@ public interface GroupApi {
             )
     })
     ApiResponse<RespondGroupInviteResponse> respondGroupInvite(
+            @AuthenticatedMemberId Long memberId,
             Long inviteId,
             @Valid RespondGroupInviteRequest request
     );
@@ -400,6 +408,7 @@ public interface GroupApi {
             )
     })
     ApiResponse<UpdateGroupResponse> updateGroup(
+            @AuthenticatedMemberId Long memberId,
             Long groupId,
             @Valid UpdateGroupRequest request
     );
@@ -430,7 +439,10 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<JoinGroupResponse> joinGroup(@Valid JoinGroupRequest request);
+    ApiResponse<JoinGroupResponse> joinGroup(
+            @AuthenticatedMemberId Long memberId,
+            @Valid JoinGroupRequest request
+    );
 
     @Operation(
             summary = "초대 링크로 그룹 참여",
@@ -472,6 +484,7 @@ public interface GroupApi {
             )
     })
     ApiResponse<JoinGroupResponse> joinGroupByInviteLink(
+            @AuthenticatedMemberId Long memberId,
             @Valid JoinGroupByInviteLinkRequest request
     );
 
@@ -501,7 +514,7 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<LeaveGroupResponse> leaveGroup(Long groupId);
+    ApiResponse<LeaveGroupResponse> leaveGroup(@AuthenticatedMemberId Long memberId, Long groupId);
 
     @Operation(
             summary = "그룹 삭제",
@@ -530,7 +543,7 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<DeleteGroupResponse> deleteGroup(Long groupId);
+    ApiResponse<DeleteGroupResponse> deleteGroup(@AuthenticatedMemberId Long memberId, Long groupId);
 
     @Operation(
             summary = "그룹 추천 시작",
@@ -563,6 +576,7 @@ public interface GroupApi {
             )
     })
     ApiResponse<CreateGroupRecommendationResponse> createRecommendation(
+            @AuthenticatedMemberId Long memberId,
             Long groupId,
             @Valid CreateGroupRecommendationRequest request
     );
@@ -597,6 +611,7 @@ public interface GroupApi {
             )
     })
     ApiResponse<PageResponse<GroupRecommendationSummaryResponse>> getRecommendations(
+            @AuthenticatedMemberId Long memberId,
             Long groupId,
 
             @Parameter(description = "0부터 시작하는 페이지 번호입니다.", example = "0")
@@ -639,7 +654,11 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<GroupRecommendationSessionResponse> getRecommendation(Long groupId, Long sessionId);
+    ApiResponse<GroupRecommendationSessionResponse> getRecommendation(
+            @AuthenticatedMemberId Long memberId,
+            Long groupId,
+            Long sessionId
+    );
 
     @Operation(
             summary = "그룹 추천 후보 목록 조회",
@@ -681,7 +700,11 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<GroupRecommendationCandidateListResponse> getRecommendationCandidates(Long groupId, Long sessionId);
+    ApiResponse<GroupRecommendationCandidateListResponse> getRecommendationCandidates(
+            @AuthenticatedMemberId Long memberId,
+            Long groupId,
+            Long sessionId
+    );
 
     @Operation(
             summary = "그룹 추천 준비 상태 조회",
@@ -711,7 +734,11 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<GroupRecommendationReadinessResponse> getRecommendationReadiness(Long groupId, Long sessionId);
+    ApiResponse<GroupRecommendationReadinessResponse> getRecommendationReadiness(
+            @AuthenticatedMemberId Long memberId,
+            Long groupId,
+            Long sessionId
+    );
 
     @Operation(
             summary = "그룹 추천 준비 완료",
@@ -749,7 +776,11 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<ReadyGroupRecommendationResponse> readyRecommendation(Long groupId, Long sessionId);
+    ApiResponse<ReadyGroupRecommendationResponse> readyRecommendation(
+            @AuthenticatedMemberId Long memberId,
+            Long groupId,
+            Long sessionId
+    );
 
     @Operation(
             summary = "그룹 추천 재요청",
@@ -785,6 +816,7 @@ public interface GroupApi {
             )
     })
     ApiResponse<CreateGroupRecommendationResponse> rerollRecommendation(
+            @AuthenticatedMemberId Long memberId,
             Long groupId,
             Long sessionId,
             @Valid RerollGroupRecommendationRequest request
@@ -827,7 +859,12 @@ public interface GroupApi {
                     )
             )
     })
-    ApiResponse<GroupVoteResponse> vote(Long groupId, Long sessionId, @Valid VoteGroupRecommendationRequest request);
+    ApiResponse<GroupVoteResponse> vote(
+            @AuthenticatedMemberId Long memberId,
+            Long groupId,
+            Long sessionId,
+            @Valid VoteGroupRecommendationRequest request
+    );
 
     @Operation(
             summary = "그룹 추천 최종 메뉴 확정",
@@ -859,6 +896,7 @@ public interface GroupApi {
             )
     })
     ApiResponse<FinalizeGroupRecommendationResponse> finalizeRecommendation(
+            @AuthenticatedMemberId Long memberId,
             Long groupId,
             Long sessionId,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(

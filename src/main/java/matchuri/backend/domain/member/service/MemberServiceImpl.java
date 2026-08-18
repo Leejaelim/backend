@@ -39,7 +39,7 @@ import matchuri.backend.domain.member.result.UpdateMemberPasswordResult;
 import matchuri.backend.domain.member.result.UpdateMemberResult;
 import matchuri.backend.domain.member.result.WithdrawMemberResult;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementRequestValidator;
-import matchuri.backend.domain.member.support.member.ActiveMemberReader;
+import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.member.support.onboarding.OnboardingStatusResolver;
 import matchuri.backend.domain.menu.entity.AttributeCategory;
 import matchuri.backend.domain.menu.entity.Ingredient;
@@ -74,7 +74,7 @@ public class MemberServiceImpl implements MemberService {
     private final MenuItemRepository menuItemRepository;
     private final RequiredAgreementRequestValidator requiredAgreementRequestValidator;
     private final PasswordEncoder passwordEncoder;
-    private final ActiveMemberReader activeMemberReader;
+    private final MemberReader memberReader;
     private final OnboardingStatusResolver onboardingStatusResolver;
     private final EmailVerificationTokenVerifier emailVerificationTokenVerifier;
     private final PersonalRecommendationRepository personalRecommendationRepository;
@@ -158,15 +158,15 @@ public class MemberServiceImpl implements MemberService {
     }
 
     @Override
-    public MemberProfileResult getMyProfile() {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public MemberProfileResult getMyProfile(Long memberId) {
+        Member member = memberReader.getActiveMember(memberId);
 
         return MemberProfileResult.from(member);
     }
 
     @Override
-    public @Nullable MemberLocationResult getMyLocation() {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public @Nullable MemberLocationResult getMyLocation(Long memberId) {
+        Member member = memberReader.getActiveMember(memberId);
         MemberLocation location = memberLocationRepository.findByMemberId(member.getId()).orElse(null);
 
         return location == null ? null : MemberLocationResult.from(location);
@@ -174,8 +174,8 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     @Transactional
-    public MemberLocationResult putMyLocation(PutMemberLocationCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public MemberLocationResult putMyLocation(Long memberId, PutMemberLocationCommand command) {
+        Member member = memberReader.getActiveMember(memberId);
         MemberLocation location = memberLocationRepository.findByMemberId(member.getId()).orElse(null);
 
         if (location == null) {
@@ -195,8 +195,8 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     @Transactional
-    public MemberTasteProfileSummaryResult getMyTasteProfile() {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public MemberTasteProfileSummaryResult getMyTasteProfile(Long memberId) {
+        Member member = memberReader.getActiveMember(memberId);
 
         return memberTasteProfileRepository.findByMemberId(member.getId())
                 .map(tasteProfile -> MemberTasteProfileSummaryResult.of(
@@ -213,8 +213,8 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     @Transactional
-    public UpdateMemberResult updateMyProfile(UpdateMemberBasicInfoCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public UpdateMemberResult updateMyProfile(Long memberId, UpdateMemberBasicInfoCommand command) {
+        Member member = memberReader.getActiveMember(memberId);
 
         if (command.nickname() != null) {
             String nickname = command.nickname().isBlank() ? null : command.nickname();
@@ -233,8 +233,8 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     @Transactional
-    public UpdateMemberPasswordResult updateMyPassword(UpdateMemberPasswordCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public UpdateMemberPasswordResult updateMyPassword(Long memberId, UpdateMemberPasswordCommand command) {
+        Member member = memberReader.getActiveMember(memberId);
 
         if (member.getPasswordHash() == null
                 || !passwordEncoder.matches(command.currentPassword(), member.getPasswordHash())) {
@@ -247,8 +247,8 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     @Transactional
-    public MemberTasteUpdateResult updateMyTasteProfile(UpdateMemberTasteProfileCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public MemberTasteUpdateResult updateMyTasteProfile(Long memberId, UpdateMemberTasteProfileCommand command) {
+        Member member = memberReader.getActiveMember(memberId);
         List<Long> attributeCategoryIds = command.attributeCategoryIds();
         List<Long> restrictionIngredientIds = command.restrictionIngredientIds();
         List<Long> dislikedMenuItemIds = command.dislikedMenuItemIds();
@@ -293,8 +293,8 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     @Transactional
-    public WithdrawMemberResult withdraw() {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public WithdrawMemberResult withdraw(Long memberId) {
+        Member member = memberReader.getActiveMember(memberId);
         member.withdraw();
 
         return WithdrawMemberResult.from(member);

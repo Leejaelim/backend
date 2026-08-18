@@ -6,23 +6,17 @@ import matchuri.backend.domain.member.entity.MemberStatus;
 import matchuri.backend.domain.member.exception.MemberErrorCode;
 import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.global.exception.BusinessException;
-import matchuri.backend.global.security.AuthenticatedMember;
-import matchuri.backend.global.security.AuthenticationFacade;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class ActiveMemberReader {
+public class MemberReader {
 
     private final MemberRepository memberRepository;
-    private final AuthenticationFacade authenticationFacade;
 
-    public Member getCurrentAuthenticatedActiveMember() {
-        AuthenticatedMember authenticatedMember = authenticationFacade.getCurrentMember();
-        Member member = memberRepository.findById(authenticatedMember.memberId())
-                .orElseThrow(() -> new BusinessException(
-                        MemberErrorCode.NOT_FOUND, authenticatedMember.memberId()
-                ));
+    public Member getActiveMember(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(MemberErrorCode.NOT_FOUND, memberId));
 
         if (member.getStatus() != MemberStatus.ACTIVE) {
             throw new BusinessException(MemberErrorCode.INACTIVE_MEMBER, member.getId());
