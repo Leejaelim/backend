@@ -41,6 +41,7 @@ public class MemberController implements MemberApi {
     private final MemberService memberService;
     private final MemberMapper memberMapper;
 
+    @Deprecated
     @Override
     @PostMapping("/signup")
     public ApiResponse<RegisterLocalMemberResponse> registerLocalMember(

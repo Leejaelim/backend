@@ -187,6 +187,7 @@ public interface MemberApi {
 
     @Operation(
             summary = "회원 가입 레거시 생성",
+            deprecated = true,
             description = """
                     일반 회원 계정을 최소 정보(`loginId`, `password`)만으로 생성합니다.
                     
