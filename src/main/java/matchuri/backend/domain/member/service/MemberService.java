@@ -9,6 +9,7 @@ import matchuri.backend.domain.member.command.UpdateMemberPasswordCommand;
 import matchuri.backend.domain.member.command.UpdateMemberTasteProfileCommand;
 import matchuri.backend.domain.member.result.CreateMemberResult;
 import matchuri.backend.domain.member.result.MemberProfileResult;
+import matchuri.backend.domain.member.result.MemberProfileImageResult;
 import matchuri.backend.domain.member.result.MemberLocationResult;
 import matchuri.backend.domain.member.result.MemberTasteProfileSummaryResult;
 import matchuri.backend.domain.member.result.MemberTasteUpdateResult;
@@ -31,6 +32,8 @@ public interface MemberService {
     CreateMemberResult createMember(CreateMemberCommand command);
 
     MemberProfileResult getMyProfile(Long memberId);
+
+    MemberProfileImageResult setPresetProfileImage(Long memberId, Long presetProfileImageId);
 
     @Nullable MemberLocationResult getMyLocation(Long memberId);
 

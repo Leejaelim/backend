@@ -3,9 +3,12 @@ package matchuri.backend.infra.seed;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import matchuri.backend.domain.group.repository.GroupLocationRepository;
+import matchuri.backend.domain.image.repository.ImageAssetRepository;
+import matchuri.backend.domain.image.repository.PresetProfileImageRepository;
 import matchuri.backend.domain.group.repository.GroupRoomMemberRepository;
 import matchuri.backend.domain.group.repository.GroupRoomRepository;
 import matchuri.backend.domain.member.repository.MemberAgreementRepository;
+import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
@@ -40,6 +43,9 @@ class SeedDataInitializationIntegrationTest {
     private LocalSampleDataSeedService localSampleDataSeedService;
 
     @Autowired
+    private PresetProfileImageSeedService presetProfileImageSeedService;
+
+    @Autowired
     private AttributeCategoryRepository attributeCategoryRepository;
 
     @Autowired
@@ -59,6 +65,15 @@ class SeedDataInitializationIntegrationTest {
 
     @Autowired
     private MemberRepository memberRepository;
+
+    @Autowired
+    private MemberProfileImageRepository memberProfileImageRepository;
+
+    @Autowired
+    private PresetProfileImageRepository presetProfileImageRepository;
+
+    @Autowired
+    private ImageAssetRepository imageAssetRepository;
 
     @Autowired
     private MemberAgreementRepository memberAgreementRepository;
@@ -100,8 +115,10 @@ class SeedDataInitializationIntegrationTest {
                 .build());
 
         referenceDataSeedService.initialize();
+        presetProfileImageSeedService.initialize();
         localSampleDataSeedService.initialize();
         referenceDataSeedService.initialize();
+        presetProfileImageSeedService.initialize();
         localSampleDataSeedService.initialize();
 
         assertThat(attributeCategoryRepository.count()).isEqualTo(26);
@@ -110,8 +127,14 @@ class SeedDataInitializationIntegrationTest {
         assertThat(menuAttributeCategoryRepository.count()).isEqualTo(234);
         assertThat(menuIngredientRepository.count()).isEqualTo(130);
         assertThat(menuItemImageRepository.count()).isZero();
+        assertThat(imageAssetRepository.count()).isEqualTo(1);
+        assertThat(presetProfileImageRepository.count()).isEqualTo(1);
+        assertThat(presetProfileImageRepository.findActiveDefaults()).singleElement()
+                .satisfies(preset -> assertThat(preset.getImageAsset().getObjectKey())
+                        .isEqualTo("preset-profile/spagetti-v1.png"));
 
         assertThat(memberRepository.count()).isEqualTo(5);
+        assertThat(memberProfileImageRepository.count()).isEqualTo(5);
         assertThat(memberAgreementRepository.count()).isEqualTo(10);
         assertThat(memberTasteProfileRepository.count()).isEqualTo(4);
         assertThat(memberTasteProfileCategoryRepository.count()).isEqualTo(16);

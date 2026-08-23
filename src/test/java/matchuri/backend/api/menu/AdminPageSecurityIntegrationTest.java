@@ -100,6 +100,8 @@ class AdminPageSecurityIntegrationTest {
                 .andExpect(status().isOk());
         mockMvc.perform(get("/admin/ingredients").session(session))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/admin/preset-profile-images").session(session))
+                .andExpect(status().isOk());
     }
 
     private void createAdmin() {

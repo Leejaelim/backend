@@ -36,6 +36,11 @@ import matchuri.backend.domain.auth.exception.AuthErrorCode;
 import matchuri.backend.domain.auth.service.CaptchaPurpose;
 import matchuri.backend.domain.auth.service.CaptchaVerifier;
 import matchuri.backend.domain.auth.support.verification.EmailVerificationTokenGenerator;
+import matchuri.backend.domain.image.entity.ImageAsset;
+import matchuri.backend.domain.image.entity.ImageStorageProvider;
+import matchuri.backend.domain.image.entity.PresetProfileImage;
+import matchuri.backend.domain.image.repository.ImageAssetRepository;
+import matchuri.backend.domain.image.repository.PresetProfileImageRepository;
 import matchuri.backend.domain.member.entity.AgreementType;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberAgreement;
@@ -48,6 +53,7 @@ import matchuri.backend.domain.member.entity.MemberTasteProfileRestrictionIngred
 import matchuri.backend.domain.member.entity.SocialProviderType;
 import matchuri.backend.domain.member.repository.MemberAgreementRepository;
 import matchuri.backend.domain.member.repository.MemberLocationRepository;
+import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
@@ -89,6 +95,15 @@ class MemberAuthIntegrationTest {
 
     @Autowired
     private MemberRepository memberRepository;
+
+    @Autowired
+    private MemberProfileImageRepository memberProfileImageRepository;
+
+    @Autowired
+    private PresetProfileImageRepository presetProfileImageRepository;
+
+    @Autowired
+    private ImageAssetRepository imageAssetRepository;
 
     @Autowired
     private AuthRefreshTokenRepository authRefreshTokenRepository;
@@ -150,7 +165,26 @@ class MemberAuthIntegrationTest {
         attributeCategoryRepository.deleteAll();
         ingredientRepository.deleteAll();
         menuItemRepository.deleteAll();
+        memberProfileImageRepository.deleteAll();
         memberRepository.deleteAll();
+        presetProfileImageRepository.deleteAll();
+        imageAssetRepository.deleteAll();
+        createDefaultPresetProfileImage();
+    }
+
+    private void createDefaultPresetProfileImage() {
+        ImageAsset asset = imageAssetRepository.save(new ImageAsset(
+                ImageStorageProvider.CLOUDFLARE_R2,
+                "test-bucket",
+                "preset-profile/default.png",
+                "default.png",
+                "image/png",
+                1024,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                320,
+                320
+        ));
+        presetProfileImageRepository.save(new PresetProfileImage(asset, true));
     }
 
     @Test
@@ -208,8 +242,11 @@ class MemberAuthIntegrationTest {
     }
 
     @AfterEach
-    void cleanUpMemberLocations() {
+    void cleanUpMemberLocationsAndProfileImages() {
         memberLocationRepository.deleteAll();
+        memberProfileImageRepository.deleteAll();
+        presetProfileImageRepository.deleteAll();
+        imageAssetRepository.deleteAll();
     }
 
     @Test

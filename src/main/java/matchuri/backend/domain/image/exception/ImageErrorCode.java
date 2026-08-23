@@ -16,7 +16,10 @@ public enum ImageErrorCode implements ErrorCode {
     INVALID_RESOLUTION(HttpStatus.BAD_REQUEST, "이미지 해상도가 허용 범위를 벗어났습니다. width : {0}, height : {1}"),
     STORAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "이미지 저장소 업로드에 실패했습니다."),
     STORAGE_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "이미지 저장소 삭제에 실패했습니다."),
-    NOT_FOUND(HttpStatus.NOT_FOUND, "이미지를 찾을 수 없습니다. imageId : {0}");
+    NOT_FOUND(HttpStatus.NOT_FOUND, "이미지를 찾을 수 없습니다. imageId : {0}"),
+    PRESET_PROFILE_NOT_FOUND(HttpStatus.NOT_FOUND, "프리셋 프로필 이미지를 찾을 수 없습니다. presetProfileImageId : {0}"),
+    DEFAULT_PRESET_PROFILE_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "기본 프리셋 프로필 이미지가 설정되지 않았습니다."),
+    DEFAULT_PRESET_PROFILE_DELETE_NOT_ALLOWED(HttpStatus.CONFLICT, "기본 프리셋 프로필 이미지는 삭제할 수 없습니다. 다른 이미지를 기본으로 먼저 설정해 주세요.");
 
     private final HttpStatus httpStatus;
     private final String message;

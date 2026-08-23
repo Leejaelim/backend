@@ -16,6 +16,10 @@ public class ImageObjectKeyGenerator {
         );
     }
 
+    public String presetProfileImageKey(String contentType) {
+        return "preset-profile/%s%s".formatted(UUID.randomUUID(), extension(contentType));
+    }
+
     private String extension(String contentType) {
         return switch (contentType) {
             case "image/jpeg" -> ".jpg";

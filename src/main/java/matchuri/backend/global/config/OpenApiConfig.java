@@ -193,6 +193,9 @@ public class OpenApiConfig {
         metadata.put(
                 key("/api/v1/members/me/location", PathItem.HttpMethod.PUT),
                 meta("ONB.100.000", "02 Onboarding"));
+        metadata.put(
+                key("/api/v1/members/profile/preset-image", PathItem.HttpMethod.PUT),
+                meta("ONB.110.000", "02 Onboarding"));
 
         metadata.put(
                 key("/api/v1/attribute-categories", PathItem.HttpMethod.GET),
@@ -335,6 +338,18 @@ public class OpenApiConfig {
         metadata.put(
                 key("/api/v1/admin/menu-items/{menuItemId}/references", PathItem.HttpMethod.PATCH),
                 meta("ADMIN.150.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/preset-profile-images", PathItem.HttpMethod.GET),
+                meta("ADMIN.160.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/preset-profile-images", PathItem.HttpMethod.POST),
+                meta("ADMIN.170.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/preset-profile-images/{presetProfileImageId}", PathItem.HttpMethod.DELETE),
+                meta("ADMIN.180.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/preset-profile-images/{presetProfileImageId}/default", PathItem.HttpMethod.PUT),
+                meta("ADMIN.190.000", "09 Admin"));
 
         return metadata;
     }

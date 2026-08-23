@@ -11,6 +11,7 @@ import matchuri.backend.domain.member.entity.MemberRole;
 import matchuri.backend.domain.member.entity.MemberStatus;
 import matchuri.backend.domain.member.entity.SocialProviderType;
 import matchuri.backend.domain.member.repository.MemberRepository;
+import matchuri.backend.domain.member.support.profile.MemberProfileImageManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +26,9 @@ class OAuth2MemberServiceTest {
 
     @Mock
     private MemberRepository memberRepository;
+
+    @Mock
+    private MemberProfileImageManager memberProfileImageManager;
 
     @InjectMocks
     private OAuth2MemberService oAuth2MemberService;
@@ -82,6 +86,7 @@ class OAuth2MemberServiceTest {
         );
 
         verify(memberRepository).saveAndFlush(memberCaptor.capture());
+        verify(memberProfileImageManager).initializeDefault(memberCaptor.getValue());
         assertThat(memberCaptor.getValue().getNickname()).isEqualTo("example_google");
         assertThat(createdMember.getNickname()).isEqualTo("example_google");
     }

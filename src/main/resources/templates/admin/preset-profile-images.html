@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>프로필 프리셋 관리 - Matchuri Admin</title>
+    <style>
+        body { color: #1f2933; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; }
+        header { align-items: center; border-bottom: 1px solid #d9e2ec; display: flex; gap: 18px; justify-content: space-between; padding: 16px 24px; }
+        nav { display: flex; flex-wrap: wrap; gap: 10px; }
+        nav a { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; color: #1e3a8a; font-weight: 700; padding: 8px 11px; text-decoration: none; }
+        main { margin: 24px auto; max-width: 1120px; padding: 0 20px; }
+        .message { background: #e0f2fe; border-radius: 6px; margin-bottom: 16px; padding: 12px; }
+        .upload { align-items: end; background: #f8fafc; border: 1px solid #d9e2ec; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; padding: 16px; }
+        .upload label { color: #52606d; display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+        .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+        .card { border: 1px solid #d9e2ec; border-radius: 10px; overflow: hidden; }
+        .card img { aspect-ratio: 1; background: #f5f7fa; display: block; object-fit: cover; width: 100%; }
+        .body { padding: 14px; }
+        .badge { background: #dcfce7; border-radius: 999px; color: #166534; display: inline-block; font-size: 12px; font-weight: 800; padding: 4px 8px; }
+        dl { display: grid; font-size: 13px; gap: 6px 10px; grid-template-columns: 76px 1fr; margin: 12px 0; }
+        dt { color: #52606d; font-weight: 700; }
+        dd { margin: 0; overflow-wrap: anywhere; }
+        .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+        button { background: #2563eb; border: 0; border-radius: 6px; color: #fff; cursor: pointer; font-weight: 700; padding: 9px 12px; }
+        button.danger { background: #dc2626; }
+        button:disabled { background: #cbd5e1; cursor: not-allowed; }
+        .logout { background: transparent; color: #52606d; padding: 0; }
+        .empty { color: #52606d; padding: 28px 0; text-align: center; }
+    </style>
+</head>
+<body>
+<header>
+    <strong>Matchuri Admin</strong>
+    <nav>
+        <a th:href="@{/admin/menu-items}">Menus</a>
+        <a th:href="@{/admin/attribute-categories}">Categories</a>
+        <a th:href="@{/admin/ingredients}">Ingredients</a>
+        <a th:href="@{/admin/preset-profile-images}">Profiles</a>
+    </nav>
+    <form th:action="@{/admin/logout}" method="post">
+        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <button class="logout" type="submit">Logout</button>
+    </form>
+</header>
+<main>
+    <div class="message" th:if="${message}" th:text="${message}"></div>
+    <h1>프로필 프리셋 관리</h1>
+    <p>회원이 선택할 프리셋을 추가하고 온보딩 기본 이미지를 한 개만 지정합니다.</p>
+
+    <form class="upload" th:action="@{/admin/preset-profile-images}" method="post" enctype="multipart/form-data">
+        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <div>
+            <label for="file">새 이미지 (JPEG, PNG, WebP)</label>
+            <input id="file" name="file" type="file" accept="image/jpeg,image/png,image/webp" required>
+        </div>
+        <button type="submit">프리셋 추가</button>
+    </form>
+
+    <div class="empty" th:if="${#lists.isEmpty(presetProfileImages)}">
+        등록된 프리셋이 없습니다.
+    </div>
+    <div class="grid" th:unless="${#lists.isEmpty(presetProfileImages)}">
+        <article class="card" th:each="preset : ${presetProfileImages}">
+            <img th:src="${preset.imageUrl()}" th:alt="${'프로필 프리셋 ' + preset.id()}">
+            <div class="body">
+                <span class="badge" th:if="${preset.isDefault()}">기본 프로필</span>
+                <dl>
+                    <dt>ID</dt><dd th:text="${preset.id()}">1</dd>
+                    <dt>파일</dt><dd th:text="${preset.originalFilename()}">image.png</dd>
+                    <dt>크기</dt><dd th:text="${preset.width() + ' × ' + preset.height() + ' / ' + preset.contentLength() + ' bytes'}">1254 × 1254</dd>
+                    <dt>URL</dt><dd><a th:href="${preset.imageUrl()}" th:text="${preset.imageUrl()}" target="_blank" rel="noopener">URL</a></dd>
+                </dl>
+                <div class="actions">
+                    <form th:action="@{'/admin/preset-profile-images/' + ${preset.id()} + '/default'}" method="post">
+                        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <button type="submit" th:disabled="${preset.isDefault()}">기본으로 설정</button>
+                    </form>
+                    <form th:action="@{'/admin/preset-profile-images/' + ${preset.id()} + '/delete'}" method="post">
+                        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <button class="danger" type="submit" th:disabled="${preset.isDefault()}">삭제</button>
+                    </form>
+                </div>
+            </div>
+        </article>
+    </div>
+</main>
+</body>
+</html>
