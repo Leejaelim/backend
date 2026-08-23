@@ -35,6 +35,7 @@ import matchuri.backend.domain.member.entity.MemberTasteProfileRestrictionIngred
 import matchuri.backend.domain.member.exception.MemberErrorCode;
 import matchuri.backend.domain.member.repository.MemberAgreementRepository;
 import matchuri.backend.domain.member.repository.MemberLocationRepository;
+import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
@@ -51,6 +52,8 @@ import matchuri.backend.domain.member.result.UpdateMemberResult;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementRequestValidator;
 import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.member.support.onboarding.OnboardingStatusResolver;
+import matchuri.backend.domain.member.support.profile.MemberProfileImageManager;
+import matchuri.backend.domain.image.support.ImageUrlResolver;
 import matchuri.backend.domain.menu.entity.AttributeCategory;
 import matchuri.backend.domain.menu.entity.CategoryType;
 import matchuri.backend.domain.menu.entity.Ingredient;
@@ -82,6 +85,9 @@ class MemberServiceImplTest {
 
     @Mock
     private MemberLocationRepository memberLocationRepository;
+
+    @Mock
+    private MemberProfileImageRepository memberProfileImageRepository;
 
     @Mock
     private MemberTasteProfileRepository memberTasteProfileRepository;
@@ -121,6 +127,12 @@ class MemberServiceImplTest {
 
     @Mock
     private PersonalRecommendationRepository personalRecommendationRepository;
+
+    @Mock
+    private MemberProfileImageManager memberProfileImageManager;
+
+    @Mock
+    private ImageUrlResolver imageUrlResolver;
 
     @InjectMocks
     private MemberServiceImpl memberService;
@@ -226,6 +238,7 @@ class MemberServiceImplTest {
         assertThat(result.nickname()).isEqualTo("점심탐험가");
         verify(emailVerificationTokenVerifier).verifySignupToken("tester@example.com", "ev_signup-token");
         verify(memberRepository).saveAndFlush(any(Member.class));
+        verify(memberProfileImageManager).initializeDefault(savedMember);
         verify(requiredAgreementRequestValidator).validateAndIndex(command.agreements());
         verify(memberAgreementRepository, times(2)).save(any(MemberAgreement.class));
     }

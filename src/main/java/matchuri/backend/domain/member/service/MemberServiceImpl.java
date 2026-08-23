@@ -26,6 +26,7 @@ import matchuri.backend.domain.member.entity.MemberTasteProfileRestrictionIngred
 import matchuri.backend.domain.member.exception.MemberErrorCode;
 import matchuri.backend.domain.member.repository.MemberAgreementRepository;
 import matchuri.backend.domain.member.repository.MemberLocationRepository;
+import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
@@ -33,6 +34,7 @@ import matchuri.backend.domain.member.repository.MemberTasteProfileRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileRestrictionIngredientRepository;
 import matchuri.backend.domain.member.result.CreateMemberResult;
 import matchuri.backend.domain.member.result.MemberProfileResult;
+import matchuri.backend.domain.member.result.MemberProfileImageResult;
 import matchuri.backend.domain.member.result.MemberLocationResult;
 import matchuri.backend.domain.member.result.MemberTasteProfileSummaryResult;
 import matchuri.backend.domain.member.result.MemberTasteUpdateResult;
@@ -43,6 +45,9 @@ import matchuri.backend.domain.member.result.WithdrawMemberResult;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementRequestValidator;
 import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.member.support.onboarding.OnboardingStatusResolver;
+import matchuri.backend.domain.member.support.profile.MemberProfileImageManager;
+import matchuri.backend.domain.member.support.profile.MemberProfileImageManager.SelectedPresetProfileImage;
+import matchuri.backend.domain.image.support.ImageUrlResolver;
 import matchuri.backend.domain.menu.entity.AttributeCategory;
 import matchuri.backend.domain.menu.entity.Ingredient;
 import matchuri.backend.domain.menu.entity.MenuItem;
@@ -67,6 +72,7 @@ public class MemberServiceImpl implements MemberService {
     private final MemberRepository memberRepository;
     private final MemberAgreementRepository memberAgreementRepository;
     private final MemberLocationRepository memberLocationRepository;
+    private final MemberProfileImageRepository memberProfileImageRepository;
     private final MemberTasteProfileRepository memberTasteProfileRepository;
     private final MemberTasteProfileCategoryRepository memberTasteProfileCategoryRepository;
     private final MemberTasteProfileRestrictionIngredientRepository memberTasteProfileRestrictionIngredientRepository;
@@ -80,6 +86,8 @@ public class MemberServiceImpl implements MemberService {
     private final OnboardingStatusResolver onboardingStatusResolver;
     private final EmailVerificationTokenVerifier emailVerificationTokenVerifier;
     private final PersonalRecommendationRepository personalRecommendationRepository;
+    private final MemberProfileImageManager memberProfileImageManager;
+    private final ImageUrlResolver imageUrlResolver;
 
     @Override
     public boolean existsByLoginId(String loginId) {
@@ -177,8 +185,27 @@ public class MemberServiceImpl implements MemberService {
     @Override
     public MemberProfileResult getMyProfile(Long memberId) {
         Member member = memberReader.getActiveMember(memberId);
+        String profileImageUrl = memberProfileImageRepository.findByMemberId(member.getId())
+                .map(profileImage -> profileImage.getImageAsset().getObjectKey())
+                .map(imageUrlResolver::toPublicUrl)
+                .orElse(null);
 
-        return MemberProfileResult.from(member);
+        return MemberProfileResult.from(member, profileImageUrl);
+    }
+
+    @Override
+    @Transactional
+    public MemberProfileImageResult setPresetProfileImage(Long memberId, Long presetProfileImageId) {
+        Member member = memberReader.getActiveMember(memberId);
+        SelectedPresetProfileImage selected = memberProfileImageManager.selectPreset(member, presetProfileImageId);
+        memberProfileImageRepository.flush();
+
+        return new MemberProfileImageResult(
+                selected.memberProfileImage().getId(),
+                selected.presetProfileImage().getId(),
+                imageUrlResolver.toPublicUrl(selected.memberProfileImage().getImageAsset().getObjectKey()),
+                selected.memberProfileImage().getUpdatedAt()
+        );
     }
 
     @Override
@@ -304,15 +331,19 @@ public class MemberServiceImpl implements MemberService {
         validateLoginIdDuplication(null, loginId);
         validateNicknameDuplication(null, nickname);
 
+        Member savedMember;
         try {
             Member newMember = Member.createWithEncodedPassword(loginId, passwordHash, nickname, email);
-            return memberRepository.saveAndFlush(newMember);
+            savedMember = memberRepository.saveAndFlush(newMember);
         } catch (DataIntegrityViolationException exception) {
             if (nickname != null && memberRepository.existsByNickname(nickname)) {
                 throw new BusinessException(MemberErrorCode.DUPLICATE_NICKNAME, nickname);
             }
             throw new BusinessException(MemberErrorCode.DUPLICATE_LOGIN_ID, loginId);
         }
+
+        memberProfileImageManager.initializeDefault(savedMember);
+        return savedMember;
     }
 
     private void validateEmailDuplication(String email) {

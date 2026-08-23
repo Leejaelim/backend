@@ -5,12 +5,14 @@ import lombok.RequiredArgsConstructor;
 import matchuri.backend.api.member.dto.request.CreateMemberRequest;
 import matchuri.backend.api.member.dto.request.RegisterLocalMemberRequest;
 import matchuri.backend.api.member.dto.request.PutMemberLocationRequest;
+import matchuri.backend.api.member.dto.request.SetPresetProfileImageRequest;
 import matchuri.backend.api.member.dto.request.UpdateMemberBasicInfoRequest;
 import matchuri.backend.api.member.dto.request.UpdateMemberPasswordRequest;
 import matchuri.backend.api.member.dto.request.UpdateMemberTasteProfileRequest;
 import matchuri.backend.api.member.dto.response.CreateMemberResponse;
 import matchuri.backend.api.member.dto.response.LoginIdExistsResponse;
 import matchuri.backend.api.member.dto.response.MemberLocationResponse;
+import matchuri.backend.api.member.dto.response.MemberProfileImageResponse;
 import matchuri.backend.api.member.dto.response.MemberProfileResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteProfileSummaryResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteProfileUpdateResponse;
@@ -92,6 +94,16 @@ public class MemberController implements MemberApi {
         var response = memberMapper.toMemberProfileResponse(myProfile);
 
         return ApiResponse.success(response);
+    }
+
+    @Override
+    @PutMapping("/profile/preset-image")
+    public ApiResponse<MemberProfileImageResponse> setPresetProfileImage(
+            @AuthenticatedMemberId Long memberId,
+            @Valid @RequestBody SetPresetProfileImageRequest request
+    ) {
+        var result = memberService.setPresetProfileImage(memberId, request.presetProfileImageId());
+        return ApiResponse.success(memberMapper.toMemberProfileImageResponse(result));
     }
 
     @Override

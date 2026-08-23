@@ -11,6 +11,7 @@ import matchuri.backend.api.member.dto.request.UpdateMemberTasteProfileRequest;
 import matchuri.backend.api.member.dto.response.CreateMemberResponse;
 import matchuri.backend.api.member.dto.response.LoginIdExistsResponse;
 import matchuri.backend.api.member.dto.response.MemberLocationResponse;
+import matchuri.backend.api.member.dto.response.MemberProfileImageResponse;
 import matchuri.backend.api.member.dto.response.MemberProfileResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteAttributeCategoryResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteDislikedMenuItemResponse;
@@ -37,6 +38,7 @@ import matchuri.backend.domain.member.command.UpdateMemberTasteProfileCommand;
 import matchuri.backend.domain.member.entity.SocialProviderType;
 import matchuri.backend.domain.member.result.CreateMemberResult;
 import matchuri.backend.domain.member.result.MemberLocationResult;
+import matchuri.backend.domain.member.result.MemberProfileImageResult;
 import matchuri.backend.domain.member.result.MemberProfileResult;
 import matchuri.backend.domain.member.result.MemberTasteProfileSummaryResult;
 import matchuri.backend.domain.member.result.MemberTasteUpdateResult;
@@ -161,7 +163,17 @@ public class MemberMapper {
                 result.loginId(),
                 result.nickname(),
                 result.isSocial(),
-                result.email()
+                result.email(),
+                result.profileImageUrl()
+        );
+    }
+
+    public MemberProfileImageResponse toMemberProfileImageResponse(MemberProfileImageResult result) {
+        return new MemberProfileImageResponse(
+                result.profileImageId(),
+                result.presetProfileImageId(),
+                result.imageUrl(),
+                result.updatedAt()
         );
     }
 

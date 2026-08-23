@@ -1,0 +1,14 @@
+{
+  "presetProfileImages": [
+    {
+      "objectKey": "preset-profile/spagetti-v1.png",
+      "originalFilename": "spagetti-v1.png",
+      "contentType": "image/png",
+      "contentLength": 628206,
+      "checksum": "87799e52b551354ca444ce806785b9558bf53e4c4869f9f73789d650b47efbd4",
+      "width": 1254,
+      "height": 1254,
+      "isDefault": true
+    }
+  ]
+}

@@ -27,6 +27,7 @@
         <a th:href="@{/admin/menu-items}">Menus</a>
         <a th:href="@{/admin/attribute-categories}">Categories</a>
         <a th:href="@{/admin/ingredients}">Ingredients</a>
+        <a th:href="@{/admin/preset-profile-images}">Profiles</a>
     </nav>
     <form th:action="@{/admin/logout}" method="post">
         <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">

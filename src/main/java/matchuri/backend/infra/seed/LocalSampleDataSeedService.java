@@ -26,6 +26,7 @@ import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepos
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileRestrictionIngredientRepository;
+import matchuri.backend.domain.member.support.profile.MemberProfileImageManager;
 import matchuri.backend.domain.menu.entity.AttributeCategory;
 import matchuri.backend.domain.menu.entity.CategoryType;
 import matchuri.backend.domain.menu.entity.Ingredient;
@@ -56,11 +57,13 @@ public class LocalSampleDataSeedService {
     private final GroupRoomRepository groupRoomRepository;
     private final GroupRoomMemberRepository groupRoomMemberRepository;
     private final GroupLocationRepository groupLocationRepository;
+    private final MemberProfileImageManager memberProfileImageManager;
 
     @Transactional
     public void initialize() {
         LocalSampleSeedData seedData = resourceLoader.load(RESOURCE_PATH, LocalSampleSeedData.class);
         Map<String, Member> members = seedMembers(seedData);
+        membersFor(seedData, members).forEach(memberProfileImageManager::initializeDefault);
         seedAgreements(seedData, members);
         seedTasteProfiles(seedData, members);
         seedGroups(seedData, members);

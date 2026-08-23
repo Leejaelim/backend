@@ -8,6 +8,7 @@ import matchuri.backend.domain.member.entity.MemberStatus;
 import matchuri.backend.domain.member.entity.SocialProviderType;
 import matchuri.backend.domain.member.exception.MemberErrorCode;
 import matchuri.backend.domain.member.repository.MemberRepository;
+import matchuri.backend.domain.member.support.profile.MemberProfileImageManager;
 import matchuri.backend.global.exception.AuthenticationException;
 import matchuri.backend.global.exception.BusinessException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class OAuth2MemberService {
 
     private final MemberRepository memberRepository;
+    private final MemberProfileImageManager memberProfileImageManager;
 
     @Transactional
     public Member findOrCreateMember(SocialProviderType provider, String providerUserId, String email) {
@@ -40,13 +42,17 @@ public class OAuth2MemberService {
     private Member createSocialMember(SocialProviderType provider, String providerUserId, String email) {
         String temporaryNickname = generateUniqueTemporaryNickname(provider, email);
 
+        Member member;
         try {
-            return memberRepository.saveAndFlush(
+            member = memberRepository.saveAndFlush(
                     Member.createSocialMember(provider, providerUserId, email, temporaryNickname));
         } catch (DataIntegrityViolationException exception) {
-            return memberRepository.findBySocialProviderTypeAndSocialProviderUserId(provider, providerUserId)
+            member = memberRepository.findBySocialProviderTypeAndSocialProviderUserId(provider, providerUserId)
                     .orElseThrow(() -> exception);
         }
+
+        memberProfileImageManager.initializeDefault(member);
+        return member;
     }
 
     private String generateUniqueTemporaryNickname(SocialProviderType provider, String email) {

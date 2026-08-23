@@ -12,6 +12,7 @@ import matchuri.backend.api.common.docs.ErrorExamples;
 import matchuri.backend.api.member.dto.docs.CreateMemberApiResponse;
 import matchuri.backend.api.member.dto.docs.LoginIdExistsApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberProfileApiResponse;
+import matchuri.backend.api.member.dto.docs.MemberProfileImageApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberLocationApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberTasteProfileSummaryApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberTasteProfileUpdateApiResponse;
@@ -21,12 +22,14 @@ import matchuri.backend.api.member.dto.docs.UpdateMemberPasswordApiResponse;
 import matchuri.backend.api.member.dto.request.CreateMemberRequest;
 import matchuri.backend.api.member.dto.request.RegisterLocalMemberRequest;
 import matchuri.backend.api.member.dto.request.PutMemberLocationRequest;
+import matchuri.backend.api.member.dto.request.SetPresetProfileImageRequest;
 import matchuri.backend.api.member.dto.request.UpdateMemberBasicInfoRequest;
 import matchuri.backend.api.member.dto.request.UpdateMemberPasswordRequest;
 import matchuri.backend.api.member.dto.request.UpdateMemberTasteProfileRequest;
 import matchuri.backend.api.member.dto.response.CreateMemberResponse;
 import matchuri.backend.api.member.dto.response.LoginIdExistsResponse;
 import matchuri.backend.api.member.dto.response.MemberProfileResponse;
+import matchuri.backend.api.member.dto.response.MemberProfileImageResponse;
 import matchuri.backend.api.member.dto.response.MemberLocationResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteProfileSummaryResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteProfileUpdateResponse;
@@ -404,7 +407,7 @@ public interface MemberApi {
                     현재 로그인한 회원의 기본 프로필 정보를 조회합니다.
                     
                     - `Authorization: Bearer <accessToken>` 헤더가 필요합니다.
-                    - 현재 단계에서는 최소 프로필과 로그인 유형 판단에 필요한 `id`, `loginId`, `nickname`, `isSocial`, `email`을 반환합니다.
+                    - 현재 단계에서는 최소 프로필과 로그인 유형 판단에 필요한 `id`, `loginId`, `nickname`, `isSocial`, `email`, `profileImageUrl`을 반환합니다.
                     - 소셜 로그인 전용 회원은 `loginId`가 `null`일 수 있습니다.
                     - 취향 프로필 상세 필드는 이 응답에 포함되지 않습니다.
                     """)
@@ -425,7 +428,8 @@ public interface MemberApi {
                                                 "loginId": "tester01",
                                                 "nickname": "점심탐험가",
                                                 "isSocial": false,
-                                                "email": "tester@example.com"
+                                                "email": "tester@example.com",
+                                                "profileImageUrl": "https://asset.matchuri.com/preset-profile/spagetti-v1.png"
                                               },
                                               "error": null
                                             }
@@ -459,6 +463,68 @@ public interface MemberApi {
             )
     })
     ApiResponse<MemberProfileResponse> getMyProfile(@AuthenticatedMemberId Long memberId);
+
+    @Operation(
+            summary = "프리셋 프로필 이미지 설정",
+            description = """
+                    현재 로그인한 회원의 프로필 이미지를 활성 프리셋 이미지로 전체 교체합니다.
+
+                    - 회원별 프로필 이미지 연결 행은 하나만 유지하며 변경 이력은 저장하지 않습니다.
+                    - 삭제된 프리셋은 선택할 수 없습니다.
+                    - Authorization Bearer access token과 필수 약관 완료가 필요합니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "프리셋 프로필 이미지 설정 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = MemberProfileImageApiResponse.class),
+                            examples = @ExampleObject(
+                                    name = "success",
+                                    value = """
+                                            {
+                                              "success": true,
+                                              "data": {
+                                                "profileImageId": 15,
+                                                "presetProfileImageId": 1,
+                                                "imageUrl": "https://asset.matchuri.com/preset-profile/spagetti-v1.png",
+                                                "updatedAt": "2026-08-24T12:30:00"
+                                              },
+                                              "error": null
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "선택한 프리셋이 없거나 삭제됨",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "presetNotFound",
+                                    value = """
+                                            {
+                                              "success": false,
+                                              "data": null,
+                                              "error": {
+                                                "status": 404,
+                                                "code": "IMAGE_PRESET_PROFILE_NOT_FOUND",
+                                                "message": "프리셋 프로필 이미지를 찾을 수 없습니다. presetProfileImageId : 999",
+                                                "details": []
+                                              }
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    ApiResponse<MemberProfileImageResponse> setPresetProfileImage(
+            @AuthenticatedMemberId Long memberId,
+            SetPresetProfileImageRequest request
+    );
 
     @Operation(
             summary = "내 개인 위치 조회",
