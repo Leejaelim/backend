@@ -15,6 +15,7 @@ import matchuri.backend.domain.image.support.ImageObjectKeyGenerator;
 import matchuri.backend.domain.image.support.ImageUploadValidator;
 import matchuri.backend.domain.image.support.ImageUploadValidator.ValidatedImage;
 import matchuri.backend.domain.image.support.ImageUrlResolver;
+import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.global.config.R2Config;
 import matchuri.backend.global.exception.BusinessException;
 import matchuri.backend.infra.storage.ObjectStorageClient;
@@ -38,6 +39,7 @@ public class PresetProfileImageAdminServiceImpl implements PresetProfileImageAdm
     private final ObjectStorageClient objectStorageClient;
     private final R2Config r2Config;
     private final TransactionTemplate transactionTemplate;
+    private final MemberProfileImageRepository memberProfileImageRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -96,6 +98,14 @@ public class PresetProfileImageAdminServiceImpl implements PresetProfileImageAdm
         }
 
         selected.delete();
+        updateAllToDefault(selected);
+    }
+
+    private void updateAllToDefault(PresetProfileImage deleted) {
+        Long deletedAssetId = deleted.getImageAsset().getId();
+        PresetProfileImage defaultPreset = presetProfileImageRepository.findActiveDefaults().getFirst();
+        Long updateAssetId = defaultPreset.getImageAsset().getId();
+        memberProfileImageRepository.updateToDefault(deletedAssetId, updateAssetId);
     }
 
     private PresetProfileImageResult saveUploadedImage(
