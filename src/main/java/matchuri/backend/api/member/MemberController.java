@@ -1,6 +1,7 @@
 package matchuri.backend.api.member;
 
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import matchuri.backend.api.member.dto.request.CreateMemberRequest;
 import matchuri.backend.api.member.dto.request.RegisterLocalMemberRequest;
@@ -14,6 +15,7 @@ import matchuri.backend.api.member.dto.response.LoginIdExistsResponse;
 import matchuri.backend.api.member.dto.response.MemberLocationResponse;
 import matchuri.backend.api.member.dto.response.MemberProfileImageResponse;
 import matchuri.backend.api.member.dto.response.MemberProfileResponse;
+import matchuri.backend.api.member.dto.response.MemberPresetProfileImageResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteProfileSummaryResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteProfileUpdateResponse;
 import matchuri.backend.api.member.dto.response.NicknameExistsResponse;
@@ -22,6 +24,7 @@ import matchuri.backend.api.member.dto.response.UpdateMemberPasswordResponse;
 import matchuri.backend.api.member.dto.response.UpdateMemberResponse;
 import matchuri.backend.api.member.dto.response.WithdrawMemberResponse;
 import matchuri.backend.api.member.mapper.MemberMapper;
+import matchuri.backend.domain.member.result.MemberPresetProfileImageResult;
 import matchuri.backend.domain.member.service.MemberService;
 import matchuri.backend.global.api.ApiResponse;
 import matchuri.backend.global.security.AuthenticatedMemberId;
@@ -93,6 +96,14 @@ public class MemberController implements MemberApi {
         var myProfile = memberService.getMyProfile(memberId);
         var response = memberMapper.toMemberProfileResponse(myProfile);
 
+        return ApiResponse.success(response);
+    }
+
+    @Override
+    @GetMapping("/profile/preset-image")
+    public ApiResponse<List<MemberPresetProfileImageResponse>> getPresetProfileImages(@AuthenticatedMemberId Long memberId) {
+        List<MemberPresetProfileImageResult> results = memberService.getPresetProfileImages(memberId);
+        List<MemberPresetProfileImageResponse> response = memberMapper.toMemberPresetProfileImageResponses(results);
         return ApiResponse.success(response);
     }
 

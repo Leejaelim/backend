@@ -1,5 +1,6 @@
 package matchuri.backend.api.member.mapper;
 
+import java.util.List;
 import matchuri.backend.api.auth.dto.response.LoginResponse;
 import matchuri.backend.api.auth.dto.response.LogoutResponse;
 import matchuri.backend.api.common.dto.OnboardingStatusResponse;
@@ -13,6 +14,7 @@ import matchuri.backend.api.member.dto.response.LoginIdExistsResponse;
 import matchuri.backend.api.member.dto.response.MemberLocationResponse;
 import matchuri.backend.api.member.dto.response.MemberProfileImageResponse;
 import matchuri.backend.api.member.dto.response.MemberProfileResponse;
+import matchuri.backend.api.member.dto.response.MemberPresetProfileImageResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteAttributeCategoryResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteDislikedMenuItemResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteProfileSummaryResponse;
@@ -40,6 +42,7 @@ import matchuri.backend.domain.member.result.CreateMemberResult;
 import matchuri.backend.domain.member.result.MemberLocationResult;
 import matchuri.backend.domain.member.result.MemberProfileImageResult;
 import matchuri.backend.domain.member.result.MemberProfileResult;
+import matchuri.backend.domain.member.result.MemberPresetProfileImageResult;
 import matchuri.backend.domain.member.result.MemberTasteProfileSummaryResult;
 import matchuri.backend.domain.member.result.MemberTasteUpdateResult;
 import matchuri.backend.domain.member.result.OnboardingStatusResult;
@@ -175,6 +178,18 @@ public class MemberMapper {
                 result.imageUrl(),
                 result.updatedAt()
         );
+    }
+
+    public MemberPresetProfileImageResponse toMemberPresetProfileImageResponse(MemberPresetProfileImageResult result) {
+        return new MemberPresetProfileImageResponse(
+                result.presetProfileImageId(),
+                result.imageUrl(),
+                result.isDefault()
+        );
+    }
+
+    public List<MemberPresetProfileImageResponse> toMemberPresetProfileImageResponses(List<MemberPresetProfileImageResult> result) {
+        return result.stream().map(this::toMemberPresetProfileImageResponse).toList();
     }
 
     public MemberTasteProfileSummaryResponse toMemberTasteProfileSummaryResponse(

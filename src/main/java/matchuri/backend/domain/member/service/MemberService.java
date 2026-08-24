@@ -1,5 +1,6 @@
 package matchuri.backend.domain.member.service;
 
+import java.util.List;
 import matchuri.backend.domain.member.command.CreateMemberCommand;
 import matchuri.backend.domain.member.command.PutMemberLocationCommand;
 import matchuri.backend.domain.member.command.RegisterLocalMemberCommand;
@@ -9,6 +10,7 @@ import matchuri.backend.domain.member.command.UpdateMemberPasswordCommand;
 import matchuri.backend.domain.member.command.UpdateMemberTasteProfileCommand;
 import matchuri.backend.domain.member.result.CreateMemberResult;
 import matchuri.backend.domain.member.result.MemberProfileResult;
+import matchuri.backend.domain.member.result.MemberPresetProfileImageResult;
 import matchuri.backend.domain.member.result.MemberProfileImageResult;
 import matchuri.backend.domain.member.result.MemberLocationResult;
 import matchuri.backend.domain.member.result.MemberTasteProfileSummaryResult;
@@ -32,6 +34,8 @@ public interface MemberService {
     CreateMemberResult createMember(CreateMemberCommand command);
 
     MemberProfileResult getMyProfile(Long memberId);
+
+    List<MemberPresetProfileImageResult> getPresetProfileImages(Long memberId);
 
     MemberProfileImageResult setPresetProfileImage(Long memberId, Long presetProfileImageId);
 

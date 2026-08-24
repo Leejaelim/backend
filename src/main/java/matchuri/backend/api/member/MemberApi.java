@@ -8,11 +8,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import matchuri.backend.api.common.docs.ErrorExamples;
 import matchuri.backend.api.member.dto.docs.CreateMemberApiResponse;
 import matchuri.backend.api.member.dto.docs.LoginIdExistsApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberProfileApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberProfileImageApiResponse;
+import matchuri.backend.api.member.dto.docs.MemberPresetProfileImageListApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberLocationApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberTasteProfileSummaryApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberTasteProfileUpdateApiResponse;
@@ -30,6 +32,7 @@ import matchuri.backend.api.member.dto.response.CreateMemberResponse;
 import matchuri.backend.api.member.dto.response.LoginIdExistsResponse;
 import matchuri.backend.api.member.dto.response.MemberProfileResponse;
 import matchuri.backend.api.member.dto.response.MemberProfileImageResponse;
+import matchuri.backend.api.member.dto.response.MemberPresetProfileImageResponse;
 import matchuri.backend.api.member.dto.response.MemberLocationResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteProfileSummaryResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteProfileUpdateResponse;
@@ -463,6 +466,75 @@ public interface MemberApi {
             )
     })
     ApiResponse<MemberProfileResponse> getMyProfile(@AuthenticatedMemberId Long memberId);
+
+    @Operation(
+            summary = "선택 가능한 프리셋 프로필 이미지 목록 조회",
+            description = """
+                    현재 로그인한 회원이 프로필 설정에서 선택할 수 있는 활성 프리셋 이미지를 조회합니다.
+
+                    - 삭제된 프리셋은 제외합니다.
+                    - 프리셋 프로필 이미지 ID 오름차순으로 반환합니다.
+                    - Authorization Bearer access token과 필수 온보딩 완료가 필요합니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "프리셋 프로필 이미지 목록 조회 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = MemberPresetProfileImageListApiResponse.class),
+                            examples = @ExampleObject(
+                                    name = "success",
+                                    value = """
+                                            {
+                                              "success": true,
+                                              "data": [
+                                                {
+                                                  "presetProfileImageId": 1,
+                                                  "imageUrl": "https://asset.matchuri.com/preset-profile/v1-spaghetti.png",
+                                                  "isDefault": true
+                                                },
+                                                {
+                                                  "presetProfileImageId": 2,
+                                                  "imageUrl": "https://asset.matchuri.com/preset-profile/v1-burger.png.png",
+                                                  "isDefault": false
+                                                }
+                                              ],
+                                              "error": null
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "accessToken이 없거나 유효하지 않거나 만료됨",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(name = "tokenMissing", value = ErrorExamples.AUTH_TOKEN_MISSING),
+                                    @ExampleObject(name = "tokenInvalid", value = ErrorExamples.AUTH_TOKEN_INVALID),
+                                    @ExampleObject(name = "tokenExpired", value = ErrorExamples.AUTH_TOKEN_EXPIRED)
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "필수 온보딩 미완료 또는 비활성 회원",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(name = "requiredAgreement", value = ErrorExamples.MEMBER_AGREEMENT_REQUIRED),
+                                    @ExampleObject(name = "nicknameRequired", value = ErrorExamples.MEMBER_NICKNAME_REQUIRED),
+                                    @ExampleObject(name = "inactiveMember", value = ErrorExamples.MEMBER_INACTIVE)
+                            }
+                    )
+            )
+    })
+    ApiResponse<List<MemberPresetProfileImageResponse>> getPresetProfileImages(
+            @AuthenticatedMemberId Long memberId
+    );
 
     @Operation(
             summary = "프리셋 프로필 이미지 설정",

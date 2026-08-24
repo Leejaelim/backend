@@ -34,6 +34,7 @@ import matchuri.backend.domain.member.repository.MemberTasteProfileRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileRestrictionIngredientRepository;
 import matchuri.backend.domain.member.result.CreateMemberResult;
 import matchuri.backend.domain.member.result.MemberProfileResult;
+import matchuri.backend.domain.member.result.MemberPresetProfileImageResult;
 import matchuri.backend.domain.member.result.MemberProfileImageResult;
 import matchuri.backend.domain.member.result.MemberLocationResult;
 import matchuri.backend.domain.member.result.MemberTasteProfileSummaryResult;
@@ -47,6 +48,7 @@ import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.member.support.onboarding.OnboardingStatusResolver;
 import matchuri.backend.domain.member.support.profile.MemberProfileImageManager;
 import matchuri.backend.domain.member.support.profile.MemberProfileImageManager.SelectedPresetProfileImage;
+import matchuri.backend.domain.image.repository.PresetProfileImageRepository;
 import matchuri.backend.domain.image.support.ImageUrlResolver;
 import matchuri.backend.domain.menu.entity.AttributeCategory;
 import matchuri.backend.domain.menu.entity.Ingredient;
@@ -73,6 +75,7 @@ public class MemberServiceImpl implements MemberService {
     private final MemberAgreementRepository memberAgreementRepository;
     private final MemberLocationRepository memberLocationRepository;
     private final MemberProfileImageRepository memberProfileImageRepository;
+    private final PresetProfileImageRepository presetProfileImageRepository;
     private final MemberTasteProfileRepository memberTasteProfileRepository;
     private final MemberTasteProfileCategoryRepository memberTasteProfileCategoryRepository;
     private final MemberTasteProfileRestrictionIngredientRepository memberTasteProfileRestrictionIngredientRepository;
@@ -191,6 +194,18 @@ public class MemberServiceImpl implements MemberService {
                 .orElse(null);
 
         return MemberProfileResult.from(member, profileImageUrl);
+    }
+
+    @Override
+    public List<MemberPresetProfileImageResult> getPresetProfileImages(Long memberId) {
+        memberReader.getActiveMember(memberId);
+        return presetProfileImageRepository.findAllActive().stream()
+                .map(preset -> new MemberPresetProfileImageResult(
+                        preset.getId(),
+                        imageUrlResolver.toPublicUrl(preset.getImageAsset().getObjectKey()),
+                        preset.isDefault()
+                ))
+                .toList();
     }
 
     @Override

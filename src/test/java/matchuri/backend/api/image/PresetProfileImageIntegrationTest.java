@@ -119,6 +119,51 @@ class PresetProfileImageIntegrationTest {
     }
 
     @Test
+    @DisplayName("회원은 삭제되지 않은 프리셋 목록을 ID 순서로 조회한다")
+    void memberGetsActivePresetImagesInIdOrder() throws Exception {
+        PresetProfileImage defaultPreset = createPreset("preset-profile/default.png", true);
+        PresetProfileImage selectablePreset = createPreset("preset-profile/selectable.png", false);
+        PresetProfileImage deletedPreset = createPreset("preset-profile/deleted.png", false);
+        deletedPreset.delete();
+        presetProfileImageRepository.save(deletedPreset);
+        Member member = createMember("preset-list-member", MemberRole.MEMBER);
+
+        mockMvc.perform(get("/api/v1/members/profile/preset-image")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].presetProfileImageId").value(defaultPreset.getId()))
+                .andExpect(jsonPath("$.data[0].imageUrl")
+                        .value("https://asset.matchuri.com/preset-profile/default.png"))
+                .andExpect(jsonPath("$.data[0].isDefault").value(true))
+                .andExpect(jsonPath("$.data[0].objectKey").doesNotExist())
+                .andExpect(jsonPath("$.data[1].presetProfileImageId").value(selectablePreset.getId()))
+                .andExpect(jsonPath("$.data[1].isDefault").value(false));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 프리셋 목록을 조회할 수 없다")
+    void unauthenticatedMemberCannotGetPresetImages() throws Exception {
+        mockMvc.perform(get("/api/v1/members/profile/preset-image"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_TOKEN_MISSING"));
+    }
+
+    @Test
+    @DisplayName("비활성 회원은 프리셋 목록을 조회할 수 없다")
+    void inactiveMemberCannotGetPresetImages() throws Exception {
+        Member member = createMember("inactive-preset-list-member", MemberRole.MEMBER);
+        member.withdraw();
+        memberRepository.save(member);
+
+        mockMvc.perform(get("/api/v1/members/profile/preset-image")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("MEMBER_INACTIVE_MEMBER"));
+    }
+
+    @Test
     @DisplayName("관리자는 기존 기본을 해제하고 선택한 프리셋 하나만 기본으로 설정한다")
     void adminSetsExactlyOneDefault() throws Exception {
         PresetProfileImage first = createPreset("preset-profile/first.png", true);

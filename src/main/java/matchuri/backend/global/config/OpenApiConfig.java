@@ -196,6 +196,9 @@ public class OpenApiConfig {
         metadata.put(
                 key("/api/v1/members/profile/preset-image", PathItem.HttpMethod.PUT),
                 meta("ONB.110.000", "02 Onboarding"));
+        metadata.put(
+                key("/api/v1/members/profile/preset-image", PathItem.HttpMethod.GET),
+                meta("ONB.120.000", "02 Onboarding"));
 
         metadata.put(
                 key("/api/v1/attribute-categories", PathItem.HttpMethod.GET),
