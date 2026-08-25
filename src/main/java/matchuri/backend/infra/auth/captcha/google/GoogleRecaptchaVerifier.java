@@ -8,6 +8,7 @@ import matchuri.backend.domain.auth.service.CaptchaVerifier;
 import matchuri.backend.global.exception.BusinessException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -18,6 +19,7 @@ import org.springframework.web.client.RestClientException;
 
 @Slf4j
 @Service
+@Profile("prod")
 @ConditionalOnProperty(prefix = "captcha", name = "provider", havingValue = "google", matchIfMissing = true)
 public class GoogleRecaptchaVerifier implements CaptchaVerifier {
 
