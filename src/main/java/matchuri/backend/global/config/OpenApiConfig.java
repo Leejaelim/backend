@@ -145,6 +145,7 @@ public class OpenApiConfig {
         Map<ApiOperationKey, ApiOperationMetadata> metadata = new LinkedHashMap<>();
 
         metadata.put(key("/api/v1/health", PathItem.HttpMethod.GET), meta("OPS.010.000", "00 Ops"));
+        metadata.put(key("/api/v1/home", PathItem.HttpMethod.GET), meta("OPS.020.000", "00 Ops"));
 
         metadata.put(key("/api/v1/auth/email", PathItem.HttpMethod.POST), meta("AUTH.010.000", "01 Auth"));
         metadata.put(key("/api/v1/auth/email/confirm", PathItem.HttpMethod.POST), meta("AUTH.020.000", "01 Auth"));

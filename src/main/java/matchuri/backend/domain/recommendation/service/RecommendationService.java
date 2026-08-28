@@ -7,12 +7,15 @@ import matchuri.backend.domain.recommendation.entity.PersonalRecommendationRerol
 import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendationResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationCandidateResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationResult;
+import matchuri.backend.domain.recommendation.result.PersonalRecommendationHomeResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationSummaryResult;
 import matchuri.backend.domain.recommendation.result.SelectPersonalRecommendationResult;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;
 
 public interface RecommendationService {
+    PersonalRecommendationHomeResult getHomeRecommendations(Long memberId);
+
     PersonalRecommendationResult createPersonalRecommendation(Long memberId, String contextJson);
 
     PersonalRecommendationResult rerollPersonalRecommendation(Long memberId, Long sourcePersonalRecommendationId, PersonalRecommendationRerollType rerollType, String contextJson);

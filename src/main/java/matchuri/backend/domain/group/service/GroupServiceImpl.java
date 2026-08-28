@@ -799,6 +799,15 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
+    public List<GroupHomeActivityResult> getHomeActivities(Long memberId) {
+        Member member = memberReader.getActiveMember(memberId);
+        var recommendations = groupRecommendationRepository.findLatestForActiveMember(member.getId());
+        LocalDateTime now = LocalDateTime.now();
+        recommendations.forEach(recommendation -> expireGroupRecommendationIfNeeded(recommendation, now));
+        return recommendations.stream().map(GroupHomeActivityResult::from).toList();
+    }
+
+    @Override
     public Page<@NonNull GroupSummaryResult> getMyGroups(Long memberId, GetMyGroupsCommand command) {
         Member member = memberReader.getActiveMember(memberId);
         Page<@NonNull GroupRoomMember> memberships = groupRoomMemberRepository.findMyActiveMemberships(
