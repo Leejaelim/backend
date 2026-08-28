@@ -1,6 +1,8 @@
 package matchuri.backend.domain.group.service;
 
 import lombok.NonNull;
+import java.util.List;
+import matchuri.backend.domain.group.result.GroupHomeActivityResult;
 import matchuri.backend.domain.group.command.CreateGroupCommand;
 import matchuri.backend.domain.group.command.CreateGroupRecommendationCommand;
 import matchuri.backend.domain.group.command.CreateNicknameGroupInviteCommand;
@@ -35,6 +37,8 @@ import matchuri.backend.domain.group.result.UpdateGroupResult;
 import org.springframework.data.domain.Page;
 
 public interface GroupService {
+
+    List<GroupHomeActivityResult> getHomeActivities(Long memberId);
 
     CreateGroupResult createGroup(Long memberId, CreateGroupCommand command);
 

@@ -27,6 +27,8 @@ import matchuri.backend.domain.menu.repository.AttributeCategoryRepository;
 import matchuri.backend.domain.menu.repository.IngredientRepository;
 import matchuri.backend.domain.menu.repository.MenuIngredientRepository;
 import matchuri.backend.domain.menu.repository.MenuItemRepository;
+import matchuri.backend.domain.menu.repository.MenuAttributeCategoryRepository;
+import matchuri.backend.domain.menu.result.MenuAttributeCategoryResult;
 import matchuri.backend.domain.menu.support.MenuThumbnailUrlResolver;
 import matchuri.backend.domain.recommendation.algorithm.MenuRecommendationAlgorithm;
 import matchuri.backend.domain.recommendation.algorithm.MenuRecommendationAlgorithmResolver;
@@ -52,6 +54,7 @@ import matchuri.backend.domain.recommendation.repository.PersonalRecommendationR
 import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendationCandidateResult;
 import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendationResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationCandidateResult;
+import matchuri.backend.domain.recommendation.result.PersonalRecommendationHomeResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationSummaryResult;
 import matchuri.backend.domain.recommendation.result.SelectPersonalRecommendationResult;
@@ -66,6 +69,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RecommendationServiceImpl implements RecommendationService {
 
+    private static final int HOME_SELECTED_RECOMMENDATION_LIMIT = 3;
     private static final int RECENT_SELECTED_MENU_EXCLUSION_COUNT = 3;
     private static final int RECOMMENDATION_CANDIDATE_LIMIT = 3;
     private static final long RECENT_SKIPPED_MENU_EXCLUSION_HOURS = 24;
@@ -76,6 +80,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final AttributeCategoryRepository attributeCategoryRepository;
     private final IngredientRepository ingredientRepository;
     private final MenuItemRepository menuItemRepository;
+    private final MenuAttributeCategoryRepository menuAttributeCategoryRepository;
     private final MenuIngredientRepository menuIngredientRepository;
     private final PersonalRecommendationCandidateRepository personalRecommendationCandidateRepository;
     private final MemberMenuActionRepository memberMenuActionRepository;
@@ -272,6 +277,32 @@ public class RecommendationServiceImpl implements RecommendationService {
                         menuThumbnailUrlResolver.resolve(candidate.getMenuItem().getId())
                 ))
                 .toList();
+    }
+
+    @Override
+    public PersonalRecommendationHomeResult getHomeRecommendations(Long memberId) {
+        Member member = memberReader.getActiveMember(memberId);
+        expireOpenPersonalRecommendations(member.getId(), LocalDateTime.now());
+        var latest = personalRecommendationRepository
+                .findFirstByMemberIdOrderByRequestedAtDescIdDesc(member.getId())
+                .map(PersonalRecommendationSummaryResult::from)
+                .orElse(null);
+        var selected = personalRecommendationRepository.findRecentSelectedByMemberId(
+                member.getId(), PageRequest.of(0, HOME_SELECTED_RECOMMENDATION_LIMIT));
+        List<Long> menuIds = selected.stream()
+                .map(recommendation -> recommendation.getSelectedMenu().getId()).distinct().toList();
+        Map<Long, List<MenuAttributeCategoryResult>> categories = menuIds.isEmpty() ? Map.of()
+                : menuAttributeCategoryRepository.findDisplayCategoriesByMenuIds(menuIds).stream()
+                        .collect(Collectors.groupingBy(mapping -> mapping.getMenu().getId(),
+                                Collectors.mapping(
+                                        mapping -> MenuAttributeCategoryResult.from(mapping.getAttributeCategory()),
+                                        Collectors.toList())));
+        return new PersonalRecommendationHomeResult(latest, selected.stream()
+                .map(recommendation -> new PersonalRecommendationHomeResult.SelectedRecommendation(
+                        recommendation.getId(), recommendation.getRequestedAt(),
+                        recommendation.getSelectedMenu().getName(),
+                        categories.getOrDefault(recommendation.getSelectedMenu().getId(), List.of())))
+                .toList());
     }
 
     @Override
