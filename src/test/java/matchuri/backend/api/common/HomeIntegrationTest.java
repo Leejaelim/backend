@@ -45,10 +45,12 @@ import matchuri.backend.domain.recommendation.entity.PersonalRecommendation;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationCandidate;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationStatus;
 import matchuri.backend.global.config.MatchuriProperties;
+import matchuri.backend.testsupport.JpaAuditTimeFixture;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -59,11 +61,13 @@ import org.springframework.transaction.annotation.Transactional;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+@Import(JpaAuditTimeFixture.class)
 class HomeIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private EntityManager entityManager;
     @Autowired private MatchuriProperties matchuriProperties;
+    @Autowired private JpaAuditTimeFixture jpaAuditTimeFixture;
 
     @Test
     void homeReturnsComponentDataWithThreeLatestSelectedRecommendationsAndCurrentMenuMetadata() throws Exception {
@@ -192,11 +196,11 @@ class HomeIntegrationTest {
     void groupActivitiesExposeCreatedVotingStartedAndEndedAtBySessionState() throws Exception {
         Member member = member(true, MemberStatus.ACTIVE);
         LocalDateTime now = LocalDateTime.now().withNano(0);
-        var preparing = persist(preparing(room(member), now.minusMinutes(30)));
-        var open = persist(preparing(room(member), now.minusMinutes(20)));
+        var preparing = preparing(room(member), now.minusMinutes(30));
+        var open = preparing(room(member), now.minusMinutes(20));
         open.open(now.minusMinutes(15));
         var menu = persist(new MenuItem(key(), "김치찌개", null));
-        var finalized = persist(preparing(room(member), now.minusMinutes(10)));
+        var finalized = preparing(room(member), now.minusMinutes(10));
         finalized.open(now.minusMinutes(5));
         var candidate = persist(new GroupRecommendationCandidate(finalized, menu, 1, 90.0, null));
         finalized.finalizeWith(candidate, now);
@@ -222,7 +226,7 @@ class HomeIntegrationTest {
         Member member = member(true, MemberStatus.ACTIVE);
         LocalDateTime old = LocalDateTime.now().minusDays(2);
         var personal = personal(member, null, old);
-        var preparing = persist(preparing(room(member), old));
+        var preparing = preparing(room(member), old);
         var open = group(room(member), old, LocalDateTime.now(), null);
         JsonNode data = home(member);
         assertThat(data.path("personalRecommendation").path("latestRecommendationStatus").asText()).isEqualTo("EXPIRED");
@@ -318,9 +322,10 @@ class HomeIntegrationTest {
             LocalDateTime startedAt,
             MenuItem selectedMenu
     ) {
-        var recommendation = new GroupRecommendation(room, startedAt);
-        persist(recommendation);
-        setRecommendationCreatedAt(recommendation, createdAt);
+        var recommendation = jpaAuditTimeFixture.persistGroupRecommendationAt(
+                new GroupRecommendation(room, startedAt),
+                createdAt
+        );
         if (selectedMenu != null) {
             var candidate = persist(new GroupRecommendationCandidate(recommendation, selectedMenu, 1, 90.0, null));
             recommendation.finalizeWith(candidate, startedAt.plusMinutes(5));
@@ -338,19 +343,10 @@ class HomeIntegrationTest {
     }
 
     private GroupRecommendation preparing(GroupRoom room, LocalDateTime createdAt) {
-        GroupRecommendation recommendation = persist(GroupRecommendation.preparing(room));
-        setRecommendationCreatedAt(recommendation, createdAt);
-        return recommendation;
-    }
-
-    private void setRecommendationCreatedAt(GroupRecommendation recommendation, LocalDateTime createdAt) {
-        entityManager.flush();
-        entityManager.createNativeQuery(
-                        "update group_recommendations set created_at = :createdAt where id = :recommendationId")
-                .setParameter("createdAt", createdAt)
-                .setParameter("recommendationId", recommendation.getId())
-                .executeUpdate();
-        entityManager.refresh(recommendation);
+        return jpaAuditTimeFixture.persistGroupRecommendationAt(
+                GroupRecommendation.preparing(room),
+                createdAt
+        );
     }
 
     private <T> T persist(T entity) {
