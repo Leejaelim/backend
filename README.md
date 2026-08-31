@@ -16,7 +16,7 @@
 - springdoc-openapi 3.x
 - AWS SDK for Java v2, S3 compatible storage
 - Lombok
-- JUnit 5, Spring REST Docs, JaCoCo
+- JUnit 5, Spring REST Docs
 - Docker Compose
 
 ## 2. 프로젝트 구조

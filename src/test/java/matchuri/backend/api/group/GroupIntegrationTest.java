@@ -70,6 +70,7 @@ import matchuri.backend.domain.menu.repository.MenuItemRepository;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationCandidateRepository;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationRepository;
 import matchuri.backend.global.config.MatchuriProperties;
+import matchuri.backend.testsupport.JpaAuditTimeFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -77,6 +78,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -86,6 +88,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(JpaAuditTimeFixture.class)
 class GroupIntegrationTest {
 
     @Autowired
@@ -96,6 +99,9 @@ class GroupIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private JpaAuditTimeFixture jpaAuditTimeFixture;
 
     @Autowired
     private MemberRepository memberRepository;
@@ -3241,13 +3247,10 @@ class GroupIntegrationTest {
     ) {
         GroupRecommendation recommendation = GroupRecommendation.preparing(room);
         recommendation.saveContextJson(contextJson);
-        recommendation = groupRecommendationRepository.saveAndFlush(recommendation);
-        jdbcTemplate.update(
-                "update group_recommendations set created_at = ? where id = ?",
-                createdAt,
-                recommendation.getId()
+        return jpaAuditTimeFixture.persistGroupRecommendationAt(
+                recommendation,
+                createdAt
         );
-        return groupRecommendationRepository.findById(recommendation.getId()).orElseThrow();
     }
 
     private GroupRecommendation open(
@@ -3256,14 +3259,10 @@ class GroupIntegrationTest {
             LocalDateTime createdAt,
             LocalDateTime startedAt
     ) {
-        GroupRecommendation recommendation = groupRecommendationRepository.saveAndFlush(
-                new GroupRecommendation(room, contextJson, startedAt));
-        jdbcTemplate.update(
-                "update group_recommendations set created_at = ? where id = ?",
-                createdAt,
-                recommendation.getId()
+        return jpaAuditTimeFixture.persistGroupRecommendationAt(
+                new GroupRecommendation(room, contextJson, startedAt),
+                createdAt
         );
-        return groupRecommendationRepository.findById(recommendation.getId()).orElseThrow();
     }
 
     private GroupInvite saveInvite(
