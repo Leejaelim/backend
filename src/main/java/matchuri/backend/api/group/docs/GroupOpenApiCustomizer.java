@@ -1,4 +1,4 @@
-package matchuri.backend.api.common.docs;
+package matchuri.backend.api.group.docs;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.media.ComposedSchema;
@@ -9,18 +9,11 @@ import org.springframework.stereotype.Component;
 
 /** OpenAPI 3.1 requires a null schema instead of the 3.0 nullable flag. */
 @Component
-public class HomeOpenApiCustomizer implements OpenApiCustomizer {
+public class GroupOpenApiCustomizer implements OpenApiCustomizer {
     @Override
     public void customise(OpenAPI openApi) {
-        allowNull(openApi, "HomeApiResponse", "data");
-        allowNull(openApi, "HomeApiResponse", "error");
-        allowNull(openApi, "HomeResponse", "location");
-        allowNull(openApi, "HomeUserCard", "profileImageUrl");
-        allowNull(openApi, "HomePersonalRecommendationSection", "latestRecommendationId");
-        allowNull(openApi, "HomePersonalRecommendationSection", "latestRecommendationStatus");
-        allowNull(openApi, "HomeGroupActivityDetails", "startedAt");
-        allowNull(openApi, "HomeGroupActivityDetails", "endedAt");
-        allowNull(openApi, "HomeGroupActivityDetails", "selectedMenuName");
+        allowNull(openApi, "GroupRecommendationSummaryResponse", "startedAt");
+        allowNull(openApi, "GroupRecommendationSummaryResponse", "endedAt");
     }
 
     private void allowNull(OpenAPI openApi, String schemaName, String propertyName) {

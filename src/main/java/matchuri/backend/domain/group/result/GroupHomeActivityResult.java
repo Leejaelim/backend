@@ -10,7 +10,8 @@ public record GroupHomeActivityResult(
         String groupName,
         GroupRecommendationStatus type,
         Long recommendationId,
-        LocalDateTime startedAt,
+        LocalDateTime createdAt,
+        @Nullable LocalDateTime startedAt,
         @Nullable LocalDateTime endedAt,
         @Nullable String selectedMenuName
 ) {
@@ -19,7 +20,18 @@ public record GroupHomeActivityResult(
                 && recommendation.getSelectedCandidate() != null
                 ? recommendation.getSelectedCandidate().getMenuItem().getName() : null;
         return new GroupHomeActivityResult(recommendation.getRoom().getId(), recommendation.getRoom().getName(),
-                recommendation.getStatus(), recommendation.getId(), recommendation.getStartedAt(),
+                recommendation.getStatus(), recommendation.getId(), recommendation.getCreatedAt(),
+                recommendation.getStartedAt(),
                 recommendation.getEndedAt(), selectedMenuName);
+    }
+
+    public LocalDateTime activityAt() {
+        if (endedAt != null) {
+            return endedAt;
+        }
+        if (startedAt != null) {
+            return startedAt;
+        }
+        return createdAt;
     }
 }

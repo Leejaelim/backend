@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -148,7 +149,7 @@ public class GroupServiceImpl implements GroupService {
         );
 
         GroupRecommendation recommendation = groupRecommendationRepository.save(
-                GroupRecommendation.preparing(room, LocalDateTime.now())
+                GroupRecommendation.preparing(room)
         );
 
         int totalMemberCount = groupRoomMemberRepository.findActiveMembersByRoomId(room.getId()).size();
@@ -182,7 +183,7 @@ public class GroupServiceImpl implements GroupService {
     }
 
     private boolean hasActiveRecommendation(Long roomId) {
-        return groupRecommendationRepository.existsByRoomIdAndStatusInAndStartedAtAfter(
+        return groupRecommendationRepository.existsByRoomIdAndStatusInAndCreatedAtAfter(
                 roomId,
                 ACTIVE_RECOMMENDATION_STATUSES,
                 groupRecommendationExpirationService.activeThreshold(LocalDateTime.now())
@@ -222,7 +223,7 @@ public class GroupServiceImpl implements GroupService {
                 recommendationResult,
                 menuItemById
         );
-        recommendation.open();
+        recommendation.open(LocalDateTime.now());
 
         return candidates;
     }
@@ -315,7 +316,7 @@ public class GroupServiceImpl implements GroupService {
         expireActiveGroupRecommendations(room.getId(), LocalDateTime.now());
 
         return groupRecommendationRepository
-                .findByRoomIdOrderByStartedAtDescIdDesc(room.getId(), PageRequest.of(page, size))
+                .findByRoomIdOrderByCreatedAtDescIdDesc(room.getId(), PageRequest.of(page, size))
                 .map(GroupRecommendationSummaryResult::from);
     }
 
@@ -801,10 +802,14 @@ public class GroupServiceImpl implements GroupService {
     @Override
     public List<GroupHomeActivityResult> getHomeActivities(Long memberId) {
         Member member = memberReader.getActiveMember(memberId);
-        var recommendations = groupRecommendationRepository.findLatestForActiveMember(member.getId());
+        var recommendations = groupRecommendationRepository.findHistoryForActiveMember(member.getId());
         LocalDateTime now = LocalDateTime.now();
         recommendations.forEach(recommendation -> expireGroupRecommendationIfNeeded(recommendation, now));
-        return recommendations.stream().map(GroupHomeActivityResult::from).toList();
+        return recommendations.stream()
+                .map(GroupHomeActivityResult::from)
+                .sorted(Comparator.comparing(GroupHomeActivityResult::activityAt).reversed()
+                        .thenComparing(GroupHomeActivityResult::recommendationId, Comparator.reverseOrder()))
+                .toList();
     }
 
     @Override
@@ -899,7 +904,7 @@ public class GroupServiceImpl implements GroupService {
                 .toList();
         expireActiveGroupRecommendations(groupId, LocalDateTime.now());
         GroupRecommendationResult recentlyRecommendation = groupRecommendationRepository
-                .findFirstByRoomIdOrderByStartedAtDescIdDesc(groupId)
+                .findFirstByRoomIdOrderByCreatedAtDescIdDesc(groupId)
                 .map(recommendation -> toGroupRecommendationResult(recommendation, member.getId()))
                 .orElse(null);
         GroupLocation location = latestGroupLocation(room.getId());
@@ -955,7 +960,7 @@ public class GroupServiceImpl implements GroupService {
         }
 
         groupRecommendationRepository
-                .findByRoomIdInAndStatusInAndEndedAtIsNullAndStartedAtLessThanEqual(
+                .findByRoomIdInAndStatusInAndEndedAtIsNullAndCreatedAtLessThanEqual(
                         roomIds,
                         ACTIVE_RECOMMENDATION_STATUSES,
                         groupRecommendationExpirationService.activeThreshold(now)
@@ -1266,7 +1271,7 @@ public class GroupServiceImpl implements GroupService {
     }
 
     private GroupRecommendationStatus latestRecommendationStatus(Long roomId) {
-        return groupRecommendationRepository.findFirstByRoomIdOrderByStartedAtDescIdDesc(roomId)
+        return groupRecommendationRepository.findFirstByRoomIdOrderByCreatedAtDescIdDesc(roomId)
                 .map(GroupRecommendation::getStatus)
                 .orElse(null);
     }

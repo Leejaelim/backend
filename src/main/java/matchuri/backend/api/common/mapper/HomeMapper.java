@@ -37,8 +37,8 @@ public class HomeMapper {
                                 .toList()),
                 new HomeResponse.GroupActivitySection(activities.stream()
                         .map(item -> new HomeResponse.GroupActivityItem(item.groupId(), item.groupName(), item.type(),
-                                new HomeResponse.GroupActivityDetails(item.recommendationId(), item.startedAt(),
-                                        item.endedAt(), item.selectedMenuName())))
+                                new HomeResponse.GroupActivityDetails(item.recommendationId(), item.createdAt(),
+                                        item.startedAt(), item.endedAt(), item.selectedMenuName())))
                         .toList()));
     }
 

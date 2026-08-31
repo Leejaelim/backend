@@ -330,6 +330,7 @@ public class GroupMapper {
         return new GroupRecommendationSummaryResponse(
                 result.sessionId(),
                 result.status(),
+                result.createdAt(),
                 result.startedAt(),
                 result.endedAt()
         );

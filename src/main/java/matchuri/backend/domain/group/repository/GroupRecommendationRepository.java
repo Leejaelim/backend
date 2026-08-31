@@ -25,32 +25,26 @@ public interface GroupRecommendationRepository extends JpaRepository<GroupRecomm
                   where membership.room = room and membership.member.id = :memberId
                     and membership.status = matchuri.backend.domain.group.entity.GroupMemberStatus.ACTIVE
               )
-              and not exists (
-                  select newer.id from GroupRecommendation newer
-                  where newer.room = room
-                    and (newer.startedAt > recommendation.startedAt
-                      or (newer.startedAt = recommendation.startedAt and newer.id > recommendation.id))
-              )
-            order by recommendation.startedAt desc, recommendation.id desc
+            order by recommendation.createdAt desc, recommendation.id desc
             """)
-    List<GroupRecommendation> findLatestForActiveMember(@Param("memberId") Long memberId);
+    List<GroupRecommendation> findHistoryForActiveMember(@Param("memberId") Long memberId);
 
-    boolean existsByRoomIdAndStatusInAndStartedAtAfter(
+    boolean existsByRoomIdAndStatusInAndCreatedAtAfter(
             Long roomId,
             Collection<GroupRecommendationStatus> statuses,
-            LocalDateTime startedAt
+            LocalDateTime createdAt
     );
 
     Optional<GroupRecommendation> findByIdAndRoomId(Long id, Long roomId);
 
-    Optional<GroupRecommendation> findFirstByRoomIdOrderByStartedAtDescIdDesc(Long roomId);
+    Optional<GroupRecommendation> findFirstByRoomIdOrderByCreatedAtDescIdDesc(Long roomId);
 
-    Page<GroupRecommendation> findByRoomIdOrderByStartedAtDescIdDesc(Long roomId, Pageable pageable);
+    Page<GroupRecommendation> findByRoomIdOrderByCreatedAtDescIdDesc(Long roomId, Pageable pageable);
 
-    List<GroupRecommendation> findByRoomIdInAndStatusInAndEndedAtIsNullAndStartedAtLessThanEqual(
+    List<GroupRecommendation> findByRoomIdInAndStatusInAndEndedAtIsNullAndCreatedAtLessThanEqual(
             Collection<Long> roomIds,
             Collection<GroupRecommendationStatus> statuses,
-            LocalDateTime startedAt
+            LocalDateTime createdAt
     );
 
 }

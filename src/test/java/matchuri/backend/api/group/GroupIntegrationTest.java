@@ -358,7 +358,7 @@ class GroupIntegrationTest {
     void createGroupRecommendationFailsWhenActiveRecommendationExists() throws Exception {
         Member owner = saveMember("recommendation-open-owner", "열린추천방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "열린 추천 그룹");
-        groupRecommendationRepository.save(GroupRecommendation.preparing(
+        groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -402,7 +402,7 @@ class GroupIntegrationTest {
     void createGroupRecommendationExpiresOldActiveRecommendationAndCreatesPreparingSession() throws Exception {
         Member owner = saveMember("expired-active-group-owner", "만료추천방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "만료 추천 그룹");
-        GroupRecommendation oldRecommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation oldRecommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now().minusHours(25)
@@ -431,26 +431,28 @@ class GroupIntegrationTest {
     void getGroupRecommendationsExpiresActiveRecommendations() throws Exception {
         Member owner = saveMember("group-expiration-service-owner", "그룹만료방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "그룹 만료 서비스");
-        GroupRecommendation oldPreparing = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation oldPreparing = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now().minusHours(25)
         ));
-        GroupRecommendation oldOpen = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation oldOpen = open(
                 groupRoom,
                 "{}",
+                LocalDateTime.now().minusHours(25),
                 LocalDateTime.now().minusHours(25)
-        ));
-        GroupRecommendation recentPreparing = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        );
+        GroupRecommendation recentPreparing = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now().minusHours(23)
         ));
-        GroupRecommendation alreadyClosed = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation alreadyClosed = open(
                 groupRoom,
                 "{}",
+                LocalDateTime.now().minusHours(25),
                 LocalDateTime.now().minusHours(25)
-        ));
+        );
         alreadyClosed.rerollWithoutSkip(LocalDateTime.now().minusHours(1));
         groupRecommendationRepository.save(alreadyClosed);
 
@@ -523,7 +525,7 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -565,7 +567,7 @@ class GroupIntegrationTest {
         Member owner = saveMember("readiness-access-owner", "준비조회접근방장");
         Member other = saveMember("readiness-access-other", "준비조회접근없음");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "준비 조회 접근 그룹");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -585,7 +587,7 @@ class GroupIntegrationTest {
         Member owner = saveMember("readiness-other-owner", "준비조회다른방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "준비 조회 대상 그룹");
         GroupRoom otherGroupRoom = saveGroupOwnedBy(owner, "준비 조회 다른 그룹");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 otherGroupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -613,7 +615,7 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -651,7 +653,7 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -697,7 +699,7 @@ class GroupIntegrationTest {
         ));
         saveMenu("ready-open-first", "준비오픈첫번째");
         saveMenu("ready-open-second", "준비오픈두번째");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 null,
                 LocalDateTime.now()
@@ -755,7 +757,7 @@ class GroupIntegrationTest {
         Member owner = saveMember("ready-access-owner", "준비접근방장");
         Member other = saveMember("ready-access-other", "준비접근없음");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "준비 접근 그룹");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -1016,7 +1018,7 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -1086,7 +1088,7 @@ class GroupIntegrationTest {
     void getGroupRecommendationCandidatesFailsForPreparingRecommendation() throws Exception {
         Member owner = saveMember("recommendation-candidates-preparing-owner", "준비후보방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "준비 후보 조회 그룹");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -1113,14 +1115,15 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRecommendation oldRecommendation = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation oldRecommendation = open(
                 groupRoom,
                 "{}",
+                LocalDateTime.now().minusMinutes(30),
                 LocalDateTime.now().minusMinutes(30)
-        ));
+        );
         oldRecommendation.rerollWithoutSkip(LocalDateTime.now().minusMinutes(20));
         groupRecommendationRepository.save(oldRecommendation);
-        GroupRecommendation latestRecommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation latestRecommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now().minusMinutes(10)
@@ -1140,7 +1143,8 @@ class GroupIntegrationTest {
                 .andExpect(jsonPath("$.data.content.length()").value(2))
                 .andExpect(jsonPath("$.data.content[0].sessionId").value(latestRecommendation.getId()))
                 .andExpect(jsonPath("$.data.content[0].status").value(GroupRecommendationStatus.PREPARING.name()))
-                .andExpect(jsonPath("$.data.content[0].startedAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[0].createdAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[0].startedAt").value(nullValue()))
                 .andExpect(jsonPath("$.data.content[0].endedAt").value(nullValue()))
                 .andExpect(jsonPath("$.data.content[0].finalCandidate").doesNotExist())
                 .andExpect(jsonPath("$.data.content[0].finalMenuName").doesNotExist())
@@ -1794,7 +1798,7 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -1818,11 +1822,12 @@ class GroupIntegrationTest {
     void getGroupExpiresLatestRecommendationAndReturnsRecentlyRecommendation() throws Exception {
         Member owner = saveMember("group-expired-recent-owner", "만료최근방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "만료 최근 추천 그룹");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation recommendation = open(
                 groupRoom,
                 "{}",
-                LocalDateTime.now().minusHours(25)
-        ));
+                LocalDateTime.now().minusHours(25),
+                LocalDateTime.now().minusMinutes(5)
+        );
 
         mockMvc.perform(get("/api/v1/groups/{groupId}", groupRoom.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
@@ -1892,13 +1897,14 @@ class GroupIntegrationTest {
     void getMyGroupsReturnsLatestRecommendationStatus() throws Exception {
         Member owner = saveMember("group-list-recommendation-owner", "목록추천방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "목록 추천 그룹");
-        GroupRecommendation oldRecommendation = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation oldRecommendation = open(
                 groupRoom,
                 "{}",
+                LocalDateTime.now().minusMinutes(30),
                 LocalDateTime.now().minusMinutes(30)
-        ));
+        );
         oldRecommendation.rerollWithoutSkip(LocalDateTime.now().minusMinutes(20));
-        groupRecommendationRepository.save(GroupRecommendation.preparing(
+        groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now().minusMinutes(10)
@@ -1921,20 +1927,22 @@ class GroupIntegrationTest {
         Member owner = saveMember("group-list-expired-owner", "목록만료방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "목록 만료 추천 그룹");
         MenuItem menuItem = saveMenu("list-expired-menu", "목록만료메뉴");
-        GroupRecommendation finalizedRecommendation = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation finalizedRecommendation = open(
                 groupRoom,
                 "{}",
+                LocalDateTime.now().minusHours(26),
                 LocalDateTime.now().minusHours(26)
-        ));
+        );
         GroupRecommendationCandidate candidate = groupRecommendationCandidateRepository.save(
                 new GroupRecommendationCandidate(finalizedRecommendation, menuItem, 1, 90.0, "{}")
         );
         finalizedRecommendation.finalizeWith(candidate, LocalDateTime.now().minusHours(25));
-        GroupRecommendation expiredOpenRecommendation = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation expiredOpenRecommendation = open(
                 groupRoom,
                 "{}",
-                LocalDateTime.now().minusHours(25)
-        ));
+                LocalDateTime.now().minusHours(25),
+                LocalDateTime.now().minusMinutes(5)
+        );
 
         mockMvc.perform(get("/api/v1/groups")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner)))
@@ -3224,6 +3232,38 @@ class GroupIntegrationTest {
 
     private GroupLocation latestGroupLocation(GroupRoom groupRoom) {
         return groupLocationRepository.findFirstByRoomIdOrderByCreatedAtDescIdDesc(groupRoom.getId()).orElseThrow();
+    }
+
+    private GroupRecommendation preparing(
+            GroupRoom room,
+            String contextJson,
+            LocalDateTime createdAt
+    ) {
+        GroupRecommendation recommendation = GroupRecommendation.preparing(room);
+        recommendation.saveContextJson(contextJson);
+        recommendation = groupRecommendationRepository.saveAndFlush(recommendation);
+        jdbcTemplate.update(
+                "update group_recommendations set created_at = ? where id = ?",
+                createdAt,
+                recommendation.getId()
+        );
+        return groupRecommendationRepository.findById(recommendation.getId()).orElseThrow();
+    }
+
+    private GroupRecommendation open(
+            GroupRoom room,
+            String contextJson,
+            LocalDateTime createdAt,
+            LocalDateTime startedAt
+    ) {
+        GroupRecommendation recommendation = groupRecommendationRepository.saveAndFlush(
+                new GroupRecommendation(room, contextJson, startedAt));
+        jdbcTemplate.update(
+                "update group_recommendations set created_at = ? where id = ?",
+                createdAt,
+                recommendation.getId()
+        );
+        return groupRecommendationRepository.findById(recommendation.getId()).orElseThrow();
     }
 
     private GroupInvite saveInvite(

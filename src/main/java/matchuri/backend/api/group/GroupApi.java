@@ -591,9 +591,10 @@ public interface GroupApi {
                     - 현재 회원이 해당 그룹의 `ACTIVE` 멤버일 때만 조회할 수 있습니다.
                     - 삭제된 그룹은 조회할 수 없습니다.
                     - `PREPARING` 세션도 목록에 포함합니다.
-                    - 응답은 `sessionId`, `status`, `startedAt`, `endedAt`만 포함하는 얇은 summary입니다.
+                    - 응답은 `sessionId`, `status`, `createdAt`, `startedAt`, `endedAt`만 포함하는 얇은 summary입니다.
+                    - `createdAt`은 추천 시작, `startedAt`은 투표 시작, `endedAt`은 추천 종료 시각입니다.
                     - `finalCandidate`, `finalMenuName`, `voteProgress`, `status` 필터는 1차 범위에서 제외합니다.
-                    - 최신순(`startedAt DESC`, `id DESC`)으로 정렬합니다.
+                    - 최신순(`createdAt DESC`, `id DESC`)으로 정렬합니다.
                     """
     )
     @ApiResponses({

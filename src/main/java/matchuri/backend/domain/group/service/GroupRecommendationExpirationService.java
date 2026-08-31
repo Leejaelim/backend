@@ -18,7 +18,7 @@ public class GroupRecommendationExpirationService {
     public boolean isExpired(GroupRecommendation recommendation, LocalDateTime now) {
         return EXPIRABLE_STATUSES.contains(recommendation.getStatus())
                 && recommendation.getEndedAt() == null
-                && !recommendation.getStartedAt().plusHours(EXPIRATION_HOURS).isAfter(now);
+                && !recommendation.getCreatedAt().plusHours(EXPIRATION_HOURS).isAfter(now);
     }
 
     public LocalDateTime activeThreshold(LocalDateTime now) {

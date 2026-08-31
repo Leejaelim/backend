@@ -68,8 +68,10 @@ public record HomeResponse(
     @Schema(name = "HomeGroupActivityDetails")
     public record GroupActivityDetails(
             Long recommendationId,
-            @Schema(description = "추천 준비 세션 시작 시각입니다. 투표 시작 시각이 아닙니다.")
-            LocalDateTime startedAt,
+            @Schema(description = "추천 세션 생성 시각입니다.")
+            LocalDateTime createdAt,
+            @Schema(description = "투표 시작 시각입니다. PREPARING이면 null입니다.", nullable = true)
+            @Nullable LocalDateTime startedAt,
             @Schema(description = "종료 시각. PREPARING/OPEN이면 null, lazy 만료 시에는 만료 처리 시각입니다.", nullable = true)
             @Nullable LocalDateTime endedAt,
             @Schema(description = "FINALIZED일 때만 최신 확정 메뉴명을 제공합니다. 나머지 상태는 null입니다.", nullable = true)
