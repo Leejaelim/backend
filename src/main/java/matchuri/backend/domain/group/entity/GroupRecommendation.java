@@ -16,6 +16,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import matchuri.backend.domain.common.BaseEntity;
+import org.jspecify.annotations.Nullable;
 
 @Getter
 @Entity
@@ -39,8 +40,8 @@ public class GroupRecommendation extends BaseEntity {
     @Column(nullable = false, length = 30, comment = "그룹 추천 상태")
     private GroupRecommendationStatus status;
 
-    @Column(name = "started_at", nullable = false, comment = "시작 시각")
-    private LocalDateTime startedAt;
+    @Column(name = "started_at", comment = "투표 시작 시각")
+    private @Nullable LocalDateTime startedAt;
 
     @Column(name = "ended_at", comment = "종료 시각")
     private LocalDateTime endedAt;
@@ -65,25 +66,22 @@ public class GroupRecommendation extends BaseEntity {
         this.status = GroupRecommendationStatus.OPEN;
     }
 
-    public static GroupRecommendation preparing(GroupRoom room, LocalDateTime startedAt) {
-        GroupRecommendation recommendation = new GroupRecommendation(room, startedAt);
+    public static GroupRecommendation preparing(GroupRoom room) {
+        GroupRecommendation recommendation = new GroupRecommendation();
+        recommendation.room = room;
         recommendation.status = GroupRecommendationStatus.PREPARING;
         return recommendation;
     }
 
-    public static GroupRecommendation preparing(GroupRoom room, String contextJson, LocalDateTime startedAt) {
-        GroupRecommendation recommendation = new GroupRecommendation(room, contextJson, startedAt);
-        recommendation.status = GroupRecommendationStatus.PREPARING;
-        return recommendation;
-    }
-
-    public void open() {
+    public void open(LocalDateTime startedAt) {
         this.status = GroupRecommendationStatus.OPEN;
+        this.startedAt = startedAt;
     }
 
-    public void openWithContextJson(String contextJson) {
+    public void openWithContextJson(String contextJson, LocalDateTime startedAt) {
         this.contextJson = contextJson;
         this.status = GroupRecommendationStatus.OPEN;
+        this.startedAt = startedAt;
     }
 
     public void finalizeWith(GroupRecommendationCandidate selectedCandidate, LocalDateTime endedAt) {

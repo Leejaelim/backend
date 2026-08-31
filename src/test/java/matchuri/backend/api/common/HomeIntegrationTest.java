@@ -142,13 +142,13 @@ class HomeIntegrationTest {
     }
 
     @Test
-    void groupActivitiesCoverAllActiveMembershipsWithOneLatestSessionPerGroup() throws Exception {
+    void groupActivitiesIncludeRecommendationHistoryAcrossAllActiveMemberships() throws Exception {
         Member member = member(true, MemberStatus.ACTIVE);
         Member other = member(true, MemberStatus.ACTIVE);
         LocalDateTime now = LocalDateTime.now().withNano(0);
         var menu = persist(new MenuItem(key(), "이전 메뉴명", null));
         var firstRoom = room(member);
-        group(firstRoom, now.minusMinutes(10), null);
+        var previous = group(firstRoom, now.minusMinutes(10), null);
         var latest = group(firstRoom, now.minusMinutes(10), null);
         var secondRoom = room(other);
         persist(new GroupRoomMember(secondRoom, member, GroupMemberRole.MEMBER, now));
@@ -172,16 +172,49 @@ class HomeIntegrationTest {
             group(room(member), now.minusHours(1).minusMinutes(i), null);
         }
         JsonNode items = home(member).path("recentGroupActivities").path("items");
-        assertThat(items).hasSize(23); // no default page-size truncation
+        assertThat(items).hasSize(24); // same group history is retained without default truncation
         assertThat(items.get(0).path("groupId").asLong()).isEqualTo(firstRoom.getId());
         assertThat(items.get(0).path("groupName").asText()).isEqualTo(firstRoom.getName());
         assertThat(items.get(0).path("type").asText()).isEqualTo("OPEN");
         assertThat(items.get(0).path("details").path("recommendationId").asLong()).isEqualTo(latest.getId());
+        assertThat(items.get(0).path("details").path("createdAt").isNull()).isFalse();
+        assertThat(items.get(0).path("details").path("startedAt").isNull()).isFalse();
         assertThat(items.get(0).path("details").path("endedAt").isNull()).isTrue();
         assertThat(items.get(0).path("details").path("selectedMenuName").isNull()).isTrue();
-        assertThat(items.get(1).path("groupId").asLong()).isEqualTo(secondRoom.getId());
-        assertThat(items.get(1).path("type").asText()).isEqualTo("FINALIZED");
-        assertThat(items.get(1).path("details").path("selectedMenuName").asText()).isEqualTo("최신 마라탕");
+        assertThat(items.get(1).path("groupId").asLong()).isEqualTo(firstRoom.getId());
+        assertThat(items.get(1).path("details").path("recommendationId").asLong()).isEqualTo(previous.getId());
+        assertThat(items.get(2).path("groupId").asLong()).isEqualTo(secondRoom.getId());
+        assertThat(items.get(2).path("type").asText()).isEqualTo("FINALIZED");
+        assertThat(items.get(2).path("details").path("selectedMenuName").asText()).isEqualTo("최신 마라탕");
+    }
+
+    @Test
+    void groupActivitiesExposeCreatedVotingStartedAndEndedAtBySessionState() throws Exception {
+        Member member = member(true, MemberStatus.ACTIVE);
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        var preparing = persist(preparing(room(member), now.minusMinutes(30)));
+        var open = persist(preparing(room(member), now.minusMinutes(20)));
+        open.open(now.minusMinutes(15));
+        var menu = persist(new MenuItem(key(), "김치찌개", null));
+        var finalized = persist(preparing(room(member), now.minusMinutes(10)));
+        finalized.open(now.minusMinutes(5));
+        var candidate = persist(new GroupRecommendationCandidate(finalized, menu, 1, 90.0, null));
+        finalized.finalizeWith(candidate, now);
+
+        JsonNode items = home(member).path("recentGroupActivities").path("items");
+        JsonNode preparingItem = findActivity(items, preparing.getId());
+        JsonNode openItem = findActivity(items, open.getId());
+        JsonNode finalizedItem = findActivity(items, finalized.getId());
+
+        assertThat(LocalDateTime.parse(preparingItem.path("details").path("createdAt").asText()))
+                .isEqualTo(now.minusMinutes(30));
+        assertThat(preparingItem.path("details").path("startedAt").isNull()).isTrue();
+        assertThat(preparingItem.path("details").path("endedAt").isNull()).isTrue();
+        assertThat(LocalDateTime.parse(openItem.path("details").path("startedAt").asText()))
+                .isEqualTo(now.minusMinutes(15));
+        assertThat(openItem.path("details").path("endedAt").isNull()).isTrue();
+        assertThat(LocalDateTime.parse(finalizedItem.path("details").path("endedAt").asText())).isEqualTo(now);
+        assertThat(items.get(0).path("details").path("recommendationId").asLong()).isEqualTo(finalized.getId());
     }
 
     @Test
@@ -189,8 +222,8 @@ class HomeIntegrationTest {
         Member member = member(true, MemberStatus.ACTIVE);
         LocalDateTime old = LocalDateTime.now().minusDays(2);
         var personal = personal(member, null, old);
-        var preparing = persist(GroupRecommendation.preparing(room(member), old));
-        var open = group(room(member), old, null);
+        var preparing = persist(preparing(room(member), old));
+        var open = group(room(member), old, LocalDateTime.now(), null);
         JsonNode data = home(member);
         assertThat(data.path("personalRecommendation").path("latestRecommendationStatus").asText()).isEqualTo("EXPIRED");
         for (JsonNode activity : data.path("recentGroupActivities").path("items")) {
@@ -276,12 +309,48 @@ class HomeIntegrationTest {
     }
 
     private GroupRecommendation group(GroupRoom room, LocalDateTime startedAt, MenuItem selectedMenu) {
-        var recommendation = persist(new GroupRecommendation(room, startedAt));
+        return group(room, startedAt.minusMinutes(5), startedAt, selectedMenu);
+    }
+
+    private GroupRecommendation group(
+            GroupRoom room,
+            LocalDateTime createdAt,
+            LocalDateTime startedAt,
+            MenuItem selectedMenu
+    ) {
+        var recommendation = new GroupRecommendation(room, startedAt);
+        persist(recommendation);
+        setRecommendationCreatedAt(recommendation, createdAt);
         if (selectedMenu != null) {
             var candidate = persist(new GroupRecommendationCandidate(recommendation, selectedMenu, 1, 90.0, null));
             recommendation.finalizeWith(candidate, startedAt.plusMinutes(5));
         }
         return recommendation;
+    }
+
+    private JsonNode findActivity(JsonNode items, Long recommendationId) {
+        for (JsonNode item : items) {
+            if (item.path("details").path("recommendationId").asLong() == recommendationId) {
+                return item;
+            }
+        }
+        throw new AssertionError("Home activity not found: " + recommendationId);
+    }
+
+    private GroupRecommendation preparing(GroupRoom room, LocalDateTime createdAt) {
+        GroupRecommendation recommendation = persist(GroupRecommendation.preparing(room));
+        setRecommendationCreatedAt(recommendation, createdAt);
+        return recommendation;
+    }
+
+    private void setRecommendationCreatedAt(GroupRecommendation recommendation, LocalDateTime createdAt) {
+        entityManager.flush();
+        entityManager.createNativeQuery(
+                        "update group_recommendations set created_at = :createdAt where id = :recommendationId")
+                .setParameter("createdAt", createdAt)
+                .setParameter("recommendationId", recommendation.getId())
+                .executeUpdate();
+        entityManager.refresh(recommendation);
     }
 
     private <T> T persist(T entity) {

@@ -445,13 +445,15 @@ public final class GroupApiExamples {
                   {
                     "sessionId": 5002,
                     "status": "PREPARING",
-                    "startedAt": "2026-05-26T12:20:00",
+                    "createdAt": "2026-05-26T12:20:00",
+                    "startedAt": null,
                     "endedAt": null
                   },
                   {
                     "sessionId": 5001,
                     "status": "FINALIZED",
-                    "startedAt": "2026-05-26T12:00:00",
+                    "createdAt": "2026-05-26T12:00:00",
+                    "startedAt": "2026-05-26T12:05:00",
                     "endedAt": "2026-05-26T12:15:00"
                   }
                 ],
