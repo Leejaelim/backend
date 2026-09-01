@@ -60,37 +60,11 @@ public class GroupInviteServiceImpl implements GroupInviteService {
     public CreateNicknameGroupInviteResult createNicknameInvite(Long memberId, CreateNicknameGroupInviteCommand command) {
         Member requestMember = memberReader.getActiveMember(memberId);
         GroupRoom room = groupRoomReader.getActiveGroupRoom(command.groupId());
-
-        GroupRoomMember requestMembership = groupRoomMemberRepository
-                .findActiveMembershipInNotDeletedRoom(room.getId(), requestMember.getId())
-                .orElseThrow(() -> new BusinessException(GroupErrorCode.INVITE_FORBIDDEN, room.getId()));
-
-        if (!requestMembership.isOwner()) {
-            throw new BusinessException(GroupErrorCode.INVITE_FORBIDDEN, room.getId());
-        }
+        validateGroupRoomMember(room, requestMember);
 
         Member targetMember = memberRepository.findByNicknameAndStatus(command.nickname(), MemberStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(GroupErrorCode.INVITE_TARGET_NOT_FOUND, command.nickname()));
-
-        if (requestMember.getId().equals(targetMember.getId())) {
-            throw new BusinessException(GroupErrorCode.INVITE_SELF_NOT_ALLOWED, requestMember.getId());
-        }
-
-        if (groupRoomMemberRepository.existsActiveMembershipInNotDeletedRoom(room.getId(), targetMember.getId())) {
-            throw new BusinessException(
-                    GroupErrorCode.INVITE_TARGET_ALREADY_MEMBER,
-                    room.getId(),
-                    targetMember.getId()
-            );
-        }
-
-        if (groupInviteRepository.existsByRoomIdAndTargetMemberIdAndStatus(
-                room.getId(),
-                targetMember.getId(),
-                GroupInviteStatus.PENDING
-        )) {
-            throw new BusinessException(GroupErrorCode.INVITE_ALREADY_PENDING, room.getId(), targetMember.getId());
-        }
+        validateTargetMember(requestMember, targetMember, room);
 
         LocalDateTime expiresAt = LocalDateTime.now().plusHours(NICKNAME_INVITE_EXPIRATION_HOURS);
         GroupInvite invite = groupInviteRepository.save(new GroupInvite(room, requestMember, targetMember, expiresAt));
@@ -114,6 +88,38 @@ public class GroupInviteServiceImpl implements GroupInviteService {
                 invite.getExpiresAt(),
                 invite.getStatus()
         );
+    }
+
+    private void validateGroupRoomMember(GroupRoom room, Member member) {
+        GroupRoomMember requestMembership = groupRoomMemberRepository
+                .findActiveMembershipInNotDeletedRoom(room.getId(), member.getId())
+                .orElseThrow(() -> new BusinessException(GroupErrorCode.INVITE_FORBIDDEN, room.getId()));
+
+        if (!requestMembership.isOwner()) {
+            throw new BusinessException(GroupErrorCode.INVITE_FORBIDDEN, room.getId());
+        }
+    }
+
+    private void validateTargetMember(Member requestMember, Member targetMember, GroupRoom room) {
+        if (requestMember.getId().equals(targetMember.getId())) {
+            throw new BusinessException(GroupErrorCode.INVITE_SELF_NOT_ALLOWED, targetMember.getId());
+        }
+
+        if (groupRoomMemberRepository.existsActiveMembershipInNotDeletedRoom(room.getId(), targetMember.getId())) {
+            throw new BusinessException(
+                    GroupErrorCode.INVITE_TARGET_ALREADY_MEMBER,
+                    room.getId(),
+                    targetMember.getId()
+            );
+        }
+
+        if (groupInviteRepository.existsByRoomIdAndTargetMemberIdAndStatus(
+                room.getId(),
+                targetMember.getId(),
+                GroupInviteStatus.PENDING
+        )) {
+            throw new BusinessException(GroupErrorCode.INVITE_ALREADY_PENDING, room.getId(), targetMember.getId());
+        }
     }
 
     @Override
