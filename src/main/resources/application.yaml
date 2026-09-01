@@ -83,6 +83,7 @@ spring:
       hibernate:
         format_sql: true
         jdbc.time_zone: UTC
+        highlight_sql: true
 
 matchuri:
   auth:
