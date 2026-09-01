@@ -1,4 +1,4 @@
-package matchuri.backend.api.memberagreement;
+package matchuri.backend.api.memberagreement.mapper;
 
 import matchuri.backend.api.common.dto.OnboardingStatusResponse;
 import matchuri.backend.api.memberagreement.dto.request.SubmitRequiredAgreementsRequest;

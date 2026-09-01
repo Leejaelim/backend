@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import matchuri.backend.api.memberagreement.dto.request.SubmitRequiredAgreementsRequest;
 import matchuri.backend.api.memberagreement.dto.response.RequiredAgreementStatusResponse;
 import matchuri.backend.api.memberagreement.dto.response.SubmitRequiredAgreementsResponse;
+import matchuri.backend.api.memberagreement.mapper.MemberAgreementMapper;
 import matchuri.backend.domain.member.service.MemberAgreementService;
 import matchuri.backend.global.api.ApiResponse;
 import matchuri.backend.global.security.AuthenticatedMemberId;

@@ -15,6 +15,7 @@ import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationDe
 import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationRequestResponse;
 import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationResponse;
 import matchuri.backend.api.recommendation.dto.response.SelectPersonalRecommendationResponse;
+import matchuri.backend.api.recommendation.mapper.RecommendationMapper;
 import matchuri.backend.domain.recommendation.command.GuestPersonalRecommendationCommand;
 import matchuri.backend.domain.recommendation.command.SelectPersonalRecommendationCommand;
 import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendationResult;
