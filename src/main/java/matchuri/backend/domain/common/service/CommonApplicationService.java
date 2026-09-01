@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import matchuri.backend.api.common.dto.response.HomeResponse;
 import matchuri.backend.api.common.mapper.HomeMapper;
 import matchuri.backend.domain.group.result.GroupHomeActivityResult;
-import matchuri.backend.domain.group.service.GroupService;
+import matchuri.backend.domain.group.service.GroupRecommendationService;
 import matchuri.backend.domain.member.result.MemberLocationResult;
 import matchuri.backend.domain.member.result.MemberProfileResult;
 import matchuri.backend.domain.member.result.MemberTasteProfileSummaryResult;
@@ -21,7 +21,7 @@ public class CommonApplicationService {
 
     private final MemberService memberService;
     private final RecommendationService recommendationService;
-    private final GroupService groupService;
+    private final GroupRecommendationService groupRecommendationService;
     private final HomeMapper homeMapper;
 
     @Transactional
@@ -30,7 +30,7 @@ public class CommonApplicationService {
         MemberLocationResult location = memberService.getMyLocation(memberId);
         MemberTasteProfileSummaryResult taste = memberService.getMyTasteProfile(memberId);
         PersonalRecommendationHomeResult recommendations = recommendationService.getHomeRecommendations(memberId);
-        List<GroupHomeActivityResult> activities = groupService.getHomeActivities(memberId);
+        List<GroupHomeActivityResult> activities = groupRecommendationService.getHomeActivities(memberId);
         return homeMapper.toResponse(user, location, taste, recommendations, activities);
     }
 }

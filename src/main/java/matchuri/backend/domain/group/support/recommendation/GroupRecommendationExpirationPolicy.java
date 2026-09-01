@@ -1,13 +1,13 @@
-package matchuri.backend.domain.group.service;
+package matchuri.backend.domain.group.support.recommendation;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import matchuri.backend.domain.group.entity.GroupRecommendation;
 import matchuri.backend.domain.group.entity.GroupRecommendationStatus;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
-@Service
-public class GroupRecommendationExpirationService {
+@Component
+public class GroupRecommendationExpirationPolicy {
 
     static final long EXPIRATION_HOURS = 24;
     private static final List<GroupRecommendationStatus> EXPIRABLE_STATUSES = List.of(

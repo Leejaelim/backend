@@ -67,7 +67,9 @@ import matchuri.backend.domain.group.result.LeaveGroupResult;
 import matchuri.backend.domain.group.result.ReadyGroupRecommendationResult;
 import matchuri.backend.domain.group.result.RespondGroupInviteResult;
 import matchuri.backend.domain.group.result.UpdateGroupResult;
-import matchuri.backend.domain.group.service.GroupService;
+import matchuri.backend.domain.group.service.GroupInviteService;
+import matchuri.backend.domain.group.service.GroupManagementService;
+import matchuri.backend.domain.group.service.GroupRecommendationService;
 import matchuri.backend.global.api.ApiResponse;
 import matchuri.backend.global.api.PageResponse;
 import matchuri.backend.global.security.AuthenticatedMemberId;
@@ -89,7 +91,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class GroupController implements GroupApi {
 
-    private final GroupService groupService;
+    private final GroupManagementService groupManagementService;
+    private final GroupInviteService groupInviteService;
+    private final GroupRecommendationService groupRecommendationService;
     private final GroupMapper groupMapper;
 
     @Override
@@ -99,7 +103,7 @@ public class GroupController implements GroupApi {
             @Valid @RequestBody CreateGroupRequest request
     ) {
         CreateGroupCommand command = groupMapper.toCreateGroupCommand(request);
-        CreateGroupResult result = groupService.createGroup(memberId, command);
+        CreateGroupResult result = groupManagementService.createGroup(memberId, command);
 
         return ApiResponse.success(groupMapper.toCreateGroupResponse(result));
     }
@@ -116,7 +120,7 @@ public class GroupController implements GroupApi {
             Integer size
     ) {
         GetMyGroupsCommand command = groupMapper.toGetMyGroupsCommand(status, page, size);
-        Page<@NonNull GroupSummaryResult> results = groupService.getMyGroups(memberId, command);
+        Page<@NonNull GroupSummaryResult> results = groupManagementService.getMyGroups(memberId, command);
         PageResponse<GroupSummaryResponse> response = PageResponse.of(results, groupMapper::toGroupSummaryResponse);
 
         return ApiResponse.success(response);
@@ -128,7 +132,7 @@ public class GroupController implements GroupApi {
             @AuthenticatedMemberId Long memberId,
             @PathVariable Long groupId
     ) {
-        GroupDetailResult result = groupService.getGroup(memberId, groupId);
+        GroupDetailResult result = groupManagementService.getGroup(memberId, groupId);
 
         return ApiResponse.success(groupMapper.toGroupDetailResponse(result));
     }
@@ -139,7 +143,7 @@ public class GroupController implements GroupApi {
             @AuthenticatedMemberId Long memberId,
             @PathVariable Long groupId
     ) {
-        GroupInviteLinkResult result = groupService.createInviteLink(memberId, groupId);
+        GroupInviteLinkResult result = groupInviteService.createInviteLink(memberId, groupId);
         return ApiResponse.success(groupMapper.toGroupInviteLinkResponse(result));
     }
 
@@ -149,7 +153,7 @@ public class GroupController implements GroupApi {
             @AuthenticatedMemberId Long memberId,
             @PathVariable Long groupId
     ) {
-        GroupInviteLinkResult result = groupService.reissueInviteLink(memberId, groupId);
+        GroupInviteLinkResult result = groupInviteService.reissueInviteLink(memberId, groupId);
         return ApiResponse.success(groupMapper.toGroupInviteLinkResponse(result));
     }
 
@@ -159,7 +163,7 @@ public class GroupController implements GroupApi {
             @AuthenticatedMemberId Long memberId,
             @PathVariable Long groupId
     ) {
-        GroupInviteLinkResult result = groupService.getCurrentInviteLink(memberId, groupId);
+        GroupInviteLinkResult result = groupInviteService.getCurrentInviteLink(memberId, groupId);
         return ApiResponse.success(groupMapper.toGroupInviteLinkResponse(result));
     }
 
@@ -170,7 +174,7 @@ public class GroupController implements GroupApi {
             @Valid @RequestBody CreateNicknameGroupInviteRequest request
     ) {
         CreateNicknameGroupInviteCommand command = groupMapper.toCreateNicknameGroupInviteCommand(request);
-        CreateNicknameGroupInviteResult result = groupService.createNicknameInvite(memberId, command);
+        CreateNicknameGroupInviteResult result = groupInviteService.createNicknameInvite(memberId, command);
 
         return ApiResponse.success(groupMapper.toCreateNicknameGroupInviteResponse(result));
     }
@@ -187,7 +191,7 @@ public class GroupController implements GroupApi {
             Integer size
     ) {
         GetMyGroupInvitesCommand command = groupMapper.toGetMyGroupInvitesCommand(status, page, size);
-        Page<@NonNull GroupInviteSummaryResult> results = groupService.getMyInvites(memberId, command);
+        Page<@NonNull GroupInviteSummaryResult> results = groupInviteService.getMyInvites(memberId, command);
         PageResponse<GroupInviteSummaryResponse> response =
                 PageResponse.of(results, groupMapper::toGroupInviteSummaryResponse);
 
@@ -202,7 +206,7 @@ public class GroupController implements GroupApi {
             @Valid @RequestBody RespondGroupInviteRequest request
     ) {
         RespondGroupInviteCommand command = groupMapper.toRespondGroupInviteCommand(inviteId, request);
-        RespondGroupInviteResult result = groupService.respondGroupInvite(memberId, command);
+        RespondGroupInviteResult result = groupInviteService.respondGroupInvite(memberId, command);
 
         return ApiResponse.success(groupMapper.toRespondGroupInviteResponse(result));
     }
@@ -215,7 +219,7 @@ public class GroupController implements GroupApi {
             @Valid @RequestBody UpdateGroupRequest request
     ) {
         UpdateGroupCommand command = groupMapper.toUpdateGroupCommand(groupId, request);
-        UpdateGroupResult result = groupService.updateGroup(memberId, command);
+        UpdateGroupResult result = groupManagementService.updateGroup(memberId, command);
 
         return ApiResponse.success(groupMapper.toUpdateGroupResponse(result));
     }
@@ -227,7 +231,7 @@ public class GroupController implements GroupApi {
             @Valid @RequestBody JoinGroupRequest request
     ) {
         JoinGroupCommand command = groupMapper.toJoinGroupCommand(request);
-        JoinGroupResult result = groupService.joinGroup(memberId, command);
+        JoinGroupResult result = groupInviteService.joinGroup(memberId, command);
 
         return ApiResponse.success(groupMapper.toJoinGroupResponse(result));
     }
@@ -238,7 +242,7 @@ public class GroupController implements GroupApi {
             @AuthenticatedMemberId Long memberId,
             @Valid @RequestBody JoinGroupByInviteLinkRequest request
     ) {
-        JoinGroupResult result = groupService.joinGroupByInviteLink(memberId, request.token());
+        JoinGroupResult result = groupInviteService.joinGroupByInviteLink(memberId, request.token());
         return ApiResponse.success(groupMapper.toJoinGroupResponse(result));
     }
 
@@ -249,7 +253,7 @@ public class GroupController implements GroupApi {
             @PathVariable Long groupId
     ) {
         LeaveGroupCommand command = groupMapper.toLeaveGroupCommand(groupId);
-        LeaveGroupResult result = groupService.leaveGroup(memberId, command);
+        LeaveGroupResult result = groupManagementService.leaveGroup(memberId, command);
 
         return ApiResponse.success(groupMapper.toLeaveGroupResponse(result));
     }
@@ -261,7 +265,7 @@ public class GroupController implements GroupApi {
             @PathVariable Long groupId
     ) {
         DeleteGroupCommand command = groupMapper.toDeleteGroupCommand(groupId);
-        DeleteGroupResult result = groupService.deleteGroup(memberId, command);
+        DeleteGroupResult result = groupManagementService.deleteGroup(memberId, command);
 
         return ApiResponse.success(groupMapper.toDeleteGroupResponse(result));
     }
@@ -274,7 +278,7 @@ public class GroupController implements GroupApi {
             @Valid @RequestBody CreateGroupRecommendationRequest request
     ) {
         CreateGroupRecommendationCommand command = groupMapper.toCreateGroupRecommendationCommand(groupId, request);
-        CreateGroupRecommendationResult result = groupService.createGroupRecommendation(memberId, command);
+        CreateGroupRecommendationResult result = groupRecommendationService.createGroupRecommendation(memberId, command);
 
         return ApiResponse.success(groupMapper.toCreateGroupRecommendationResponse(result));
     }
@@ -291,7 +295,7 @@ public class GroupController implements GroupApi {
             Integer size
     ) {
         Page<GroupRecommendationSummaryResult> results =
-                groupService.getGroupRecommendations(memberId, groupId, page, size);
+                groupRecommendationService.getGroupRecommendations(memberId, groupId, page, size);
         PageResponse<GroupRecommendationSummaryResponse> response =
                 PageResponse.of(results, groupMapper::toGroupRecommendationSummaryResponse);
 
@@ -305,7 +309,7 @@ public class GroupController implements GroupApi {
             @PathVariable Long groupId,
             @PathVariable Long sessionId
     ) {
-        GroupRecommendationResult result = groupService.getGroupRecommendation(memberId, groupId, sessionId);
+        GroupRecommendationResult result = groupRecommendationService.getGroupRecommendation(memberId, groupId, sessionId);
 
         return ApiResponse.success(groupMapper.toGroupRecommendationSessionResponse(result));
     }
@@ -318,7 +322,7 @@ public class GroupController implements GroupApi {
             @PathVariable Long sessionId
     ) {
         GroupRecommendationCandidateListResult result =
-                groupService.getGroupRecommendationCandidates(memberId, groupId, sessionId);
+                groupRecommendationService.getGroupRecommendationCandidates(memberId, groupId, sessionId);
 
         return ApiResponse.success(groupMapper.toGroupRecommendationCandidateListResponse(result));
     }
@@ -331,7 +335,7 @@ public class GroupController implements GroupApi {
             @PathVariable Long sessionId
     ) {
         GroupRecommendationReadinessResult result =
-                groupService.getGroupRecommendationReadiness(memberId, groupId, sessionId);
+                groupRecommendationService.getGroupRecommendationReadiness(memberId, groupId, sessionId);
 
         return ApiResponse.success(groupMapper.toGroupRecommendationReadinessResponse(result));
     }
@@ -343,7 +347,7 @@ public class GroupController implements GroupApi {
             @PathVariable Long groupId,
             @PathVariable Long sessionId
     ) {
-        ReadyGroupRecommendationResult result = groupService.readyGroupRecommendation(memberId, groupId, sessionId);
+        ReadyGroupRecommendationResult result = groupRecommendationService.readyGroupRecommendation(memberId, groupId, sessionId);
 
         return ApiResponse.success(groupMapper.toReadyGroupRecommendationResponse(result));
     }
@@ -357,7 +361,7 @@ public class GroupController implements GroupApi {
             @PathVariable Long sessionId,
             @Valid @RequestBody RerollGroupRecommendationRequest request
     ) {
-        CreateGroupRecommendationResult result = groupService.rerollGroupRecommendation(
+        CreateGroupRecommendationResult result = groupRecommendationService.rerollGroupRecommendation(
                 memberId,
                 groupId,
                 sessionId,
@@ -377,7 +381,7 @@ public class GroupController implements GroupApi {
             @Valid @RequestBody VoteGroupRecommendationRequest request
     ) {
         GroupVoteResult result =
-                groupService.voteGroupRecommendation(memberId, groupId, sessionId, request.candidateId());
+                groupRecommendationService.voteGroupRecommendation(memberId, groupId, sessionId, request.candidateId());
         GroupVoteResponse response = groupMapper.toGroupVoteResponse(result);
 
         return ApiResponse.success(response);
@@ -392,7 +396,7 @@ public class GroupController implements GroupApi {
             @Valid @RequestBody(required = false) FinalizeGroupRecommendationRequest request
     ) {
         FinalizeGroupRecommendationCommand command = groupMapper.toFinalizeGroupRecommendationCommand(groupId, sessionId, request);
-        FinalizeGroupRecommendationResult result = groupService.finalizeGroupRecommendation(memberId, command);
+        FinalizeGroupRecommendationResult result = groupRecommendationService.finalizeGroupRecommendation(memberId, command);
         return ApiResponse.success(groupMapper.toFinalizeGroupRecommendationResponse(result));
     }
 }
