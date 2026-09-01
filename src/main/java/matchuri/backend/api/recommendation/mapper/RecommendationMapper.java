@@ -1,4 +1,4 @@
-package matchuri.backend.api.recommendation;
+package matchuri.backend.api.recommendation.mapper;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -34,6 +34,7 @@ import matchuri.backend.api.group.dto.response.LeaveGroupResponse;
 import matchuri.backend.api.group.dto.response.ReadyGroupRecommendationResponse;
 import matchuri.backend.api.group.dto.response.RespondGroupInviteResponse;
 import matchuri.backend.api.group.dto.response.UpdateGroupResponse;
+import matchuri.backend.api.group.mapper.GroupMapper;
 import matchuri.backend.domain.group.command.CreateGroupCommand;
 import matchuri.backend.domain.group.command.CreateGroupRecommendationCommand;
 import matchuri.backend.domain.group.command.CreateNicknameGroupInviteCommand;

@@ -1,4 +1,4 @@
-package matchuri.backend.api.group;
+package matchuri.backend.api.group.mapper;
 
 import matchuri.backend.api.group.dto.request.CreateGroupRecommendationRequest;
 import matchuri.backend.api.group.dto.request.CreateGroupRequest;
