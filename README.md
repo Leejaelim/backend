@@ -16,7 +16,7 @@
 - springdoc-openapi 3.x
 - AWS SDK for Java v2, S3 compatible storage
 - Lombok
-- JUnit 5, Spring REST Docs
+- JUnit 5
 - Docker Compose
 
 ## 2. 프로젝트 구조
@@ -100,7 +100,7 @@ docker compose up -d db
 ./gradlew bootRun
 
 # 테스트 실행
-./gradlew test
+./gradlew test --quiet
 ```
 
 Windows PowerShell에서는 아래 명령어를 사용할 수 있습니다.
@@ -109,5 +109,5 @@ Windows PowerShell에서는 아래 명령어를 사용할 수 있습니다.
 cd backend
 docker compose up -d db
 .\gradlew.bat bootRun
-.\gradlew.bat test
+.\gradlew.bat test --quiet
 ```
