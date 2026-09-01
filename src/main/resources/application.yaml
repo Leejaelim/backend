@@ -99,6 +99,7 @@ matchuri:
       - /login/oauth2/code/**
       - /docs/**
       - /api/v1/health
+      - /favicon.ico
     public-post-api-patterns:
       - /api/v2/members/signup
       - /api/v1/members/signup
