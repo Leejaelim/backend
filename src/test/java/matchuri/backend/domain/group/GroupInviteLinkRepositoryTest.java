@@ -21,7 +21,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 
-@DataJpaTest
+@DataJpaTest(showSql = false)
 @Import(JpaConfig.class)
 @ActiveProfiles("test")
 class GroupInviteLinkRepositoryTest {

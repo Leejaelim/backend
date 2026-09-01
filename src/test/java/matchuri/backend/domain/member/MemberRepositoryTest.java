@@ -18,7 +18,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
-@DataJpaTest
+@DataJpaTest(showSql = false)
 @Import(JpaConfig.class)
 @ActiveProfiles("test")
 class MemberRepositoryTest {

@@ -19,6 +19,7 @@ import matchuri.backend.domain.group.repository.*;
 import matchuri.backend.domain.group.result.*;
 import matchuri.backend.domain.group.support.GroupInviteCodeGenerator;
 import matchuri.backend.domain.group.support.GroupInviteLinkManager;
+import matchuri.backend.domain.group.support.GroupFinalCandidateSelector;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberTasteProfile;
 import matchuri.backend.domain.member.entity.MemberStatus;
@@ -91,6 +92,7 @@ public class GroupServiceImpl implements GroupService {
     private final MenuRecommendationAlgorithmResolver menuRecommendationAlgorithmResolver;
     private final GroupInviteCodeGenerator groupInviteCodeGenerator;
     private final GroupInviteLinkManager groupInviteLinkManager;
+    private final GroupFinalCandidateSelector groupFinalCandidateSelector;
     private final GroupRecommendationExpirationService groupRecommendationExpirationService;
     private final RecommendationLocationContextJsonFactory recommendationLocationContextJsonFactory;
     private final ObjectMapper objectMapper;
@@ -542,7 +544,8 @@ public class GroupServiceImpl implements GroupService {
         }
 
         Map<Long, Integer> voteCountsByCandidateId = countVotesByCandidateId(recommendation.getId());
-        GroupRecommendationCandidate selectedCandidate = selectFinalCandidate(candidates, voteCountsByCandidateId);
+        GroupRecommendationCandidate selectedCandidate =
+                groupFinalCandidateSelector.select(candidates, voteCountsByCandidateId);
         LocalDateTime finalizedAt = LocalDateTime.now();
         recommendation.finalizeWith(selectedCandidate, finalizedAt);
         recommendationLocationContextJsonFactory.createIfComplete(
@@ -1115,26 +1118,6 @@ public class GroupServiceImpl implements GroupService {
                         GroupCandidateVoteCountProjection::getCandidateId,
                         projection -> projection.getVoteCount().intValue()
                 ));
-    }
-
-    private GroupRecommendationCandidate selectFinalCandidate(
-            List<GroupRecommendationCandidate> candidates,
-            Map<Long, Integer> voteCountsByCandidateId
-    ) {
-        return candidates.stream()
-                .max((left, right) -> {
-                    int voteComparison = Integer.compare(
-                            voteCountsByCandidateId.getOrDefault(left.getId(), 0),
-                            voteCountsByCandidateId.getOrDefault(right.getId(), 0)
-                    );
-
-                    if (voteComparison != 0) {
-                        return voteComparison;
-                    }
-
-                    return Integer.compare(right.getRankNo(), left.getRankNo());
-                })
-                .orElseThrow();
     }
 
     private GroupVoteProgressResult toVoteProgress(GroupRecommendation recommendation) {

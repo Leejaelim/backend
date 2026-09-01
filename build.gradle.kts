@@ -8,8 +8,6 @@ group = "matchuri"
 version = "0.0.1-SNAPSHOT"
 description = "backend"
 
-val snippetsDir = layout.buildDirectory.dir("generated-snippets")
-
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -44,7 +42,6 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
-    testImplementation("org.springframework.restdocs:spring-restdocs-mockmvc")
     runtimeOnly("com.mysql:mysql-connector-j")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.7")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.7")
@@ -57,7 +54,6 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
     systemProperty("spring.docker.compose.enabled", "false")
-    outputs.dir(snippetsDir)
 }
 
 val fastTest by tasks.registering(Test::class) {
@@ -67,9 +63,8 @@ val fastTest by tasks.registering(Test::class) {
     classpath = sourceSets["test"].runtimeClasspath
     exclude(
         "**/*IntegrationTest*.class",
-        "**/*RepositoryTest*.class",
+        "**/domain/**/*RepositoryTest*.class",
         "**/*SecurityConfigTest*.class",
-        "**/ApiDocumentationSampleTest*.class",
         "**/GlobalExceptionHandlerTest*.class"
     )
 }
