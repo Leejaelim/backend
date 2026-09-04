@@ -8,6 +8,7 @@ import matchuri.backend.domain.group.command.RespondGroupInviteCommand;
 import matchuri.backend.domain.group.result.CreateNicknameGroupInviteResult;
 import matchuri.backend.domain.group.result.GroupInviteLinkResult;
 import matchuri.backend.domain.group.result.GroupInviteSummaryResult;
+import matchuri.backend.domain.group.result.GroupInviteV2SummaryResult;
 import matchuri.backend.domain.group.result.JoinGroupResult;
 import matchuri.backend.domain.group.result.RespondGroupInviteResult;
 import org.springframework.data.domain.Page;
@@ -27,6 +28,8 @@ public interface GroupInviteService {
     JoinGroupResult joinGroup(Long memberId, JoinGroupCommand command);
 
     Page<@NonNull GroupInviteSummaryResult> getMyInvites(Long memberId, GetMyGroupInvitesCommand command);
+
+    Page<@NonNull GroupInviteV2SummaryResult> getMyInvitesV2(Long memberId, GetMyGroupInvitesCommand command);
 
     RespondGroupInviteResult respondGroupInvite(Long memberId, RespondGroupInviteCommand command);
 }

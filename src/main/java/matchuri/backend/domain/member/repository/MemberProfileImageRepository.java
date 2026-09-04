@@ -1,5 +1,6 @@
 package matchuri.backend.domain.member.repository;
 
+import java.util.List;
 import java.util.Optional;
 import matchuri.backend.domain.member.entity.MemberProfileImage;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,6 +13,14 @@ public interface MemberProfileImageRepository extends JpaRepository<MemberProfil
     Optional<MemberProfileImage> findByMemberId(Long memberId);
 
     boolean existsByMemberId(Long memberId);
+
+    @Query("""
+            select profileImage
+            from MemberProfileImage profileImage
+            join fetch profileImage.imageAsset
+            where profileImage.member.id in :memberIds
+            """)
+    List<MemberProfileImage> findAllByMemberIdIn(@Param("memberIds") List<Long> memberIds);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
