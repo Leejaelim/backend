@@ -6,6 +6,7 @@ import matchuri.backend.domain.recommendation.command.SelectPersonalRecommendati
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationRerollType;
 import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendationResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationCandidateResult;
+import matchuri.backend.domain.recommendation.result.PersonalRecommendationHistoryResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationHomeResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationSummaryResult;
@@ -27,6 +28,12 @@ public interface RecommendationService {
     List<PersonalRecommendationCandidateResult> getPersonalRecommendationCandidates(Long memberId, Long personalRecommendationId);
 
     Page<@NonNull PersonalRecommendationSummaryResult> getMyPersonalRecommendations(Long memberId, int page, int size);
+
+    Page<@NonNull PersonalRecommendationHistoryResult> getMyPersonalRecommendationHistories(
+            Long memberId,
+            int page,
+            int size
+    );
 
     SelectPersonalRecommendationResult selectPersonalRecommendationCandidate(Long memberId, SelectPersonalRecommendationCommand command);
 }

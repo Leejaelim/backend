@@ -219,6 +219,9 @@ public class OpenApiConfig {
                 key("/api/v1/personal/recommendations", PathItem.HttpMethod.GET),
                 meta("REC.020.000", "04 Recommendation"));
         metadata.put(
+                key("/api/v2/personal/recommendations", PathItem.HttpMethod.GET),
+                meta("REC.020.500", "04 Recommendation"));
+        metadata.put(
                 key("/api/v1/personal/recommendations", PathItem.HttpMethod.POST),
                 meta("REC.030.000", "04 Recommendation"));
         metadata.put(
