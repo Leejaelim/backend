@@ -62,7 +62,7 @@ public class GroupInviteServiceImpl implements GroupInviteService {
         GroupRoom room = groupRoomReader.getActiveGroupRoom(command.groupId());
         validateGroupRoomMember(room, requestMember);
 
-        Member targetMember = memberRepository.findByNicknameAndStatus(command.nickname(), MemberStatus.ACTIVE)
+        Member targetMember = memberRepository.findByActiveMemberByNickname(command.nickname())
                 .orElseThrow(() -> new BusinessException(GroupErrorCode.INVITE_TARGET_NOT_FOUND, command.nickname()));
         validateTargetMember(requestMember, targetMember, room);
 

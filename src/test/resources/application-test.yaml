@@ -61,6 +61,7 @@ logging:
   level:
     root: WARN
     matchuri.backend: INFO
+    net.ttddyy.dsproxy.listener: WARN
     org.springframework.web: WARN
 
 captcha:
@@ -73,6 +74,8 @@ captcha:
     read-timeout-millis: 1000
 
 matchuri:
+  query-monitor:
+    enabled: true
   auth:
     public-api-patterns:
       - /error
