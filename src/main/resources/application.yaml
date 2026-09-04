@@ -162,7 +162,7 @@ matchuri:
       resend-cooldown-seconds: ${MATCHURI_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS:60}
       max-attempts: ${MATCHURI_EMAIL_VERIFICATION_MAX_ATTEMPTS:5}
   query-monitor:
-    enabled: ${MATCHURI_QUERY_MONITOR}
+    enabled: ${MATCHURI_QUERY_MONITOR:false}
 
 cloudflare:
   r2:
