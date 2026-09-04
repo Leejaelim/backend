@@ -16,6 +16,12 @@ public interface GroupInviteRepository extends JpaRepository<GroupInvite, Long> 
 
     boolean existsByRoomIdAndTargetMemberIdAndStatus(Long roomId, Long targetMemberId, GroupInviteStatus status);
 
+    boolean existsByTargetMemberIdAndStatusAndExpiresAtAfter(
+            Long targetMemberId,
+            GroupInviteStatus status,
+            LocalDateTime now
+    );
+
     @Query(
             value = """
                     select invite

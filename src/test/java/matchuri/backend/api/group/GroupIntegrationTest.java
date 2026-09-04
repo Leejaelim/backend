@@ -2490,6 +2490,39 @@ class GroupIntegrationTest {
     }
 
     @Test
+    @DisplayName("내 그룹 초대 존재 여부는 만료되지 않은 PENDING 초대만 반영한다")
+    void getMyInviteExistsReturnsOnlyActivePendingInviteExistence() throws Exception {
+        Member owner = saveMember("invite-exist-owner", "초대존재방장");
+        Member target = saveMember("invite-exist-target", "초대존재대상");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "초대 존재 그룹");
+        String accessToken = accessToken(target);
+
+        mockMvc.perform(get("/api/v1/invites/me/exists")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.exists").value(false))
+                .andExpect(jsonPath("$.error").value(nullValue()));
+
+        GroupInvite declinedInvite = saveInvite(groupRoom, owner, target, LocalDateTime.now().plusHours(1));
+        declinedInvite.decline(LocalDateTime.now());
+        groupInviteRepository.save(declinedInvite);
+        saveInvite(groupRoom, owner, target, LocalDateTime.now().minusMinutes(1));
+
+        mockMvc.perform(get("/api/v1/invites/me/exists")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.exists").value(false));
+
+        saveInvite(groupRoom, owner, target, LocalDateTime.now().plusHours(2));
+
+        mockMvc.perform(get("/api/v1/invites/me/exists")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.exists").value(true));
+    }
+
+    @Test
     @DisplayName("내 그룹 초대 목록은 현재 회원이 받은 PENDING 초대를 기본 조회한다")
     void getMyInvitesReturnsPendingInvitesForCurrentTargetMember() throws Exception {
         Member owner = saveMember("my-invite-owner", "내초대방장");

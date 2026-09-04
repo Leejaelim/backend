@@ -247,6 +247,9 @@ public class OpenApiConfig {
                 key("/api/v1/groups/invites/nickname", PathItem.HttpMethod.POST),
                 meta("GROUP.050.000", "05 Group"));
         metadata.put(
+                key("/api/v1/invites/me/exists", PathItem.HttpMethod.GET),
+                meta("GROUP.050.500", "05 Group"));
+        metadata.put(
                 key("/api/v1/groups/invites/me", PathItem.HttpMethod.GET),
                 meta("GROUP.060.000", "05 Group"));
         metadata.put(
