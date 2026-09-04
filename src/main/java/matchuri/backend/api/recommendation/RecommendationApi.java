@@ -98,10 +98,12 @@ public interface RecommendationApi {
 
     @Operation(
             summary = "내 개인 추천 이력 목록 조회",
+            deprecated = true,
             description = """
                     내 개인 추천 이력 목록을 조회합니다.
 
                     현재 로그인한 회원의 개인 추천 이력을 최신 요청 순서로 반환합니다.
+                    새 소비자는 대표 메뉴 정보를 포함하는 GET /api/v2/personal/recommendations를 사용합니다.
                     """
     )
     @ApiResponses({

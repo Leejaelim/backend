@@ -14,6 +14,7 @@ import matchuri.backend.api.recommendation.dto.response.GuestPersonalRecommendat
 import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationCandidateListResponse;
 import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationCandidateResponse;
 import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationDetailResponse;
+import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationHistoryResponse;
 import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationRequestResponse;
 import matchuri.backend.api.recommendation.dto.response.PersonalRecommendationResponse;
 import matchuri.backend.api.recommendation.dto.response.SelectPersonalRecommendationResponse;
@@ -22,6 +23,7 @@ import matchuri.backend.domain.recommendation.command.SelectPersonalRecommendati
 import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendationCandidateResult;
 import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendationResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationCandidateResult;
+import matchuri.backend.domain.recommendation.result.PersonalRecommendationHistoryResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationSummaryResult;
 import matchuri.backend.domain.recommendation.result.SelectPersonalRecommendationResult;
@@ -119,6 +121,19 @@ public class RecommendationMapper {
                 result.status(),
                 result.requestedAt(),
                 result.closedAt()
+        );
+    }
+
+    public PersonalRecommendationHistoryResponse toHistoryResponse(PersonalRecommendationHistoryResult result) {
+        return new PersonalRecommendationHistoryResponse(
+                result.id(),
+                result.status(),
+                result.requestedAt(),
+                result.closedAt(),
+                result.score(),
+                result.menuName(),
+                result.tags(),
+                result.thumbnailUrl()
         );
     }
 

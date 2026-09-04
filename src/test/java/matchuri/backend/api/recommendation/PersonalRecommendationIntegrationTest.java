@@ -22,6 +22,9 @@ import java.util.List;
 import javax.crypto.SecretKey;
 import matchuri.backend.domain.behavior.entity.ActionType;
 import matchuri.backend.domain.behavior.repository.MemberMenuActionRepository;
+import matchuri.backend.domain.image.entity.ImageAsset;
+import matchuri.backend.domain.image.entity.ImageStorageProvider;
+import matchuri.backend.domain.image.repository.ImageAssetRepository;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberLocation;
 import matchuri.backend.domain.member.entity.MemberRole;
@@ -42,11 +45,13 @@ import matchuri.backend.domain.menu.entity.Ingredient;
 import matchuri.backend.domain.menu.entity.MenuAttributeCategory;
 import matchuri.backend.domain.menu.entity.MenuIngredient;
 import matchuri.backend.domain.menu.entity.MenuItem;
+import matchuri.backend.domain.menu.entity.MenuItemImage;
 import matchuri.backend.domain.menu.repository.AttributeCategoryRepository;
 import matchuri.backend.domain.menu.repository.IngredientRepository;
 import matchuri.backend.domain.menu.repository.MenuAttributeCategoryRepository;
 import matchuri.backend.domain.menu.repository.MenuIngredientRepository;
 import matchuri.backend.domain.menu.repository.MenuItemRepository;
+import matchuri.backend.domain.menu.repository.MenuItemImageRepository;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendation;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationCandidate;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationStatus;
@@ -99,6 +104,12 @@ class PersonalRecommendationIntegrationTest {
     private MenuItemRepository menuItemRepository;
 
     @Autowired
+    private MenuItemImageRepository menuItemImageRepository;
+
+    @Autowired
+    private ImageAssetRepository imageAssetRepository;
+
+    @Autowired
     private MenuAttributeCategoryRepository menuAttributeCategoryRepository;
 
     @Autowired
@@ -137,7 +148,9 @@ class PersonalRecommendationIntegrationTest {
         memberTasteProfileRepository.deleteAll();
         menuIngredientRepository.deleteAll();
         menuAttributeCategoryRepository.deleteAll();
+        menuItemImageRepository.deleteAll();
         menuItemRepository.deleteAll();
+        imageAssetRepository.deleteAll();
         attributeCategoryRepository.deleteAll();
         ingredientRepository.deleteAll();
         memberLocationRepository.deleteAll();
@@ -418,6 +431,44 @@ class PersonalRecommendationIntegrationTest {
         assertThat(oldRecommendation.getClosedAt()).isNotNull();
         assertThat(newRecommendation.getStatus()).isEqualTo(PersonalRecommendationStatus.OPEN);
         assertThat(newRecommendation.getClosedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("v2 개인 추천 목록은 대표 메뉴의 점수, 이름, 태그, 이미지를 반환한다")
+    void getMyPersonalRecommendationHistoriesV2() throws Exception {
+        Member member = saveMember("history-v2-user", "추천이력");
+        String accessToken = accessToken(member);
+        AttributeCategory spicy = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FLAVOR, "SPICY", "매운맛", 10));
+        MenuItem bibimbap = menuItemRepository.save(new MenuItem("BIBIMBAP", "비빔밥", "채소와 밥"));
+        saveMenuAttribute(bibimbap, spicy);
+        ImageAsset imageAsset = imageAssetRepository.save(new ImageAsset(
+                ImageStorageProvider.CLOUDFLARE_R2,
+                "test",
+                "history/bibimbap.png",
+                "bibimbap.png",
+                "image/png",
+                1024,
+                "a".repeat(64),
+                640,
+                480
+        ));
+        menuItemImageRepository.save(new MenuItemImage(bibimbap, imageAsset));
+        saveTasteProfile(member, spicy, null);
+
+        JsonNode recommendation = createRecommendation(accessToken);
+        long requestId = recommendation.path("requestId").asLong();
+
+        mockMvc.perform(get("/api/v2/personal/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(requestId))
+                .andExpect(jsonPath("$.data.content[0].score").isNumber())
+                .andExpect(jsonPath("$.data.content[0].menuName").value("비빔밥"))
+                .andExpect(jsonPath("$.data.content[0].tags[0]").value("매운맛"))
+                .andExpect(jsonPath("$.data.content[0].thumbnailUrl")
+                        .value("https://asset.matchuri.com/history/bibimbap.png"));
     }
 
     @Test

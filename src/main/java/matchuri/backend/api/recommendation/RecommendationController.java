@@ -59,6 +59,7 @@ public class RecommendationController implements RecommendationApi {
     }
 
     @Override
+    @Deprecated
     @GetMapping("/personal/recommendations")
     public ApiResponse<PageResponse<PersonalRecommendationResponse>> getMyPersonalRecommendationList(
             @AuthenticatedMemberId Long memberId,

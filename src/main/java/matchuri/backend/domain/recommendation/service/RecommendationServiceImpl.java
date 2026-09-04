@@ -55,6 +55,7 @@ import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendation
 import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendationResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationCandidateResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationHomeResult;
+import matchuri.backend.domain.recommendation.result.PersonalRecommendationHistoryResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationSummaryResult;
 import matchuri.backend.domain.recommendation.result.SelectPersonalRecommendationResult;
@@ -317,6 +318,67 @@ public class RecommendationServiceImpl implements RecommendationService {
         return personalRecommendationRepository
                 .findByMemberIdOrderByRequestedAtDescIdDesc(member.getId(), PageRequest.of(page, size))
                 .map(PersonalRecommendationSummaryResult::from);
+    }
+
+    @Override
+    public Page<@NonNull PersonalRecommendationHistoryResult> getMyPersonalRecommendationHistories(
+            Long memberId,
+            int page,
+            int size
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
+        expireOpenPersonalRecommendations(member.getId(), LocalDateTime.now());
+
+        Page<PersonalRecommendation> recommendations = personalRecommendationRepository
+                .findByMemberIdOrderByRequestedAtDescIdDesc(member.getId(), PageRequest.of(page, size));
+        List<Long> recommendationIds = recommendations.stream()
+                .map(PersonalRecommendation::getId)
+                .toList();
+        if (recommendationIds.isEmpty()) {
+            return recommendations.map(recommendation -> PersonalRecommendationHistoryResult.of(
+                    recommendation,
+                    null,
+                    List.of(),
+                    null
+            ));
+        }
+
+        Map<Long, PersonalRecommendationCandidate> representativeCandidates =
+                personalRecommendationCandidateRepository.findRepresentativeCandidates(recommendationIds).stream()
+                        .collect(Collectors.toMap(
+                                candidate -> candidate.getPersonalRecommendation().getId(),
+                                Function.identity()
+                        ));
+        List<Long> menuIds = representativeCandidates.values().stream()
+                .map(PersonalRecommendationCandidate::getMenuItem)
+                .map(MenuItem::getId)
+                .toList();
+        Map<Long, List<String>> tagsByMenuId = menuIds.isEmpty() ? Map.of()
+                : menuAttributeCategoryRepository.findDisplayCategoriesByMenuIds(menuIds).stream()
+                        .collect(Collectors.groupingBy(
+                                mapping -> mapping.getMenu().getId(),
+                                LinkedHashMap::new,
+                                Collectors.mapping(
+                                        mapping -> mapping.getAttributeCategory().getName(),
+                                        Collectors.toList()
+                                )
+                        ));
+        Map<Long, String> thumbnailUrlsByMenuId = menuThumbnailUrlResolver.resolveAll(menuIds);
+
+        return recommendations.map(recommendation -> {
+            PersonalRecommendationCandidate candidate = representativeCandidates.get(recommendation.getId());
+            if (candidate == null) {
+                return PersonalRecommendationHistoryResult.of(recommendation, null, List.of(), null);
+            }
+
+            Long menuId = candidate.getMenuItem().getId();
+            return PersonalRecommendationHistoryResult.of(
+                    recommendation,
+                    candidate,
+                    tagsByMenuId.getOrDefault(menuId, List.of()),
+                    thumbnailUrlsByMenuId.get(menuId)
+            );
+        });
     }
 
     @Override
