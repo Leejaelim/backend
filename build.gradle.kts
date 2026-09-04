@@ -7,6 +7,7 @@ plugins {
 group = "matchuri"
 version = "0.0.1-SNAPSHOT"
 description = "backend"
+val queryDslVersion = "5.0.0"
 
 java {
     toolchain {
@@ -36,9 +37,14 @@ dependencies {
     implementation("io.jsonwebtoken:jjwt-api:0.12.7")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2")
     implementation("software.amazon.awssdk:s3:2.25.30")
+    implementation ("com.querydsl:querydsl-jpa:${queryDslVersion}:jakarta")
+    implementation("net.ttddyy:datasource-proxy:1.10")
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
+    annotationProcessor("com.querydsl:querydsl-apt:${queryDslVersion}:jakarta")
+    annotationProcessor("jakarta.annotation:jakarta.annotation-api")
+    annotationProcessor("jakarta.persistence:jakarta.persistence-api")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")

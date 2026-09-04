@@ -71,10 +71,14 @@ spring:
   docker:
     compose:
       lifecycle-management: start-only
+
   datasource:
     url: jdbc:mysql://localhost:${MATCHURI_DB_PORT:3331}/${MATCHURI_DB_NAME:matchuri}?serverTimezone=UTC&characterEncoding=UTF-8
     username: ${MATCHURI_DB_USER:matchuri}
     password: ${MATCHURI_DB_PW:matchuri}
+    hikari:
+      maximum-pool-size: 10
+
   jpa:
     open-in-view: false
     hibernate:
@@ -157,6 +161,8 @@ matchuri:
       token-ttl-seconds: ${MATCHURI_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS:600}
       resend-cooldown-seconds: ${MATCHURI_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS:60}
       max-attempts: ${MATCHURI_EMAIL_VERIFICATION_MAX_ATTEMPTS:5}
+  query-monitor:
+    enabled: ${MATCHURI_QUERY_MONITOR:false}
 
 cloudflare:
   r2:
@@ -187,6 +193,7 @@ logging:
     root: INFO
     matchuri.backend: INFO
     org.springframework.web: DEBUG
+    net.ttddyy.dsproxy.listener: DEBUG
 
 springdoc:
   api-docs:
