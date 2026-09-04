@@ -217,6 +217,7 @@ public final class RecommendationApiExamples {
                     "id": 10001,
                     "menuId": 1001,
                     "menuName": "비빔밥",
+                    "thumbnailUrl": "https://asset.matchuri.com/menu-items/7/5dd70588-d1b4-41c4-b6b6-8ed6f70ee8b5.png",
                     "rankNo": 1,
                     "score": 93.5
                   },
@@ -224,6 +225,7 @@ public final class RecommendationApiExamples {
                     "id": 10002,
                     "menuId": 1002,
                     "menuName": "돈까스",
+                    "thumbnailUrl": "https://asset.matchuri.com/menu-items/7/5dd70588-d1b4-41c4-b6b6-8ed6f70ee8b5.png",
                     "rankNo": 2,
                     "score": 86.0
                   },
@@ -231,6 +233,7 @@ public final class RecommendationApiExamples {
                     "id": 10003,
                     "menuId": 1003,
                     "menuName": "쌀국수",
+                    "thumbnailUrl": "https://asset.matchuri.com/menu-items/7/5dd70588-d1b4-41c4-b6b6-8ed6f70ee8b5.png",
                     "rankNo": 3,
                     "score": 81.5
                   }
