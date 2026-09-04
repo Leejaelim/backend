@@ -19,6 +19,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import javax.crypto.SecretKey;
+import matchuri.backend.domain.image.entity.ImageAsset;
+import matchuri.backend.domain.image.entity.ImageStorageProvider;
+import matchuri.backend.domain.image.repository.ImageAssetRepository;
 import matchuri.backend.domain.group.entity.GroupRecommendation;
 import matchuri.backend.domain.group.entity.GroupRecommendationCandidate;
 import matchuri.backend.domain.group.entity.GroupRecommendationReadiness;
@@ -47,11 +50,13 @@ import matchuri.backend.domain.group.repository.GroupRoomRepository;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberRole;
 import matchuri.backend.domain.member.entity.MemberStatus;
+import matchuri.backend.domain.member.entity.MemberProfileImage;
 import matchuri.backend.domain.member.entity.MemberTasteProfile;
 import matchuri.backend.domain.member.entity.MemberTasteProfileCategory;
 import matchuri.backend.domain.member.entity.MemberTasteProfileDislikedMenuItem;
 import matchuri.backend.domain.member.entity.MemberTasteProfileRestrictionIngredient;
 import matchuri.backend.domain.member.repository.MemberRepository;
+import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileRepository;
@@ -106,6 +111,12 @@ class GroupIntegrationTest {
 
     @Autowired
     private MemberRepository memberRepository;
+
+    @Autowired
+    private MemberProfileImageRepository memberProfileImageRepository;
+
+    @Autowired
+    private ImageAssetRepository imageAssetRepository;
 
     @Autowired
     private GroupRoomRepository groupRoomRepository;
@@ -203,7 +214,9 @@ class GroupIntegrationTest {
         menuItemRepository.deleteAll();
         ingredientRepository.deleteAll();
         attributeCategoryRepository.deleteAll();
+        memberProfileImageRepository.deleteAll();
         memberRepository.deleteAll();
+        imageAssetRepository.deleteAll();
     }
 
     @Test
@@ -2440,6 +2453,40 @@ class GroupIntegrationTest {
                 .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_ALREADY_PENDING"));
 
         assertThat(groupInviteRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("v2 내 그룹 초대 목록은 PK와 초대자 프로필 이미지 URL, 닉네임만 반환한다")
+    void getMyInvitesV2ReturnsCompactInviterProfile() throws Exception {
+        Member owner = saveMember("my-invite-v2-owner", "v2초대방장");
+        Member target = saveMember("my-invite-v2-target", "v2초대대상");
+        ImageAsset profileImage = imageAssetRepository.save(new ImageAsset(
+                ImageStorageProvider.CLOUDFLARE_R2,
+                "test",
+                "profile/invite-owner.png",
+                "invite-owner.png",
+                "image/png",
+                1024,
+                "b".repeat(64),
+                320,
+                320
+        ));
+        memberProfileImageRepository.save(new MemberProfileImage(owner, profileImage));
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "v2 받은 초대 그룹");
+        GroupInvite pendingInvite = saveInvite(groupRoom, owner, target, LocalDateTime.now().plusHours(3));
+
+        mockMvc.perform(get("/api/v2/invites/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(target))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(pendingInvite.getId()))
+                .andExpect(jsonPath("$.data.content[0].requestMemberProfileImageUrl")
+                        .value("https://asset.matchuri.com/profile/invite-owner.png"))
+                .andExpect(jsonPath("$.data.content[0].requestMemberNickname").value(owner.getNickname()))
+                .andExpect(jsonPath("$.data.content[0].inviteId").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].groupId").doesNotExist())
+                .andExpect(jsonPath("$.data.pageInfo.totalElements").value(1));
     }
 
     @Test

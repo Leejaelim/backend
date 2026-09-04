@@ -307,6 +307,7 @@ public interface GroupApi {
 
     @Operation(
             summary = "내 그룹 초대 목록 조회",
+            deprecated = true,
             description = """
                     현재 회원이 받은 그룹 초대 목록을 조회합니다.
 
@@ -314,6 +315,7 @@ public interface GroupApi {
                     - 현재 회원이 초대 대상인 초대 요청만 반환합니다.
                     - `status`를 생략하면 `PENDING` 초대만 조회합니다.
                     - 생성 시각 최신순으로 정렬합니다.
+                    - 새 소비자는 간소화된 응답의 GET /api/v2/invites/me를 사용합니다.
                     """
     )
     @ApiResponses({

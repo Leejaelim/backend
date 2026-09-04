@@ -1,6 +1,8 @@
 package matchuri.backend.domain.group.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import matchuri.backend.domain.group.command.CreateNicknameGroupInviteCommand;
 import matchuri.backend.domain.group.command.GetMyGroupInvitesCommand;
@@ -21,6 +23,7 @@ import matchuri.backend.domain.group.repository.GroupRoomRepository;
 import matchuri.backend.domain.group.result.CreateNicknameGroupInviteResult;
 import matchuri.backend.domain.group.result.GroupInviteLinkResult;
 import matchuri.backend.domain.group.result.GroupInviteSummaryResult;
+import matchuri.backend.domain.group.result.GroupInviteV2SummaryResult;
 import matchuri.backend.domain.group.result.JoinGroupResult;
 import matchuri.backend.domain.group.result.RespondGroupInviteResult;
 import matchuri.backend.domain.group.service.GroupInviteService;
@@ -30,6 +33,7 @@ import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberStatus;
 import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.domain.member.support.member.MemberReader;
+import matchuri.backend.domain.member.support.profile.MemberProfileImageUrlResolver;
 import matchuri.backend.domain.realtime.event.GroupInviteCreatedRealtimeEvent;
 import matchuri.backend.domain.realtime.event.GroupMemberJoinedRealtimeEvent;
 import matchuri.backend.global.exception.BusinessException;
@@ -54,6 +58,7 @@ public class GroupInviteServiceImpl implements GroupInviteService {
     private final GroupInviteRepository groupInviteRepository;
     private final GroupInviteLinkManager groupInviteLinkManager;
     private final GroupRoomReader groupRoomReader;
+    private final MemberProfileImageUrlResolver memberProfileImageUrlResolver;
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -178,6 +183,33 @@ public class GroupInviteServiceImpl implements GroupInviteService {
                 status,
                 LocalDateTime.now(),
                 PageRequest.of(command.page(), command.size())).map(this::toInviteSummaryResult);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<@NonNull GroupInviteV2SummaryResult> getMyInvitesV2(
+            Long memberId,
+            GetMyGroupInvitesCommand command
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
+        GroupInviteStatus status = command.status() == null ? GroupInviteStatus.PENDING : command.status();
+        Page<GroupInvite> invites = groupInviteRepository.findMyInvites(
+                member.getId(),
+                status,
+                LocalDateTime.now(),
+                PageRequest.of(command.page(), command.size())
+        );
+        List<Long> requestMemberIds = invites.stream()
+                .map(GroupInvite::getRequestMember)
+                .map(Member::getId)
+                .distinct()
+                .toList();
+        Map<Long, String> profileImageUrlsByMemberId = memberProfileImageUrlResolver.resolveAll(requestMemberIds);
+
+        return invites.map(invite -> GroupInviteV2SummaryResult.from(
+                invite,
+                profileImageUrlsByMemberId.get(invite.getRequestMember().getId())
+        ));
     }
 
     @Override

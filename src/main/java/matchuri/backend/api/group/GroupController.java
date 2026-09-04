@@ -180,6 +180,7 @@ public class GroupController implements GroupApi {
     }
 
     @Override
+    @Deprecated
     @GetMapping("/invites/me")
     public ApiResponse<PageResponse<GroupInviteSummaryResponse>> getMyInvites(
             @AuthenticatedMemberId Long memberId,
