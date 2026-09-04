@@ -48,6 +48,7 @@ import matchuri.backend.domain.menu.repository.MenuAttributeCategoryRepository;
 import matchuri.backend.domain.menu.repository.MenuIngredientRepository;
 import matchuri.backend.domain.menu.repository.MenuItemRepository;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendation;
+import matchuri.backend.domain.recommendation.entity.PersonalRecommendationCandidate;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationStatus;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationCandidateRepository;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationRepository;
@@ -141,6 +142,29 @@ class PersonalRecommendationIntegrationTest {
         ingredientRepository.deleteAll();
         memberLocationRepository.deleteAll();
         memberRepository.deleteAll();
+    }
+
+    @Test
+    @DisplayName("개인 추천 후보 조회 Before 계측은 후보 수 증가에 따른 쿼리 증가를 기록한다")
+    void measurePersonalRecommendationCandidateQueryGrowthBeforeOptimization() throws Exception {
+        Member member = saveMember("candidate-baseline-user", "후보계측");
+        String accessToken = accessToken(member);
+
+        PersonalRecommendation small = personalRecommendationRepository.save(PersonalRecommendation.of(member));
+        saveMeasuredCandidates(small, 1, 1);
+
+        PersonalRecommendation large = personalRecommendationRepository.save(PersonalRecommendation.of(member));
+        saveMeasuredCandidates(large, 2, 13);
+
+        mockMvc.perform(get("/api/v1/personal/recommendations/{requestId}/candidates", small.getId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidates.length()").value(1));
+
+        mockMvc.perform(get("/api/v1/personal/recommendations/{requestId}/candidates", large.getId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidates.length()").value(12));
     }
 
     @Test
@@ -815,6 +839,20 @@ class PersonalRecommendationIntegrationTest {
 
     private void saveMenuAttribute(MenuItem menuItem, AttributeCategory attributeCategory) {
         menuAttributeCategoryRepository.save(new MenuAttributeCategory(menuItem, attributeCategory));
+    }
+
+    private void saveMeasuredCandidates(
+            PersonalRecommendation recommendation,
+            int startInclusive,
+            int endInclusive
+    ) {
+        for (int number = startInclusive; number <= endInclusive; number++) {
+            MenuItem menuItem = menuItemRepository.save(
+                    new MenuItem("CANDIDATE_BASELINE_" + number, "후보 계측 " + number, "계측 설명"));
+            personalRecommendationCandidateRepository.save(
+                    PersonalRecommendationCandidate.of(recommendation, menuItem, number - startInclusive + 1, 50.0)
+            );
+        }
     }
 
     private String selectRequest(long selectedCandidateId) {

@@ -207,6 +207,28 @@ class GroupIntegrationTest {
     }
 
     @Test
+    @DisplayName("내 그룹 목록 Before 계측은 그룹 수 증가에 따른 쿼리 증가를 기록한다")
+    void measureMyGroupListQueryGrowthBeforeOptimization() throws Exception {
+        Member owner = saveMember("group-list-baseline-owner", "그룹목록계측");
+        String accessToken = accessToken(owner);
+
+        saveGroupOwnedBy(owner, "계측 그룹 1");
+        mockMvc.perform(get("/api/v1/groups")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1));
+
+        for (int number = 2; number <= 12; number++) {
+            saveGroupOwnedBy(owner, "계측 그룹 " + number);
+        }
+        mockMvc.perform(get("/api/v1/groups")
+                        .param("size", "20")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(12));
+    }
+
+    @Test
     @DisplayName("그룹 생성은 방과 OWNER 멤버를 함께 저장한다")
     void createGroupCreatesRoomAndOwnerMember() throws Exception {
         Member member = saveMember("group-owner", "그룹방장");

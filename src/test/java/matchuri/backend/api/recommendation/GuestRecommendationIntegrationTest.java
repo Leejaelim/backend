@@ -65,6 +65,35 @@ class GuestRecommendationIntegrationTest {
     }
 
     @Test
+    @DisplayName("비회원 추천 Before 계측은 메뉴 수 증가에 따른 쿼리 증가를 기록한다")
+    void measureGuestRecommendationQueryGrowthBeforeOptimization() throws Exception {
+        AttributeCategory category = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FLAVOR, "BASELINE", "계측", 10));
+        Map<String, Object> request = Map.of(
+                "attributeCategoryIds", List.of(category.getId()),
+                "restrictionIngredientIds", List.of(),
+                "dislikedMenuItemIds", List.of(),
+                "contextJson", Map.of()
+        );
+
+        saveMeasuredMenus(category, 1, 1);
+        mockMvc.perform(post("/api/v1/guest/recommendations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidates.length()").value(1));
+
+        saveMeasuredMenus(category, 2, 12);
+        mockMvc.perform(post("/api/v1/guest/recommendations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidates.length()").value(3));
+    }
+
+    @Test
     @DisplayName("비회원 추천 API는 인증 없이 취향 입력 기반 후보를 반환한다")
     void createGuestPersonalRecommendationReturnsCandidatesWithoutAuthentication() throws Exception {
         AttributeCategory spicy = attributeCategoryRepository.save(
@@ -121,5 +150,13 @@ class GuestRecommendationIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("GUEST_RECOMMENDATION_DUPLICATE_ATTRIBUTE_CATEGORY"));
+    }
+
+    private void saveMeasuredMenus(AttributeCategory category, int startInclusive, int endInclusive) {
+        for (int number = startInclusive; number <= endInclusive; number++) {
+            MenuItem menuItem = menuItemRepository.save(
+                    new MenuItem("BASELINE_" + number, "계측 메뉴 " + number, "계측 설명"));
+            menuAttributeCategoryRepository.save(new MenuAttributeCategory(menuItem, category));
+        }
     }
 }

@@ -60,6 +60,27 @@ class MenuReferenceIntegrationTest {
     }
 
     @Test
+    @DisplayName("메뉴 상세 Before 계측은 연관 항목 수가 증가해도 고정 쿼리를 기록한다")
+    void measureMenuDetailQueryScaleBeforeOptimization() throws Exception {
+        MenuItem menuItem = menuItemRepository.save(
+                new MenuItem("DETAIL_BASELINE", "상세 계측 메뉴", "계측 설명"));
+        saveMeasuredReferences(menuItem, 1, 1);
+
+        mockMvc.perform(get("/api/v1/menu-items/{menuItemId}", menuItem.getId())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attributeCategories.length()").value(1))
+                .andExpect(jsonPath("$.data.ingredients.length()").value(1));
+
+        saveMeasuredReferences(menuItem, 2, 12);
+        mockMvc.perform(get("/api/v1/menu-items/{menuItemId}", menuItem.getId())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attributeCategories.length()").value(12))
+                .andExpect(jsonPath("$.data.ingredients.length()").value(12));
+    }
+
+    @Test
     @DisplayName("attribute category 목록 조회는 활성 데이터만 정렬해서 반환한다")
     void getAttributeCategoriesReturnsOnlyActiveRowsInSortedOrder() throws Exception {
         AttributeCategory spicy = attributeCategoryRepository.save(
@@ -363,5 +384,17 @@ class MenuReferenceIntegrationTest {
 
     private void mapIngredient(MenuItem menuItem, Ingredient ingredient) {
         menuIngredientRepository.save(new MenuIngredient(menuItem, ingredient));
+    }
+
+    private void saveMeasuredReferences(MenuItem menuItem, int startInclusive, int endInclusive) {
+        for (int number = startInclusive; number <= endInclusive; number++) {
+            AttributeCategory category = attributeCategoryRepository.save(
+                    new AttributeCategory(CategoryType.FLAVOR, "DETAIL_CATEGORY_" + number, "계측 분류 " + number,
+                            number));
+            Ingredient ingredient = ingredientRepository.save(
+                    new Ingredient("DETAIL_INGREDIENT_" + number, "계측 재료 " + number, false, number));
+            mapAttributeCategory(menuItem, category);
+            mapIngredient(menuItem, ingredient);
+        }
     }
 }
