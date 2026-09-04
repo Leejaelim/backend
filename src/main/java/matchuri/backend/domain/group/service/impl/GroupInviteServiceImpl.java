@@ -213,6 +213,18 @@ public class GroupInviteServiceImpl implements GroupInviteService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public boolean existsMyPendingInvite(Long memberId) {
+        Member member = memberReader.getActiveMember(memberId);
+
+        return groupInviteRepository.existsByTargetMemberIdAndStatusAndExpiresAtAfter(
+                member.getId(),
+                GroupInviteStatus.PENDING,
+                LocalDateTime.now()
+        );
+    }
+
+    @Override
     public RespondGroupInviteResult respondGroupInvite(Long memberId, RespondGroupInviteCommand command) {
         Member member = memberReader.getActiveMember(memberId);
         GroupInvite invite = groupInviteRepository.findById(command.inviteId())

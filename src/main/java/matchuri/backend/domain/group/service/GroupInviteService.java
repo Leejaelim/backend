@@ -31,5 +31,7 @@ public interface GroupInviteService {
 
     Page<@NonNull GroupInviteV2SummaryResult> getMyInvitesV2(Long memberId, GetMyGroupInvitesCommand command);
 
+    boolean existsMyPendingInvite(Long memberId);
+
     RespondGroupInviteResult respondGroupInvite(Long memberId, RespondGroupInviteCommand command);
 }
