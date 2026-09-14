@@ -272,6 +272,7 @@ public class MemberMapper {
         return new OnboardingStatusResponse(
                 result.requiredAgreementsCompleted(),
                 result.nicknameCompleted(),
+                result.tasteProfileCompleted(),
                 result.completed(),
                 result.nextStep()
         );

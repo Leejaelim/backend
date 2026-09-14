@@ -366,7 +366,7 @@ class MemberServiceImplTest {
 
         when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(onboardingStatusResolver.resolve(member))
-                .thenReturn(new OnboardingStatusResult(true, true, true, OnboardingNextStep.READY));
+                .thenReturn(new OnboardingStatusResult(true, true, true, true, OnboardingNextStep.READY));
 
         UpdateMemberResult result = memberService.updateMyProfile(1L, new UpdateMemberBasicInfoCommand("현재닉네임"));
 

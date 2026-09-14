@@ -852,7 +852,7 @@ public interface MemberApi {
                     - 부분 수정 API이므로 필요한 필드만 보내면 됩니다.
                     - `nickname`을 보내지 않으면 변경하지 않습니다.
                     - 약관 또는 닉네임 온보딩 미완료 상태에서도 인증된 회원이면 닉네임 확정을 위해 호출할 수 있습니다.
-                    - 닉네임 수정 성공 시 닉네임 온보딩 완료 상태로 처리됩니다.
+                    - 닉네임 수정 성공 시 닉네임 온보딩 완료 상태로 처리됩니다. 필수 약관은 완료했지만 취향 프로필이 없으면 다음 단계는 REQUIRED_TASTE_PROFILE입니다.
                     - 성공 시 최신 수정 시각(`updatedAt`)을 반환합니다.
                     """)
     ApiResponse<UpdateMemberResponse> updateMyProfile(

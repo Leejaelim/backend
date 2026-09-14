@@ -368,6 +368,19 @@ class MemberAuthIntegrationTest {
         assertThat(memberTasteProfileCategoryRepository.findAllByProfileId(profile.getId())).hasSize(1);
         assertThat(memberTasteProfileRestrictionIngredientRepository.findAllByProfileId(profile.getId())).hasSize(1);
         assertThat(memberTasteProfileDislikedMenuItemRepository.findAllByProfileId(profile.getId())).hasSize(1);
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "signup-v2-user",
+                                  "password": "P@ssw0rd!",
+                                  "captchaToken": "test-captcha-token"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.onboarding.tasteProfileCompleted").value(true))
+                .andExpect(jsonPath("$.data.onboarding.completed").value(true))
+                .andExpect(jsonPath("$.data.onboarding.nextStep").value("READY"));
     }
 
     @Test
@@ -1397,10 +1410,39 @@ class MemberAuthIntegrationTest {
                 .andExpect(jsonPath("$.data.id").isNumber())
                 .andExpect(jsonPath("$.data.onboarding.requiredAgreementsCompleted").value(true))
                 .andExpect(jsonPath("$.data.onboarding.nicknameCompleted").value(true))
-                .andExpect(jsonPath("$.data.onboarding.completed").value(true))
-                .andExpect(jsonPath("$.data.onboarding.nextStep").value("READY"));
+                .andExpect(jsonPath("$.data.onboarding.tasteProfileCompleted").value(false))
+                .andExpect(jsonPath("$.data.onboarding.completed").value(false))
+                .andExpect(jsonPath("$.data.onboarding.nextStep").value("REQUIRED_TASTE_PROFILE"));
 
         assertThat(memberRepository.findById(member.getId()).orElseThrow().isNicknameCompleted()).isTrue();
+
+        authRefreshTokenRepository.save(AuthRefreshToken.issue(
+                member, "taste-onboarding-refresh-token", LocalDateTime.now().plusDays(1)));
+        Cookie refreshCookie = new Cookie("matchuri_refresh_token", "taste-onboarding-refresh-token");
+        MvcResult refreshResult = mockMvc.perform(post("/api/v1/auth/refresh").cookie(refreshCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.onboarding.tasteProfileCompleted").value(false))
+                .andExpect(jsonPath("$.data.onboarding.nextStep").value("REQUIRED_TASTE_PROFILE"))
+                .andReturn();
+
+        mockMvc.perform(patch("/api/v1/members/me/taste-profile")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "attributeCategoryIds": [],
+                                  "restrictionIngredientIds": [],
+                                  "dislikedMenuItemIds": []
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .cookie(refreshResult.getResponse().getCookie("matchuri_refresh_token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.onboarding.tasteProfileCompleted").value(true))
+                .andExpect(jsonPath("$.data.onboarding.completed").value(true))
+                .andExpect(jsonPath("$.data.onboarding.nextStep").value("READY"));
 
         mockMvc.perform(get("/api/v1/members/me")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))

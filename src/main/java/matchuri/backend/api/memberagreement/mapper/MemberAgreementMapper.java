@@ -41,6 +41,7 @@ public class MemberAgreementMapper {
                 new OnboardingStatusResponse(
                         result.onboarding().requiredAgreementsCompleted(),
                         result.onboarding().nicknameCompleted(),
+                        result.onboarding().tasteProfileCompleted(),
                         result.onboarding().completed(),
                         result.onboarding().nextStep()
                 ),

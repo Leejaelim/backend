@@ -94,6 +94,7 @@ public interface MemberAgreementApi {
                                                 "onboarding": {
                                                   "requiredAgreementsCompleted": true,
                                                   "nicknameCompleted": false,
+                                                  "tasteProfileCompleted": false,
                                                   "completed": false,
                                                   "nextStep": "REQUIRED_NICKNAME"
                                                 },

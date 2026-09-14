@@ -61,6 +61,7 @@ public interface AuthApi {
                                                 "onboarding": {
                                                   "requiredAgreementsCompleted": true,
                                                   "nicknameCompleted": true,
+                                                  "tasteProfileCompleted": true,
                                                   "completed": true,
                                                   "nextStep": "READY"
                                                 }
@@ -215,6 +216,7 @@ public interface AuthApi {
                                                 "onboarding": {
                                                   "requiredAgreementsCompleted": true,
                                                   "nicknameCompleted": true,
+                                                  "tasteProfileCompleted": true,
                                                   "completed": true,
                                                   "nextStep": "READY"
                                                 }
@@ -380,6 +382,7 @@ public interface AuthApi {
                                                 "onboarding": {
                                                   "requiredAgreementsCompleted": false,
                                                   "nicknameCompleted": false,
+                                                  "tasteProfileCompleted": false,
                                                   "completed": false,
                                                   "nextStep": "REQUIRED_AGREEMENTS"
                                                 }

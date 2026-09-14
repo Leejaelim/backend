@@ -112,7 +112,7 @@ class MemberAgreementServiceImplTest {
         when(requiredAgreementRevisionResolver.calculateStatus(1L))
                 .thenReturn(new RequiredAgreementStatusResult(true, List.of()));
         when(onboardingStatusResolver.resolve(member))
-                .thenReturn(new OnboardingStatusResult(true, true, true, OnboardingNextStep.READY));
+                .thenReturn(new OnboardingStatusResult(true, true, true, true, OnboardingNextStep.READY));
 
         SubmitRequiredAgreementsCommand command = new SubmitRequiredAgreementsCommand(List.of(
                 new SubmitRequiredAgreementsCommand.AgreementConsentCommand("TERMS_OF_SERVICE", "2026-04-10"),
