@@ -10,18 +10,23 @@ import static matchuri.backend.domain.menu.entity.QMenuItemImage.menuItemImage;
 
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import matchuri.backend.domain.menu.entity.MenuItem;
 import matchuri.backend.domain.menu.repository.MenuItemDetailQueryResult;
 import matchuri.backend.domain.menu.repository.MenuItemDetailQueryResult.AttributeCategoryRow;
 import matchuri.backend.domain.menu.repository.MenuItemDetailQueryResult.RestrictionIngredientRow;
 import matchuri.backend.domain.menu.repository.MenuItemRepositoryCustom;
 import matchuri.backend.domain.menu.repository.MenuRecommendationProfileQueryResult;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -162,5 +167,55 @@ public class MenuItemRepositoryImpl implements MenuItemRepositoryCustom {
                     );
                 })
                 .toList();
+    }
+
+    @Override
+    public List<MenuItem> searchActiveMenuItems(@Nullable String query, Collection<Long> attributeCategoryIds, boolean attributeCategoryIdsEmpty, Collection<Long> ingredientIds, boolean ingredientIdsEmpty) {
+        return jpaQueryFactory
+                .selectFrom(menuItem)
+                .where(
+                        menuItem.active.isTrue(),
+                        menuNameContains(query),
+                        hasAnyAttributeCategory(attributeCategoryIds, attributeCategoryIdsEmpty),
+                        hasAnyIngredient(ingredientIds, ingredientIdsEmpty)
+                )
+                .orderBy(menuItem.id.asc())
+                .fetch();
+    }
+
+    private BooleanExpression menuNameContains(@Nullable String query) {
+        return query == null ? null : menuItem.name.containsIgnoreCase(query);
+    }
+
+    private BooleanExpression hasAnyAttributeCategory(Collection<Long> attributeCategoryIds, boolean attributeCategoryIdsEmpty) {
+        if (attributeCategoryIdsEmpty) {
+            return null;
+        }
+        return JPAExpressions
+                .selectOne()
+                .from(menuAttributeCategory)
+                .join(menuAttributeCategory.attributeCategory, attributeCategory)
+                .where(
+                        menuAttributeCategory.menu.eq(menuItem),
+                        attributeCategory.active.isTrue(),
+                        attributeCategory.id.in(attributeCategoryIds)
+                )
+                .exists();
+    }
+
+    private BooleanExpression hasAnyIngredient(Collection<Long> ingredientIds, boolean ingredientIdsEmpty) {
+        if (ingredientIdsEmpty) {
+            return null;
+        }
+        return JPAExpressions
+                .selectOne()
+                .from(menuIngredient)
+                .join(menuIngredient.ingredient, ingredient)
+                .where(
+                        menuIngredient.menu.eq(menuItem),
+                        ingredient.active.isTrue(),
+                        ingredient.id.in(ingredientIds)
+                )
+                .exists();
     }
 }

@@ -11,6 +11,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationCandidateQueryRow;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationCandidateRepositoryCustom;
+import matchuri.backend.domain.recommendation.entity.PersonalRecommendationCandidate;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -20,9 +21,7 @@ public class PersonalRecommendationCandidateRepositoryImpl implements PersonalRe
     private final JPAQueryFactory jpaQueryFactory;
 
     @Override
-    public List<PersonalRecommendationCandidateQueryRow> findCandidateRowsByPersonalRecommendationId(
-            Long personalRecommendationId
-    ) {
+    public List<PersonalRecommendationCandidateQueryRow> findCandidateRowsByPersonalRecommendationId(Long personalRecommendationId) {
         return jpaQueryFactory
                 .select(Projections.constructor(
                         PersonalRecommendationCandidateQueryRow.class,
@@ -39,6 +38,25 @@ public class PersonalRecommendationCandidateRepositoryImpl implements PersonalRe
                 .leftJoin(menuItemImage.imageAsset, imageAsset)
                 .where(personalRecommendationCandidate.personalRecommendation.id.eq(personalRecommendationId))
                 .orderBy(personalRecommendationCandidate.rankNo.asc())
+                .fetch();
+    }
+
+    @Override
+    public List<PersonalRecommendationCandidate> findRepresentativeCandidates(List<Long> personalRecommendationIds) {
+        if (personalRecommendationIds.isEmpty()) {
+            return List.of();
+        }
+
+        return jpaQueryFactory
+                .selectFrom(personalRecommendationCandidate)
+                .join(personalRecommendationCandidate.menuItem, menuItem).fetchJoin()
+                .where(
+                        personalRecommendationCandidate.personalRecommendation.id.in(personalRecommendationIds),
+                        personalRecommendationCandidate.personalRecommendation.selectedCandidate.id
+                                .eq(personalRecommendationCandidate.id)
+                                .or(personalRecommendationCandidate.personalRecommendation.selectedCandidate.id.isNull()
+                                        .and(personalRecommendationCandidate.rankNo.eq(1)))
+                )
                 .fetch();
     }
 }
