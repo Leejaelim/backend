@@ -2,10 +2,8 @@ package matchuri.backend.domain.member.repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
-import matchuri.backend.domain.menu.entity.CategoryType;
 
-public record MemberHomeQueryResult(
+public record MemberHomeRow(
         Long memberId,
         String loginId,
         String nickname,
@@ -16,17 +14,8 @@ public record MemberHomeQueryResult(
         BigDecimal longitude,
         Integer radiusMeters,
         String address,
+        Long tasteProfileId,
         String profileVersion,
-        LocalDateTime profileUpdatedAt,
-        List<AttributeCategoryRow> attributeCategories
+        LocalDateTime profileUpdatedAt
 ) {
-
-    public record AttributeCategoryRow(
-            Long id,
-            CategoryType categoryType,
-            String code,
-            String name,
-            Integer sortOrder
-    ) {
-    }
 }

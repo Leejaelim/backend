@@ -11,7 +11,7 @@ public interface MemberRepositoryCustom {
 
     Optional<Member> findByActiveMemberByNickname(String nickname);
 
-    Optional<MemberHomeQueryResult> findHomeQueryResultByMemberId(Long memberId);
+    Optional<MemberHomeRow> findHomeRowByMemberId(Long memberId);
 
     List<Long> findPurgeCandidateIds(MemberStatus status, LocalDateTime now, Pageable pageable);
 
