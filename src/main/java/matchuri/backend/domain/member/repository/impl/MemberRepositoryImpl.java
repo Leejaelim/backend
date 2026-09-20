@@ -10,6 +10,8 @@ import static matchuri.backend.domain.menu.entity.QAttributeCategory.attributeCa
 
 import com.querydsl.core.Tuple;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import matchuri.backend.domain.member.entity.MemberStatus;
 import matchuri.backend.domain.member.repository.MemberHomeQueryResult;
 import matchuri.backend.domain.member.repository.MemberHomeQueryResult.AttributeCategoryRow;
 import matchuri.backend.domain.member.repository.MemberRepositoryCustom;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -108,5 +111,31 @@ public class MemberRepositoryImpl implements MemberRepositoryCustom {
                 firstRow.get(memberTasteProfile.updatedAt),
                 attributeCategories
         ));
+    }
+
+    @Override
+    public List<Long> findPurgeCandidateIds(MemberStatus status, LocalDateTime now, Pageable pageable) {
+        return jpaQueryFactory
+                .select(member.id)
+                .from(member)
+                .where(
+                        member.status.eq(status),
+                        member.purgeAt.loe(now)
+                )
+                .orderBy(member.purgeAt.asc(), member.id.asc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+    }
+
+    @Override
+    public Optional<Member> findByIdForUpdate(Long memberId) {
+        return Optional.ofNullable(
+                jpaQueryFactory
+                        .selectFrom(member)
+                        .where(member.id.eq(memberId))
+                        .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                        .fetchOne()
+        );
     }
 }
