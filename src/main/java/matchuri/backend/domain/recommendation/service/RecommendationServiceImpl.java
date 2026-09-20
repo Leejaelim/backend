@@ -26,10 +26,12 @@ import matchuri.backend.domain.menu.entity.MenuAttributeCategory;
 import matchuri.backend.domain.menu.entity.MenuItem;
 import matchuri.backend.domain.menu.repository.AttributeCategoryRepository;
 import matchuri.backend.domain.menu.repository.IngredientRepository;
+import matchuri.backend.domain.menu.repository.MenuAttributeCategoryIdRow;
+import matchuri.backend.domain.menu.repository.MenuAttributeCategoryRepository;
+import matchuri.backend.domain.menu.repository.MenuIngredientIdRow;
 import matchuri.backend.domain.menu.repository.MenuIngredientRepository;
 import matchuri.backend.domain.menu.repository.MenuItemRepository;
-import matchuri.backend.domain.menu.repository.MenuAttributeCategoryRepository;
-import matchuri.backend.domain.menu.repository.MenuRecommendationProfileQueryResult;
+import matchuri.backend.domain.menu.repository.MenuRecommendationRow;
 import matchuri.backend.domain.menu.result.MenuAttributeCategoryResult;
 import matchuri.backend.domain.menu.support.MenuThumbnailUrlResolver;
 import matchuri.backend.domain.recommendation.algorithm.MenuRecommendationAlgorithm;
@@ -212,14 +214,13 @@ public class RecommendationServiceImpl implements RecommendationService {
 
         MenuRecommendationAlgorithm algorithm =
                 menuRecommendationAlgorithmResolver.resolve(RecommendationAlgorithmType.GUEST_PERSONAL);
-        List<MenuRecommendationProfileQueryResult> menuProfiles =
-                menuItemRepository.findActiveMenuRecommendationProfiles();
-        Map<Long, MenuRecommendationProfileQueryResult> menuProfileById = menuProfiles.stream()
-                .collect(Collectors.toMap(MenuRecommendationProfileQueryResult::menuId, Function.identity()));
+        List<MenuRecommendationProfile> menuProfiles = findActiveMenuRecommendationProfiles();
+        Map<Long, MenuRecommendationProfile> menuProfileById = menuProfiles.stream()
+                .collect(Collectors.toMap(MenuRecommendationProfile::menuId, Function.identity()));
         MenuRecommendationInput input = new MenuRecommendationInput(
                 RecommendationTargetType.GUEST_PERSONAL,
                 List.of(toGuestTasteProfileSnapshot(command)),
-                toMenuRecommendationProfilesFromQueryResults(menuProfiles),
+                menuProfiles,
                 RecommendationContextSnapshot.of(command.contextJson()),
                 RECOMMENDATION_CANDIDATE_LIMIT,
                 List.of(),
@@ -236,7 +237,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
         List<GuestPersonalRecommendationCandidateResult> candidates = recommendationResult.candidates().stream()
                 .map(candidate -> {
-                    MenuRecommendationProfileQueryResult menuProfile = menuProfileById.get(candidate.menuId());
+                    MenuRecommendationProfile menuProfile = menuProfileById.get(candidate.menuId());
 
                     return new GuestPersonalRecommendationCandidateResult(
                             candidate.menuId(),
@@ -534,16 +535,39 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .toList();
     }
 
-    private List<MenuRecommendationProfile> toMenuRecommendationProfilesFromQueryResults(
-            List<MenuRecommendationProfileQueryResult> queryResults
-    ) {
-        return queryResults.stream()
-                .map(queryResult -> new MenuRecommendationProfile(
-                        queryResult.menuId(),
-                        queryResult.menuCode(),
-                        queryResult.menuName(),
-                        queryResult.attributeCategoryIds(),
-                        queryResult.ingredientIds()
+    private List<MenuRecommendationProfile> findActiveMenuRecommendationProfiles() {
+        List<MenuRecommendationRow> menuRows = menuItemRepository.findActiveRecommendationRows();
+        if (menuRows.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> menuIds = menuRows.stream()
+                .map(MenuRecommendationRow::menuId)
+                .toList();
+        Map<Long, List<Long>> attributeCategoryIdsByMenuId = menuAttributeCategoryRepository
+                .findIdRowsByMenuIds(menuIds)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        MenuAttributeCategoryIdRow::menuId,
+                        LinkedHashMap::new,
+                        Collectors.mapping(MenuAttributeCategoryIdRow::attributeCategoryId, Collectors.toList())
+                ));
+        Map<Long, List<Long>> ingredientIdsByMenuId = menuIngredientRepository
+                .findIdRowsByMenuIds(menuIds)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        MenuIngredientIdRow::menuId,
+                        LinkedHashMap::new,
+                        Collectors.mapping(MenuIngredientIdRow::ingredientId, Collectors.toList())
+                ));
+
+        return menuRows.stream()
+                .map(row -> new MenuRecommendationProfile(
+                        row.menuId(),
+                        row.menuCode(),
+                        row.menuName(),
+                        attributeCategoryIdsByMenuId.getOrDefault(row.menuId(), List.of()),
+                        ingredientIdsByMenuId.getOrDefault(row.menuId(), List.of())
                 ))
                 .toList();
     }

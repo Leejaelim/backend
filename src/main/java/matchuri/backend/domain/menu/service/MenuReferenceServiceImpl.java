@@ -10,7 +10,9 @@ import matchuri.backend.domain.menu.command.SearchMenuItemsCommand;
 import matchuri.backend.domain.menu.entity.CategoryType;
 import matchuri.backend.domain.menu.repository.AttributeCategoryRepository;
 import matchuri.backend.domain.menu.repository.IngredientRepository;
-import matchuri.backend.domain.menu.repository.MenuItemDetailQueryResult;
+import matchuri.backend.domain.menu.repository.MenuAttributeCategoryRepository;
+import matchuri.backend.domain.menu.repository.MenuIngredientRepository;
+import matchuri.backend.domain.menu.repository.MenuItemDetailRow;
 import matchuri.backend.domain.menu.repository.MenuItemRepository;
 import matchuri.backend.domain.menu.result.AttributeCategoryResult;
 import matchuri.backend.domain.menu.result.MenuItemDetailResult;
@@ -27,6 +29,8 @@ public class MenuReferenceServiceImpl implements MenuReferenceService {
 
     private final AttributeCategoryRepository attributeCategoryRepository;
     private final IngredientRepository ingredientRepository;
+    private final MenuAttributeCategoryRepository menuAttributeCategoryRepository;
+    private final MenuIngredientRepository menuIngredientRepository;
     private final MenuItemRepository menuItemRepository;
     private final ImageUrlResolver imageUrlResolver;
 
@@ -81,7 +85,7 @@ public class MenuReferenceServiceImpl implements MenuReferenceService {
 
     @Override
     public MenuItemDetailResult getMenuItem(Long menuItemId) {
-        MenuItemDetailQueryResult menuItem = menuItemRepository.findActiveMenuItemDetailById(menuItemId)
+        MenuItemDetailRow menuItem = menuItemRepository.findActiveDetailRowById(menuItemId)
                 .orElseThrow(() -> new BusinessException(MenuErrorCode.NOT_FOUND, menuItemId));
 
         return new MenuItemDetailResult(
@@ -90,7 +94,7 @@ public class MenuReferenceServiceImpl implements MenuReferenceService {
                 menuItem.name(),
                 menuItem.description(),
                 imageUrlResolver.toPublicUrl(menuItem.thumbnailObjectKey()),
-                menuItem.attributeCategories().stream()
+                menuAttributeCategoryRepository.findActiveRowsByMenuId(menuItemId).stream()
                         .map(category -> new AttributeCategoryResult(
                                 category.id(),
                                 category.categoryType(),
@@ -99,7 +103,7 @@ public class MenuReferenceServiceImpl implements MenuReferenceService {
                                 category.sortOrder()
                         ))
                         .toList(),
-                menuItem.ingredients().stream()
+                menuIngredientRepository.findActiveRowsByMenuId(menuItemId).stream()
                         .map(ingredient -> new RestrictionIngredientResult(
                                 ingredient.id(),
                                 ingredient.code(),
