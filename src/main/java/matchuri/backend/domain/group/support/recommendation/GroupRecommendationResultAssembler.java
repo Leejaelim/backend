@@ -16,7 +16,7 @@ import matchuri.backend.domain.group.entity.GroupRecommendationReadinessStatus;
 import matchuri.backend.domain.group.entity.GroupRecommendationStatus;
 import matchuri.backend.domain.group.entity.GroupRecommendationVote;
 import matchuri.backend.domain.group.entity.GroupRoomMember;
-import matchuri.backend.domain.group.repository.GroupCandidateVoteCountProjection;
+import matchuri.backend.domain.group.repository.GroupCandidateVoteCountRow;
 import matchuri.backend.domain.group.repository.GroupRecommendationCandidateRepository;
 import matchuri.backend.domain.group.repository.GroupRecommendationReadinessRepository;
 import matchuri.backend.domain.group.repository.GroupRecommendationVoteRepository;
@@ -299,8 +299,8 @@ public class GroupRecommendationResultAssembler {
         return groupRecommendationVoteRepository.countVotesByCandidateId(recommendationId)
                 .stream()
                 .collect(Collectors.toMap(
-                        GroupCandidateVoteCountProjection::getCandidateId,
-                        projection -> projection.getVoteCount().intValue()
+                        GroupCandidateVoteCountRow::candidateId,
+                        row -> row.voteCount().intValue()
                 ));
     }
 

@@ -20,7 +20,7 @@ import matchuri.backend.domain.group.entity.GroupRoomStatus;
 import matchuri.backend.domain.group.exception.GroupErrorCode;
 import matchuri.backend.domain.group.repository.GroupInviteRepository;
 import matchuri.backend.domain.group.repository.GroupRecommendationRepository;
-import matchuri.backend.domain.group.repository.GroupRoomMemberCountProjection;
+import matchuri.backend.domain.group.repository.GroupRoomMemberCountRow;
 import matchuri.backend.domain.group.repository.GroupRoomMemberRepository;
 import matchuri.backend.domain.group.repository.GroupRoomRepository;
 import matchuri.backend.domain.group.result.CreateGroupResult;
@@ -284,8 +284,8 @@ public class GroupManagementServiceImpl implements GroupManagementService {
         return groupRoomMemberRepository.countMembersByRoomIdsAndStatus(roomIds, GroupMemberStatus.ACTIVE)
                 .stream()
                 .collect(Collectors.toMap(
-                        GroupRoomMemberCountProjection::getRoomId,
-                        GroupRoomMemberCountProjection::getMemberCount
+                        GroupRoomMemberCountRow::roomId,
+                        GroupRoomMemberCountRow::memberCount
                 ));
     }
 
