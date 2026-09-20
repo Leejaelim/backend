@@ -6,6 +6,7 @@ import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import matchuri.backend.domain.group.repository.GroupCandidateVoteCountRow;
 import matchuri.backend.domain.group.repository.GroupRecommendationVoteQueryRow;
 import matchuri.backend.domain.group.repository.GroupRecommendationVoteRepositoryCustom;
 import org.springframework.stereotype.Repository;
@@ -26,6 +27,20 @@ public class GroupRecommendationVoteRepositoryImpl implements GroupRecommendatio
                 ))
                 .from(groupRecommendationVote)
                 .where(groupRecommendationVote.groupRecommendation.id.eq(recommendationId))
+                .fetch();
+    }
+
+    @Override
+    public List<GroupCandidateVoteCountRow> countVotesByCandidateId(Long recommendationId) {
+        return jpaQueryFactory
+                .select(Projections.constructor(
+                        GroupCandidateVoteCountRow.class,
+                        groupRecommendationVote.candidate.id,
+                        groupRecommendationVote.id.count()
+                ))
+                .from(groupRecommendationVote)
+                .where(groupRecommendationVote.groupRecommendation.id.eq(recommendationId))
+                .groupBy(groupRecommendationVote.candidate.id)
                 .fetch();
     }
 }
