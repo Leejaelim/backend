@@ -8,9 +8,9 @@ import org.jspecify.annotations.Nullable;
 
 public interface MenuItemRepositoryCustom {
 
-    Optional<MenuItemDetailQueryResult> findActiveMenuItemDetailById(Long menuItemId);
+    Optional<MenuItemDetailRow> findActiveDetailRowById(Long menuItemId);
 
-    List<MenuRecommendationProfileQueryResult> findActiveMenuRecommendationProfiles();
+    List<MenuRecommendationRow> findActiveRecommendationRows();
 
     List<MenuItem> searchActiveMenuItems(@Nullable String query, Collection<Long> attributeCategoryIds, boolean attributeCategoryIdsEmpty, Collection<Long> ingredientIds, boolean ingredientIdsEmpty);
 }
