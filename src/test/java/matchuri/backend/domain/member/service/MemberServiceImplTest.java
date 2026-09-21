@@ -9,8 +9,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -35,15 +36,18 @@ import matchuri.backend.domain.member.entity.MemberTasteProfileDislikedMenuItem;
 import matchuri.backend.domain.member.entity.MemberTasteProfileRestrictionIngredient;
 import matchuri.backend.domain.member.exception.MemberErrorCode;
 import matchuri.backend.domain.member.repository.MemberAgreementRepository;
+import matchuri.backend.domain.member.repository.MemberHomeRow;
 import matchuri.backend.domain.member.repository.MemberLocationRepository;
 import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.domain.member.repository.MemberRepository;
+import matchuri.backend.domain.member.repository.MemberTasteProfileAttributeCategoryRow;
 import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileRestrictionIngredientRepository;
-import matchuri.backend.domain.member.result.MemberProfileResult;
+import matchuri.backend.domain.member.result.MemberHomeResult;
 import matchuri.backend.domain.member.result.MemberLocationResult;
+import matchuri.backend.domain.member.result.MemberProfileResult;
 import matchuri.backend.domain.member.result.MemberTasteProfileSummaryResult;
 import matchuri.backend.domain.member.result.MemberTasteUpdateResult;
 import matchuri.backend.domain.member.result.OnboardingNextStep;
@@ -137,6 +141,56 @@ class MemberServiceImplTest {
 
     @InjectMocks
     private MemberServiceImpl memberService;
+
+    @Test
+    @DisplayName("홈 회원 조회는 저장소별 projection을 서비스에서 조합한다")
+    void getHomeMemberCombinesRepositoryRows() {
+        Member member = Member.builder().id(1L).memberRole(MemberRole.MEMBER).status(MemberStatus.ACTIVE).build();
+        LocalDateTime profileUpdatedAt = LocalDateTime.of(2026, 9, 21, 12, 0);
+        MemberHomeRow memberHomeRow = new MemberHomeRow(
+                1L,
+                "tester",
+                "테스터",
+                false,
+                "tester@example.com",
+                "profiles/tester.png",
+                new BigDecimal("37.49"),
+                new BigDecimal("127.02"),
+                1000,
+                "서울 서초구",
+                10L,
+                "v1",
+                profileUpdatedAt
+        );
+        MemberTasteProfileAttributeCategoryRow categoryRow = new MemberTasteProfileAttributeCategoryRow(
+                100L,
+                CategoryType.FLAVOR,
+                "SPICY",
+                "매운맛",
+                10
+        );
+
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
+        when(memberRepository.findHomeRowByMemberId(1L)).thenReturn(Optional.of(memberHomeRow));
+        when(memberTasteProfileCategoryRepository.findAttributeCategoryRowsByProfileId(10L))
+                .thenReturn(List.of(categoryRow));
+        when(imageUrlResolver.toPublicUrl("profiles/tester.png")).thenReturn("https://cdn/profiles/tester.png");
+
+        MemberHomeResult result = memberService.getHomeMember(1L);
+
+        assertThat(result.profile().profileImageUrl()).isEqualTo("https://cdn/profiles/tester.png");
+        assertThat(result.location().address()).isEqualTo("서울 서초구");
+        assertThat(result.tasteProfile().profileVersion()).isEqualTo("v1");
+        assertThat(result.tasteProfile().updatedAt()).isEqualTo(profileUpdatedAt);
+        assertThat(result.tasteProfile().attributeCategories()).singleElement()
+                .satisfies(category -> {
+                    assertThat(category.id()).isEqualTo(100L);
+                    assertThat(category.categoryType()).isEqualTo(CategoryType.FLAVOR);
+                    assertThat(category.code()).isEqualTo("SPICY");
+                    assertThat(category.name()).isEqualTo("매운맛");
+                    assertThat(category.sortOrder()).isEqualTo(10);
+                });
+    }
 
     @Test
     @DisplayName("내 개인 위치 최초 PUT은 회원당 위치를 생성한다")

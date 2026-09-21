@@ -120,7 +120,7 @@ class HomeIntegrationTest {
         assertThat(queryLogs)
                 .singleElement()
                 .satisfies(line -> assertThat(line).contains(
-                        "total=7 select=7 insert=0 update=0 delete=0 other=0"));
+                        "total=8 select=8 insert=0 update=0 delete=0 other=0"));
     }
 
     @Test

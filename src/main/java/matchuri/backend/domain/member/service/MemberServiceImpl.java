@@ -27,10 +27,11 @@ import matchuri.backend.domain.member.entity.MemberTasteProfileDislikedMenuItem;
 import matchuri.backend.domain.member.entity.MemberTasteProfileRestrictionIngredient;
 import matchuri.backend.domain.member.exception.MemberErrorCode;
 import matchuri.backend.domain.member.repository.MemberAgreementRepository;
-import matchuri.backend.domain.member.repository.MemberHomeQueryResult;
+import matchuri.backend.domain.member.repository.MemberHomeRow;
 import matchuri.backend.domain.member.repository.MemberLocationRepository;
 import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.domain.member.repository.MemberRepository;
+import matchuri.backend.domain.member.repository.MemberTasteProfileAttributeCategoryRow;
 import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileRepository;
@@ -210,33 +211,37 @@ public class MemberServiceImpl implements MemberService {
     @Override
     public MemberHomeResult getHomeMember(Long memberId) {
         memberReader.getActiveMember(memberId);
-        MemberHomeQueryResult queryResult = memberRepository.findHomeQueryResultByMemberId(memberId)
+        MemberHomeRow memberHomeRow = memberRepository.findHomeRowByMemberId(memberId)
                 .orElseThrow(() -> new IllegalStateException("홈 회원 조회 결과가 없습니다. memberId=" + memberId));
-        String profileImageUrl = queryResult.profileImageObjectKey() == null
+        List<MemberTasteProfileAttributeCategoryRow> attributeCategoryRows = memberHomeRow.tasteProfileId() == null
+                ? List.of()
+                : memberTasteProfileCategoryRepository.findAttributeCategoryRowsByProfileId(
+                        memberHomeRow.tasteProfileId());
+        String profileImageUrl = memberHomeRow.profileImageObjectKey() == null
                 ? null
-                : imageUrlResolver.toPublicUrl(queryResult.profileImageObjectKey());
+                : imageUrlResolver.toPublicUrl(memberHomeRow.profileImageObjectKey());
         MemberProfileResult profile = new MemberProfileResult(
-                queryResult.memberId(),
-                queryResult.loginId(),
-                queryResult.nickname(),
-                queryResult.social(),
-                queryResult.email(),
+                memberHomeRow.memberId(),
+                memberHomeRow.loginId(),
+                memberHomeRow.nickname(),
+                memberHomeRow.social(),
+                memberHomeRow.email(),
                 profileImageUrl
         );
-        MemberLocationResult location = queryResult.latitude() == null
+        MemberLocationResult location = memberHomeRow.latitude() == null
                 ? null
                 : new MemberLocationResult(
-                        queryResult.latitude(),
-                        queryResult.longitude(),
-                        queryResult.radiusMeters(),
-                        queryResult.address()
+                        memberHomeRow.latitude(),
+                        memberHomeRow.longitude(),
+                        memberHomeRow.radiusMeters(),
+                        memberHomeRow.address()
                 );
-        MemberTasteProfileSummaryResult tasteProfile = queryResult.profileVersion() == null
+        MemberTasteProfileSummaryResult tasteProfile = memberHomeRow.profileVersion() == null
                 ? MemberTasteProfileSummaryResult.empty(memberId)
                 : new MemberTasteProfileSummaryResult(
                         memberId,
-                        queryResult.profileVersion(),
-                        queryResult.attributeCategories().stream()
+                        memberHomeRow.profileVersion(),
+                        attributeCategoryRows.stream()
                                 .map(row -> new MemberTasteProfileSummaryResult.AttributeCategoryItem(
                                         row.id(),
                                         row.categoryType(),
@@ -247,7 +252,7 @@ public class MemberServiceImpl implements MemberService {
                                 .toList(),
                         List.of(),
                         List.of(),
-                        queryResult.profileUpdatedAt()
+                        memberHomeRow.profileUpdatedAt()
                 );
 
         return new MemberHomeResult(profile, location, tasteProfile);
