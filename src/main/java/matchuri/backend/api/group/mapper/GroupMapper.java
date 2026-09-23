@@ -14,11 +14,13 @@ import matchuri.backend.api.group.dto.response.CreateGroupRecommendationResponse
 import matchuri.backend.api.group.dto.response.DeleteGroupResponse;
 import matchuri.backend.api.group.dto.response.FinalizeGroupRecommendationResponse;
 import matchuri.backend.api.group.dto.response.GroupDetailResponse;
+import matchuri.backend.api.group.dto.response.GroupDetailV2Response;
 import matchuri.backend.api.group.dto.response.GroupInviteSummaryResponse;
 import matchuri.backend.api.group.dto.response.GroupInviteV2SummaryResponse;
 import matchuri.backend.api.group.dto.response.GroupInviteLinkResponse;
 import matchuri.backend.api.group.dto.response.GroupMemberVoteResponse;
 import matchuri.backend.api.group.dto.response.GroupMemberSummaryResponse;
+import matchuri.backend.api.group.dto.response.GroupMemberSummaryV2Response;
 import matchuri.backend.api.group.dto.response.GroupRecommendationCandidateListResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationCandidateResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationReadinessMemberResponse;
@@ -289,6 +291,25 @@ public class GroupMapper {
         );
     }
 
+    public GroupDetailV2Response toGroupDetailV2Response(GroupDetailResult result) {
+        return new GroupDetailV2Response(
+                result.id(),
+                result.name(),
+                result.inviteCode(),
+                result.latitude(),
+                result.longitude(),
+                result.radiusMeters(),
+                result.address(),
+                result.status(),
+                result.members().stream()
+                        .map(this::toGroupMemberSummaryV2Response)
+                        .toList(),
+                result.recentlyRecommendation() == null
+                        ? null
+                        : toGroupRecommendationSessionResponse(result.recentlyRecommendation())
+        );
+    }
+
     public GroupRecommendationSessionResponse toGroupRecommendationSessionResponse(
             GroupRecommendationResult result
     ) {
@@ -409,6 +430,18 @@ public class GroupMapper {
         return new GroupMemberSummaryResponse(
                 result.memberId(),
                 result.nickname(),
+                result.role(),
+                result.status(),
+                result.joinedAt(),
+                result.isMe()
+        );
+    }
+
+    private GroupMemberSummaryV2Response toGroupMemberSummaryV2Response(GroupMemberSummaryResult result) {
+        return new GroupMemberSummaryV2Response(
+                result.memberId(),
+                result.nickname(),
+                result.memberProfileImageUrl(),
                 result.role(),
                 result.status(),
                 result.joinedAt(),

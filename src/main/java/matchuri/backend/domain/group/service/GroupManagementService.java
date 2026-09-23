@@ -27,5 +27,7 @@ public interface GroupManagementService {
     Page<@NonNull GroupSummaryResult> getMyGroups(Long memberId, GetMyGroupsCommand command);
 
     GroupDetailResult getGroup(Long memberId, Long groupId);
+
+    GroupDetailResult getGroupV2(Long memberId, Long groupId);
 }
 

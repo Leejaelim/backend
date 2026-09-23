@@ -2156,6 +2156,53 @@ class GroupIntegrationTest {
     }
 
     @Test
+    @DisplayName("v2 그룹 상세 조회는 그룹원 프로필 이미지 URL을 반환하고 v1 계약은 유지한다")
+    void getGroupV2ReturnsMemberProfileImageUrlWithoutChangingV1Contract() throws Exception {
+        Member owner = saveMember("detail-v2-owner", "v2상세방장");
+        Member memberWithoutProfileImage = saveMember("detail-v2-member", "v2상세멤버");
+        ImageAsset profileImage = imageAssetRepository.save(new ImageAsset(
+                ImageStorageProvider.CLOUDFLARE_R2,
+                "test",
+                "profile/group-detail-owner.png",
+                "group-detail-owner.png",
+                "image/png",
+                1024,
+                "c".repeat(64),
+                320,
+                320
+        ));
+        memberProfileImageRepository.save(new MemberProfileImage(owner, profileImage));
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "v2 상세 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(
+                groupRoom,
+                memberWithoutProfileImage,
+                GroupMemberRole.MEMBER,
+                LocalDateTime.now()
+        ));
+        String authorization = bearer(accessToken(owner));
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authorization))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.members[0].memberProfileImageUrl").doesNotExist())
+                .andExpect(jsonPath("$.data.members[1].memberProfileImageUrl").doesNotExist());
+
+        mockMvc.perform(get("/api/v2/groups/{groupId}", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authorization))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(groupRoom.getId()))
+                .andExpect(jsonPath("$.data.members.length()").value(2))
+                .andExpect(jsonPath("$.data.members[0].memberId").value(owner.getId()))
+                .andExpect(jsonPath("$.data.members[0].memberProfileImageUrl")
+                        .value("https://asset.matchuri.com/profile/group-detail-owner.png"))
+                .andExpect(jsonPath("$.data.members[0].isMe").value(true))
+                .andExpect(jsonPath("$.data.members[1].memberId").value(memberWithoutProfileImage.getId()))
+                .andExpect(jsonPath("$.data.members[1].memberProfileImageUrl").value(nullValue()))
+                .andExpect(jsonPath("$.data.members[1].isMe").value(false));
+    }
+
+    @Test
     @DisplayName("그룹 상세 조회는 비멤버 접근을 거절한다")
     void getGroupFailsForNonMember() throws Exception {
         Member owner = saveMember("forbidden-owner", "권한방장");
