@@ -71,7 +71,7 @@ backend
   - OpenAPI JSON: `http://localhost:8080/docs/openapi`
   - Health API: `http://localhost:8080/api/v1/health`
 
-로컬 Docker Compose 실행에는 `backend/.env`가 필요합니다. 최소 예시는 아래와 같습니다.
+로컬 Docker Compose 실행에는 저장소 루트의 `.env`가 필요합니다. 최소 예시는 아래와 같습니다.
 
 ```env
 MATCHURI_DB_PORT=3331
@@ -90,8 +90,8 @@ MATCHURI_GOOGLE_EMAIL_APP_PW=dummy
 ## 4. 로컬 실행 방법
 
 ```bash
-# backend 디렉터리로 이동
-cd backend
+# 워크스페이스 루트에서 backend 저장소로 이동
+cd app/backend
 
 # 로컬 MySQL 실행
 docker compose up -d db
@@ -106,7 +106,7 @@ docker compose up -d db
 Windows PowerShell에서는 아래 명령어를 사용할 수 있습니다.
 
 ```powershell
-cd backend
+cd app/backend
 docker compose up -d db
 .\gradlew.bat bootRun
 .\gradlew.bat test --quiet
