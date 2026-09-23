@@ -27,6 +27,7 @@ import matchuri.backend.api.group.dto.response.GroupRecommendationReadinessMembe
 import matchuri.backend.api.group.dto.response.GroupRecommendationReadinessResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationSessionResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationSummaryResponse;
+import matchuri.backend.api.group.dto.response.GroupRecommendationV2SummaryResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationReadinessProgressResponse;
 import matchuri.backend.api.group.dto.response.GroupSummaryResponse;
 import matchuri.backend.api.group.dto.response.GroupVoteProgressResponse;
@@ -66,6 +67,7 @@ import matchuri.backend.domain.group.result.GroupRecommendationReadinessMemberRe
 import matchuri.backend.domain.group.result.GroupRecommendationReadinessResult;
 import matchuri.backend.domain.group.result.GroupRecommendationResult;
 import matchuri.backend.domain.group.result.GroupRecommendationSummaryResult;
+import matchuri.backend.domain.group.result.GroupRecommendationV2SummaryResult;
 import matchuri.backend.domain.group.result.GroupRecommendationReadinessProgressResult;
 import matchuri.backend.domain.group.result.GroupSummaryResult;
 import matchuri.backend.domain.group.result.GroupVoteProgressResult;
@@ -353,6 +355,19 @@ public class GroupMapper {
         return new GroupRecommendationSummaryResponse(
                 result.sessionId(),
                 result.status(),
+                result.createdAt(),
+                result.startedAt(),
+                result.endedAt()
+        );
+    }
+
+    public GroupRecommendationV2SummaryResponse toGroupRecommendationV2SummaryResponse(
+            GroupRecommendationV2SummaryResult result
+    ) {
+        return new GroupRecommendationV2SummaryResponse(
+                result.sessionId(),
+                result.status(),
+                result.selectedMenuName(),
                 result.createdAt(),
                 result.startedAt(),
                 result.endedAt()

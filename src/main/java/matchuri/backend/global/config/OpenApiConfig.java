@@ -290,6 +290,9 @@ public class OpenApiConfig {
                 key("/api/v1/groups/{groupId}/recommendations", PathItem.HttpMethod.GET),
                 meta("GREC.040.000", "06 Group Recommendation"));
         metadata.put(
+                key("/api/v2/groups/{groupId}/recommendations", PathItem.HttpMethod.GET),
+                meta("GREC.040.500", "06 Group Recommendation"));
+        metadata.put(
                 key("/api/v1/groups/{groupId}/recommendations/{sessionId}", PathItem.HttpMethod.GET),
                 meta("GREC.050.000", "06 Group Recommendation"));
         metadata.put(
