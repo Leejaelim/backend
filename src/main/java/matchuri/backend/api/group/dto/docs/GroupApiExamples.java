@@ -112,6 +112,44 @@ public final class GroupApiExamples {
             }
             """;
 
+    public static final String GROUP_DETAIL_V2_SUCCESS = """
+            {
+              "success": true,
+              "data": {
+                "id": 3001,
+                "name": "오늘 점심 메뉴 회의",
+                "inviteCode": "LUNCH42",
+                "latitude": 37.498095,
+                "longitude": 127.027610,
+                "radiusMeters": 1000,
+                "address": "서울 강남구 테헤란로 123",
+                "status": "ACTIVE",
+                "members": [
+                  {
+                    "memberId": 1,
+                    "nickname": "점심탐험가",
+                    "memberProfileImageUrl": "https://asset.matchuri.com/preset-profile/v1-spaghetti.png",
+                    "role": "OWNER",
+                    "status": "ACTIVE",
+                    "joinedAt": "2026-05-06T12:01:00",
+                    "isMe": true
+                  },
+                  {
+                    "memberId": 2,
+                    "nickname": "든든한한끼",
+                    "memberProfileImageUrl": null,
+                    "role": "MEMBER",
+                    "status": "ACTIVE",
+                    "joinedAt": "2026-05-06T12:02:00",
+                    "isMe": false
+                  }
+                ],
+                "recentlyRecommendation": null
+              },
+              "error": null
+            }
+            """;
+
     public static final String GROUP_DETAIL_OPEN_RECOMMENDATION_SUCCESS = """
             {
               "success": true,
@@ -452,6 +490,43 @@ public final class GroupApiExamples {
                   {
                     "sessionId": 5001,
                     "status": "FINALIZED",
+                    "createdAt": "2026-05-26T12:00:00",
+                    "startedAt": "2026-05-26T12:05:00",
+                    "endedAt": "2026-05-26T12:15:00"
+                  }
+                ],
+                "pageInfo": {
+                  "page": 0,
+                  "size": 20,
+                  "totalElements": 2,
+                  "totalPages": 1,
+                  "first": true,
+                  "last": true,
+                  "hasNext": false,
+                  "hasPrevious": false
+                }
+              },
+              "error": null
+            }
+            """;
+
+    public static final String RECOMMENDATION_LIST_V2_SUCCESS = """
+            {
+              "success": true,
+              "data": {
+                "content": [
+                  {
+                    "sessionId": 5002,
+                    "status": "PREPARING",
+                    "selectedMenuName": null,
+                    "createdAt": "2026-05-26T12:20:00",
+                    "startedAt": null,
+                    "endedAt": null
+                  },
+                  {
+                    "sessionId": 5001,
+                    "status": "FINALIZED",
+                    "selectedMenuName": "비빔밥",
                     "createdAt": "2026-05-26T12:00:00",
                     "startedAt": "2026-05-26T12:05:00",
                     "endedAt": "2026-05-26T12:15:00"

@@ -40,6 +40,7 @@ import matchuri.backend.domain.group.support.recommendation.GroupRecommendationR
 import matchuri.backend.domain.group.support.room.GroupRoomReader;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.support.member.MemberReader;
+import matchuri.backend.domain.member.support.profile.MemberProfileImageUrlResolver;
 import matchuri.backend.domain.realtime.event.GroupDeletedRealtimeEvent;
 import matchuri.backend.domain.realtime.event.GroupMemberLeftRealtimeEvent;
 import matchuri.backend.global.exception.BusinessException;
@@ -68,6 +69,7 @@ public class GroupManagementServiceImpl implements GroupManagementService {
     private final GroupLocationManager groupLocationManager;
     private final GroupRecommendationExpirationManager groupRecommendationExpirationManager;
     private final GroupRecommendationResultAssembler groupRecommendationResultAssembler;
+    private final MemberProfileImageUrlResolver memberProfileImageUrlResolver;
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -232,6 +234,15 @@ public class GroupManagementServiceImpl implements GroupManagementService {
 
     @Override
     public GroupDetailResult getGroup(Long memberId, Long groupId) {
+        return getGroup(memberId, groupId, false);
+    }
+
+    @Override
+    public GroupDetailResult getGroupV2(Long memberId, Long groupId) {
+        return getGroup(memberId, groupId, true);
+    }
+
+    private GroupDetailResult getGroup(Long memberId, Long groupId, boolean includeMemberProfileImageUrl) {
         Member member = memberReader.getActiveMember(memberId);
         GroupRoom room = groupRoomRepository.findByIdAndStatusNot(groupId, GroupRoomStatus.DELETED)
                 .orElseThrow(() -> new BusinessException(GroupErrorCode.NOT_FOUND, groupId));
@@ -244,8 +255,18 @@ public class GroupManagementServiceImpl implements GroupManagementService {
             throw new BusinessException(GroupErrorCode.ACCESS_DENIED, groupId);
         }
 
+        Map<Long, String> memberProfileImageUrls = includeMemberProfileImageUrl
+                ? memberProfileImageUrlResolver.resolveAll(activeMemberships.stream()
+                        .map(GroupRoomMember::getMember)
+                        .map(Member::getId)
+                        .toList())
+                : Map.of();
         List<GroupMemberSummaryResult> members = activeMemberships.stream()
-                .map(membership -> toMemberSummaryResult(membership, member.getId()))
+                .map(membership -> toMemberSummaryResult(
+                        membership,
+                        member.getId(),
+                        memberProfileImageUrls.get(membership.getMember().getId())
+                ))
                 .toList();
         groupRecommendationExpirationManager.expireActiveGroupRecommendations(groupId, LocalDateTime.now());
         GroupRecommendationResult recentlyRecommendation = groupRecommendationRepository
@@ -328,12 +349,17 @@ public class GroupManagementServiceImpl implements GroupManagementService {
                 .forEach(membership -> membership.leave(leftAt));
     }
 
-    private GroupMemberSummaryResult toMemberSummaryResult(GroupRoomMember membership, Long currentMemberId) {
+    private GroupMemberSummaryResult toMemberSummaryResult(
+            GroupRoomMember membership,
+            Long currentMemberId,
+            String memberProfileImageUrl
+    ) {
         Member member = membership.getMember();
 
         return new GroupMemberSummaryResult(
                 member.getId(),
                 member.getNickname(),
+                memberProfileImageUrl,
                 membership.getRole(),
                 membership.getStatus(),
                 membership.getJoinedAt(),

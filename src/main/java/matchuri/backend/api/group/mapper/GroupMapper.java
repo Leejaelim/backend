@@ -14,17 +14,20 @@ import matchuri.backend.api.group.dto.response.CreateGroupRecommendationResponse
 import matchuri.backend.api.group.dto.response.DeleteGroupResponse;
 import matchuri.backend.api.group.dto.response.FinalizeGroupRecommendationResponse;
 import matchuri.backend.api.group.dto.response.GroupDetailResponse;
+import matchuri.backend.api.group.dto.response.GroupDetailV2Response;
 import matchuri.backend.api.group.dto.response.GroupInviteSummaryResponse;
 import matchuri.backend.api.group.dto.response.GroupInviteV2SummaryResponse;
 import matchuri.backend.api.group.dto.response.GroupInviteLinkResponse;
 import matchuri.backend.api.group.dto.response.GroupMemberVoteResponse;
 import matchuri.backend.api.group.dto.response.GroupMemberSummaryResponse;
+import matchuri.backend.api.group.dto.response.GroupMemberSummaryV2Response;
 import matchuri.backend.api.group.dto.response.GroupRecommendationCandidateListResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationCandidateResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationReadinessMemberResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationReadinessResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationSessionResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationSummaryResponse;
+import matchuri.backend.api.group.dto.response.GroupRecommendationV2SummaryResponse;
 import matchuri.backend.api.group.dto.response.GroupRecommendationReadinessProgressResponse;
 import matchuri.backend.api.group.dto.response.GroupSummaryResponse;
 import matchuri.backend.api.group.dto.response.GroupVoteProgressResponse;
@@ -64,6 +67,7 @@ import matchuri.backend.domain.group.result.GroupRecommendationReadinessMemberRe
 import matchuri.backend.domain.group.result.GroupRecommendationReadinessResult;
 import matchuri.backend.domain.group.result.GroupRecommendationResult;
 import matchuri.backend.domain.group.result.GroupRecommendationSummaryResult;
+import matchuri.backend.domain.group.result.GroupRecommendationV2SummaryResult;
 import matchuri.backend.domain.group.result.GroupRecommendationReadinessProgressResult;
 import matchuri.backend.domain.group.result.GroupSummaryResult;
 import matchuri.backend.domain.group.result.GroupVoteProgressResult;
@@ -289,6 +293,25 @@ public class GroupMapper {
         );
     }
 
+    public GroupDetailV2Response toGroupDetailV2Response(GroupDetailResult result) {
+        return new GroupDetailV2Response(
+                result.id(),
+                result.name(),
+                result.inviteCode(),
+                result.latitude(),
+                result.longitude(),
+                result.radiusMeters(),
+                result.address(),
+                result.status(),
+                result.members().stream()
+                        .map(this::toGroupMemberSummaryV2Response)
+                        .toList(),
+                result.recentlyRecommendation() == null
+                        ? null
+                        : toGroupRecommendationSessionResponse(result.recentlyRecommendation())
+        );
+    }
+
     public GroupRecommendationSessionResponse toGroupRecommendationSessionResponse(
             GroupRecommendationResult result
     ) {
@@ -332,6 +355,19 @@ public class GroupMapper {
         return new GroupRecommendationSummaryResponse(
                 result.sessionId(),
                 result.status(),
+                result.createdAt(),
+                result.startedAt(),
+                result.endedAt()
+        );
+    }
+
+    public GroupRecommendationV2SummaryResponse toGroupRecommendationV2SummaryResponse(
+            GroupRecommendationV2SummaryResult result
+    ) {
+        return new GroupRecommendationV2SummaryResponse(
+                result.sessionId(),
+                result.status(),
+                result.selectedMenuName(),
                 result.createdAt(),
                 result.startedAt(),
                 result.endedAt()
@@ -409,6 +445,18 @@ public class GroupMapper {
         return new GroupMemberSummaryResponse(
                 result.memberId(),
                 result.nickname(),
+                result.role(),
+                result.status(),
+                result.joinedAt(),
+                result.isMe()
+        );
+    }
+
+    private GroupMemberSummaryV2Response toGroupMemberSummaryV2Response(GroupMemberSummaryResult result) {
+        return new GroupMemberSummaryV2Response(
+                result.memberId(),
+                result.nickname(),
+                result.memberProfileImageUrl(),
                 result.role(),
                 result.status(),
                 result.joinedAt(),

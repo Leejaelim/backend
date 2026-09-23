@@ -12,8 +12,12 @@ import org.springframework.stereotype.Component;
 public class GroupOpenApiCustomizer implements OpenApiCustomizer {
     @Override
     public void customise(OpenAPI openApi) {
+        allowNull(openApi, "GroupMemberSummaryV2Response", "memberProfileImageUrl");
         allowNull(openApi, "GroupRecommendationSummaryResponse", "startedAt");
         allowNull(openApi, "GroupRecommendationSummaryResponse", "endedAt");
+        allowNull(openApi, "GroupRecommendationV2SummaryResponse", "selectedMenuName");
+        allowNull(openApi, "GroupRecommendationV2SummaryResponse", "startedAt");
+        allowNull(openApi, "GroupRecommendationV2SummaryResponse", "endedAt");
     }
 
     private void allowNull(OpenAPI openApi, String schemaName, String propertyName) {

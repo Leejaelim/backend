@@ -33,6 +33,7 @@ import matchuri.backend.domain.group.result.GroupRecommendationReadinessProgress
 import matchuri.backend.domain.group.result.GroupRecommendationReadinessResult;
 import matchuri.backend.domain.group.result.GroupRecommendationResult;
 import matchuri.backend.domain.group.result.GroupRecommendationSummaryResult;
+import matchuri.backend.domain.group.result.GroupRecommendationV2SummaryResult;
 import matchuri.backend.domain.group.result.GroupVoteProgressResult;
 import matchuri.backend.domain.group.result.GroupVoteResult;
 import matchuri.backend.domain.group.result.ReadyGroupRecommendationResult;
@@ -196,6 +197,24 @@ public class GroupRecommendationServiceImpl implements GroupRecommendationServic
         return groupRecommendationRepository
                 .findByRoomIdOrderByCreatedAtDescIdDesc(room.getId(), PageRequest.of(page, size))
                 .map(GroupRecommendationSummaryResult::from);
+    }
+
+    @Override
+    public Page<@NonNull GroupRecommendationV2SummaryResult> getGroupRecommendationsV2(
+            Long memberId,
+            Long groupId,
+            int page,
+            int size
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
+        GroupRoom room = groupRoomReader.getActiveGroupRoom(groupId);
+        groupRoomReader.getActiveMembership(room.getId(), member.getId());
+
+        groupRecommendationExpirationManager.expireActiveGroupRecommendations(room.getId(), LocalDateTime.now());
+
+        return groupRecommendationRepository
+                .findV2SummariesByRoomId(room.getId(), PageRequest.of(page, size))
+                .map(GroupRecommendationV2SummaryResult::from);
     }
 
     @Override

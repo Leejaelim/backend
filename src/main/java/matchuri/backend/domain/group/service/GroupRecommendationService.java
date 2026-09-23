@@ -12,6 +12,7 @@ import matchuri.backend.domain.group.result.GroupRecommendationCandidateListResu
 import matchuri.backend.domain.group.result.GroupRecommendationReadinessResult;
 import matchuri.backend.domain.group.result.GroupRecommendationResult;
 import matchuri.backend.domain.group.result.GroupRecommendationSummaryResult;
+import matchuri.backend.domain.group.result.GroupRecommendationV2SummaryResult;
 import matchuri.backend.domain.group.result.GroupVoteResult;
 import matchuri.backend.domain.group.result.ReadyGroupRecommendationResult;
 import org.springframework.data.domain.Page;
@@ -29,6 +30,13 @@ public interface GroupRecommendationService {
     GroupRecommendationCandidateListResult getGroupRecommendationCandidates(Long memberId, Long groupId, Long sessionId);
 
     Page<@NonNull GroupRecommendationSummaryResult> getGroupRecommendations(Long memberId, Long groupId, int page, int size);
+
+    Page<@NonNull GroupRecommendationV2SummaryResult> getGroupRecommendationsV2(
+            Long memberId,
+            Long groupId,
+            int page,
+            int size
+    );
 
     GroupRecommendationReadinessResult getGroupRecommendationReadiness(Long memberId, Long groupId, Long sessionId);
 

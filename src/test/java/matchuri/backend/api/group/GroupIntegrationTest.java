@@ -1315,6 +1315,51 @@ class GroupIntegrationTest {
     }
 
     @Test
+    @DisplayName("v2 그룹 추천 목록은 최종 선정 메뉴명을 반환하고 v1 계약은 유지한다")
+    void getGroupRecommendationsV2ReturnsSelectedMenuNameWithoutChangingV1Contract() throws Exception {
+        Member owner = saveMember("recommendation-list-v2-owner", "v2목록방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "v2 추천 목록 그룹");
+        MenuItem selectedMenu = saveMenu("recommendation-list-v2-menu", "비빔밥");
+        GroupRecommendation finalizedRecommendation = open(
+                groupRoom,
+                "{}",
+                LocalDateTime.now().minusMinutes(30),
+                LocalDateTime.now().minusMinutes(30)
+        );
+        GroupRecommendationCandidate selectedCandidate = groupRecommendationCandidateRepository.save(
+                new GroupRecommendationCandidate(finalizedRecommendation, selectedMenu, 1, 95.0, "{}")
+        );
+        finalizedRecommendation.finalizeWith(selectedCandidate, LocalDateTime.now().minusMinutes(20));
+        groupRecommendationRepository.save(finalizedRecommendation);
+        GroupRecommendation preparingRecommendation = groupRecommendationRepository.save(preparing(
+                groupRoom,
+                "{}",
+                LocalDateTime.now().minusMinutes(10)
+        ));
+        String authorization = bearer(accessToken(owner));
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}/recommendations", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authorization))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].selectedMenuName").doesNotExist())
+                .andExpect(jsonPath("$.data.content[1].selectedMenuName").doesNotExist());
+
+        mockMvc.perform(get("/api/v2/groups/{groupId}/recommendations", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authorization)
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content.length()").value(2))
+                .andExpect(jsonPath("$.data.content[0].sessionId").value(preparingRecommendation.getId()))
+                .andExpect(jsonPath("$.data.content[0].selectedMenuName").value(nullValue()))
+                .andExpect(jsonPath("$.data.content[1].sessionId").value(finalizedRecommendation.getId()))
+                .andExpect(jsonPath("$.data.content[1].status").value(GroupRecommendationStatus.FINALIZED.name()))
+                .andExpect(jsonPath("$.data.content[1].selectedMenuName").value(selectedMenu.getName()))
+                .andExpect(jsonPath("$.data.pageInfo.totalElements").value(2));
+    }
+
+    @Test
     @DisplayName("그룹 추천 요청 목록 조회는 비멤버이면 거절한다")
     void getGroupRecommendationsFailsForNonMember() throws Exception {
         Member owner = saveMember("recommendation-list-denied-owner", "목록거절방장");
@@ -2153,6 +2198,53 @@ class GroupIntegrationTest {
                 .andExpect(jsonPath("$.data.members[1].memberId").value(activeMember.getId()))
                 .andExpect(jsonPath("$.data.members[1].isMe").value(true))
                 .andExpect(jsonPath("$.data.recentlyRecommendation").value(nullValue()));
+    }
+
+    @Test
+    @DisplayName("v2 그룹 상세 조회는 그룹원 프로필 이미지 URL을 반환하고 v1 계약은 유지한다")
+    void getGroupV2ReturnsMemberProfileImageUrlWithoutChangingV1Contract() throws Exception {
+        Member owner = saveMember("detail-v2-owner", "v2상세방장");
+        Member memberWithoutProfileImage = saveMember("detail-v2-member", "v2상세멤버");
+        ImageAsset profileImage = imageAssetRepository.save(new ImageAsset(
+                ImageStorageProvider.CLOUDFLARE_R2,
+                "test",
+                "profile/group-detail-owner.png",
+                "group-detail-owner.png",
+                "image/png",
+                1024,
+                "c".repeat(64),
+                320,
+                320
+        ));
+        memberProfileImageRepository.save(new MemberProfileImage(owner, profileImage));
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "v2 상세 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(
+                groupRoom,
+                memberWithoutProfileImage,
+                GroupMemberRole.MEMBER,
+                LocalDateTime.now()
+        ));
+        String authorization = bearer(accessToken(owner));
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authorization))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.members[0].memberProfileImageUrl").doesNotExist())
+                .andExpect(jsonPath("$.data.members[1].memberProfileImageUrl").doesNotExist());
+
+        mockMvc.perform(get("/api/v2/groups/{groupId}", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authorization))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(groupRoom.getId()))
+                .andExpect(jsonPath("$.data.members.length()").value(2))
+                .andExpect(jsonPath("$.data.members[0].memberId").value(owner.getId()))
+                .andExpect(jsonPath("$.data.members[0].memberProfileImageUrl")
+                        .value("https://asset.matchuri.com/profile/group-detail-owner.png"))
+                .andExpect(jsonPath("$.data.members[0].isMe").value(true))
+                .andExpect(jsonPath("$.data.members[1].memberId").value(memberWithoutProfileImage.getId()))
+                .andExpect(jsonPath("$.data.members[1].memberProfileImageUrl").value(nullValue()))
+                .andExpect(jsonPath("$.data.members[1].isMe").value(false));
     }
 
     @Test
