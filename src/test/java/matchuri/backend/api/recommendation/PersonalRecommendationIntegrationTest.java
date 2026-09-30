@@ -864,6 +864,33 @@ class PersonalRecommendationIntegrationTest {
                 .andExpect(jsonPath("$.error.code").value("PERSONAL_RECOMMENDATION_ALREADY_CLOSED"));
     }
 
+    @Test
+    @DisplayName("회원 추천은 저장된 음식 분류와 온도감 대안을 유형별로 계산한다")
+    void personalRecommendationUsesExclusivePreferenceTypes() throws Exception {
+        Member member = saveMember("exclusive-personal", "배타적선호회원");
+        AttributeCategory korean = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FOOD_CATEGORY, "KOREAN", "한식", 10));
+        AttributeCategory chinese = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FOOD_CATEGORY, "CHINESE", "중식", 20));
+        AttributeCategory hot = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.TEMPERATURE, "HOT", "뜨거움", 10));
+        AttributeCategory cold = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.TEMPERATURE, "COLD", "차가움", 20));
+        MemberTasteProfile profile = memberTasteProfileRepository.save(new MemberTasteProfile(member, "v1"));
+        for (AttributeCategory category : List.of(korean, chinese, hot, cold)) {
+            memberTasteProfileCategoryRepository.save(new MemberTasteProfileCategory(profile, category));
+        }
+        MenuItem menu = menuItemRepository.save(new MenuItem("KOREAN_HOT", "한식 국물", "추천 점수 검증"));
+        saveMenuAttribute(menu, korean);
+        saveMenuAttribute(menu, hot);
+
+        JsonNode recommendation = createRecommendation(accessToken(member));
+
+        assertThat(recommendation.path("candidates").get(0).path("menuId").asLong()).isEqualTo(menu.getId());
+        assertThat(recommendation.path("candidates").get(0).path("score").asDouble()).isEqualTo(100.0);
+        assertThat(personalRecommendationCandidateRepository.findAll().getFirst().getScore()).isEqualTo(100.0);
+    }
+
     private JsonNode createRecommendation(String accessToken) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/personal/recommendations")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))

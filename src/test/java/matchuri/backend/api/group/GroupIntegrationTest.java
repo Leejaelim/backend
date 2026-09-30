@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.math.BigDecimal;
@@ -103,6 +105,9 @@ class GroupIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private MatchuriProperties matchuriProperties;
@@ -897,6 +902,50 @@ class GroupIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.recommendationCategories.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("그룹 준비 완료는 저장된 음식 분류와 온도감 대안을 유형별로 계산한다")
+    void groupRecommendationUsesExclusivePreferenceTypes() throws Exception {
+        Member owner = saveMember("exclusive-owner", "배타적선호방장");
+        Member member = saveMember("exclusive-member", "배타적선호멤버");
+        GroupRoom room = saveGroupOwnedBy(owner, "배타적 선호 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(room, member, GroupMemberRole.MEMBER, LocalDateTime.now()));
+        AttributeCategory korean = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FOOD_CATEGORY, "KOREAN", "한식", 10));
+        AttributeCategory chinese = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FOOD_CATEGORY, "CHINESE", "중식", 20));
+        AttributeCategory hot = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.TEMPERATURE, "HOT", "뜨거움", 10));
+        AttributeCategory cold = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.TEMPERATURE, "COLD", "차가움", 20));
+        for (Member participant : List.of(owner, member)) {
+            saveTasteProfile(participant, new AttributeCategory[]{korean, chinese, hot, cold},
+                    new Ingredient[]{}, new MenuItem[]{});
+        }
+        MenuItem menu = saveMenu("KOREAN_HOT", "한식 국물", korean, hot);
+        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(room));
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/recommendations/{sessionId}/ready", room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(GroupRecommendationStatus.PREPARING.name()));
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/recommendations/{sessionId}/ready", room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(GroupRecommendationStatus.OPEN.name()))
+                .andExpect(jsonPath("$.data.candidates[0].menuId").value(menu.getId()))
+                .andExpect(jsonPath("$.data.candidates[0].score").value(100.0));
+
+        GroupRecommendationCandidate candidate = groupRecommendationCandidateRepository
+                .findAllByGroupRecommendationIdOrderByRankNoAsc(recommendation.getId()).getFirst();
+        assertThat(candidate.getScore()).isEqualTo(100.0);
+        JsonNode candidateMeta = objectMapper.readTree(candidate.getCandidateMetaJson());
+        if (candidateMeta.isTextual()) {
+            candidateMeta = objectMapper.readTree(candidateMeta.asText());
+        }
+        assertThat(candidateMeta.path("algorithmVersion").asText()).isEqualTo("v1.1");
     }
 
     @Test

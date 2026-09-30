@@ -58,7 +58,7 @@ class GroupMenuRecommendationAlgorithmV1Test {
         MenuRecommendationResult result = algorithm.recommend(input);
 
         assertThat(result.algorithmType()).isEqualTo(RecommendationAlgorithmType.GROUP);
-        assertThat(result.algorithmVersion()).isEqualTo("v1");
+        assertThat(result.algorithmVersion()).isEqualTo("v1.1");
         assertThat(result.candidates().getFirst().score()).isEqualTo(100.0);
         assertThat(result.candidates().getFirst().scoreBreakdown().get("rawScore")).isEqualTo(150.0);
     }

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
+import matchuri.backend.domain.menu.entity.CategoryType;
 import matchuri.backend.domain.recommendation.algorithm.MenuRecommendationAlgorithm;
 import matchuri.backend.domain.recommendation.algorithm.RecommendationAlgorithmType;
 import matchuri.backend.domain.recommendation.algorithm.input.MenuRecommendationInput;
@@ -13,13 +14,14 @@ import matchuri.backend.domain.recommendation.algorithm.input.MenuRecommendation
 import matchuri.backend.domain.recommendation.algorithm.input.TasteProfileSnapshot;
 import matchuri.backend.domain.recommendation.algorithm.output.MenuRecommendationCandidateResult;
 import matchuri.backend.domain.recommendation.algorithm.output.MenuRecommendationResult;
+import matchuri.backend.domain.recommendation.algorithm.support.RecommendationPreferenceMatchCalculator;
 import matchuri.backend.domain.recommendation.algorithm.support.RecommendationScoreNormalizer;
 import org.springframework.stereotype.Component;
 
 @Component
 public class GroupMenuRecommendationAlgorithmV1 implements MenuRecommendationAlgorithm {
 
-    private static final String VERSION = "v1";
+    private static final String VERSION = "v1.1";
     private static final double PARTICIPANT_PREFERENCE_SCORE = 50.0;
     private static final double DISLIKED_MENU_PENALTY = 25.0;
 
@@ -40,7 +42,7 @@ public class GroupMenuRecommendationAlgorithmV1 implements MenuRecommendationAlg
         List<ScoredMenu> scoredMenus = input.menus().stream()
                 .filter(menu -> !containsAny(menu.ingredientIds(), restrictedIngredientIds))
                 .filter(menu -> !input.recentlySkippedMenuIds().contains(menu.menuId()))
-                .map(menu -> score(menu, input.participants()))
+                .map(menu -> score(menu, input.participants(), input.attributeCategoryTypes()))
                 .sorted(Comparator.comparing(ScoredMenu::totalScore).reversed()
                         .thenComparing(scoredMenu -> scoredMenu.menu().menuId()))
                 .limit(input.candidateLimit())
@@ -49,21 +51,27 @@ public class GroupMenuRecommendationAlgorithmV1 implements MenuRecommendationAlg
         return new MenuRecommendationResult(type(), version(), toCandidates(scoredMenus));
     }
 
-    private ScoredMenu score(MenuRecommendationProfile menu, List<TasteProfileSnapshot> participants) {
+    private ScoredMenu score(
+            MenuRecommendationProfile menu,
+            List<TasteProfileSnapshot> participants,
+            Map<Long, CategoryType> categoryTypes
+    ) {
         long preferenceMatchingCount = 0;
         double preferenceScore = 0;
         int dislikedMemberCount = 0;
 
         for (TasteProfileSnapshot participant : participants) {
-            long participantMatchingCount = countMatches(
+            var preferenceMatch = RecommendationPreferenceMatchCalculator.calculate(
                     menu.attributeCategoryIds(),
-                    participant.preferredAttributeCategoryIds()
+                    participant.preferredAttributeCategoryIds(),
+                    categoryTypes
             );
+            long participantMatchingCount = preferenceMatch.matchingCount();
             preferenceMatchingCount += participantMatchingCount;
 
-            if (!participant.preferredAttributeCategoryIds().isEmpty()) {
+            if (preferenceMatch.preferredUnitCount() > 0) {
                 preferenceScore += participantMatchingCount
-                        * (PARTICIPANT_PREFERENCE_SCORE / participant.preferredAttributeCategoryIds().size());
+                        * (PARTICIPANT_PREFERENCE_SCORE / preferenceMatch.preferredUnitCount());
             }
 
             if (participant.dislikedMenuItemIds().contains(menu.menuId())) {
@@ -122,14 +130,6 @@ public class GroupMenuRecommendationAlgorithmV1 implements MenuRecommendationAlg
         }
 
         return restrictedIngredientIds;
-    }
-
-    private long countMatches(List<Long> sourceIds, List<Long> targetIds) {
-        Set<Long> targetIdSet = new HashSet<>(targetIds);
-
-        return sourceIds.stream()
-                .filter(targetIdSet::contains)
-                .count();
     }
 
     private boolean containsAny(List<Long> sourceIds, Set<Long> targetIds) {

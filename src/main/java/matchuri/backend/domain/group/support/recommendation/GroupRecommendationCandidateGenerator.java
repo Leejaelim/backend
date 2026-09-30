@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -85,7 +86,14 @@ public class GroupRecommendationCandidateGenerator {
                 GROUP_RECOMMENDATION_CANDIDATE_LIMIT,
                 List.of(),
                 excludedMenuIds,
-                Map.of()
+                Map.of(),
+                activeMembers.stream()
+                        .map(GroupRoomMember::getMember)
+                        .map(Member::getTasteProfile)
+                        .filter(Objects::nonNull)
+                        .flatMap(profile -> profile.getPreferAttributeCategories().stream())
+                        .collect(Collectors.toMap(AttributeCategory::getId, AttributeCategory::getCategoryType,
+                                (first, second) -> first))
         ));
 
         List<GroupRecommendationCandidate> candidates = saveGroupRecommendationCandidates(
