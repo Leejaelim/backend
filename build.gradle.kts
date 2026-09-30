@@ -74,3 +74,18 @@ val fastTest by tasks.registering(Test::class) {
         "**/GlobalExceptionHandlerTest*.class"
     )
 }
+
+val scoreComparisonTest by tasks.registering(Test::class) {
+    description = "Prints actual recommendation scores for the same fixtures on each branch."
+    group = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    filter {
+        includeTestsMatching("matchuri.backend.api.recommendation.RecommendationScoreComparisonIntegrationTest")
+    }
+    testLogging {
+        showStandardStreams = true
+    }
+    // Always print fresh scores, even when neither sources nor fixtures have changed.
+    outputs.upToDateWhen { false }
+}
