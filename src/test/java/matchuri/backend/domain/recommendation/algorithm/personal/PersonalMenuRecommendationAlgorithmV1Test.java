@@ -48,7 +48,7 @@ class PersonalMenuRecommendationAlgorithmV1Test {
         MenuRecommendationResult result = algorithm.recommend(input);
 
         assertThat(result.algorithmType()).isEqualTo(RecommendationAlgorithmType.PERSONAL);
-        assertThat(result.algorithmVersion()).isEqualTo("v1");
+        assertThat(result.algorithmVersion()).isEqualTo("v1.1");
         assertThat(result.candidates())
                 .extracting(candidate -> candidate.menuId())
                 .containsExactly(1L, 4L);

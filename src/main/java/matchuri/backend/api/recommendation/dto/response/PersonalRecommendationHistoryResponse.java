@@ -18,7 +18,7 @@ public record PersonalRecommendationHistoryResponse(
         @Schema(description = "추천 종료 시각입니다. OPEN 상태이면 null입니다.", nullable = true)
         LocalDateTime closedAt,
 
-        @Schema(description = "대표 메뉴의 0~100 정규화 추천 점수입니다.", example = "93.5", nullable = true)
+        @Schema(description = "추천 생성 당시 저장된 대표 메뉴의 0~100 정규화 추천 점수입니다. 현재 취향이나 계산 규칙으로 다시 계산하지 않으며 만족 확률을 의미하지 않습니다.", example = "93.5", nullable = true)
         Double score,
 
         @Schema(description = "대표 메뉴명입니다.", example = "비빔밥", nullable = true)

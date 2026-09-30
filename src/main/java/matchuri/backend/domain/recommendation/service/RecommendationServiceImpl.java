@@ -21,6 +21,7 @@ import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberTasteProfile;
 import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.menu.entity.AttributeCategory;
+import matchuri.backend.domain.menu.entity.CategoryType;
 import matchuri.backend.domain.menu.entity.Ingredient;
 import matchuri.backend.domain.menu.entity.MenuAttributeCategory;
 import matchuri.backend.domain.menu.entity.MenuItem;
@@ -181,7 +182,9 @@ public class RecommendationServiceImpl implements RecommendationService {
                 RECOMMENDATION_CANDIDATE_LIMIT,
                 findRecentlySelectedMenuIds(recommendations),
                 findRecentlySkippedMenuIds(member.getId()),
-                countSelectedAttributeCategoryFrequency(recommendations)
+                countSelectedAttributeCategoryFrequency(recommendations),
+                tasteProfile.getPreferAttributeCategories().stream()
+                        .collect(Collectors.toMap(AttributeCategory::getId, AttributeCategory::getCategoryType))
         );
         MenuRecommendationResult recommendationResult = algorithm.recommend(input);
 
@@ -210,7 +213,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     public GuestPersonalRecommendationResult createGuestPersonalRecommendation(
             GuestPersonalRecommendationCommand command
     ) {
-        validateGuestRecommendationCommand(command);
+        Map<Long, CategoryType> categoryTypes = validateGuestRecommendationCommand(command);
 
         MenuRecommendationAlgorithm algorithm =
                 menuRecommendationAlgorithmResolver.resolve(RecommendationAlgorithmType.GUEST_PERSONAL);
@@ -225,7 +228,8 @@ public class RecommendationServiceImpl implements RecommendationService {
                 RECOMMENDATION_CANDIDATE_LIMIT,
                 List.of(),
                 List.of(),
-                Map.of()
+                Map.of(),
+                categoryTypes
         );
 
         MenuRecommendationResult recommendationResult = algorithm.recommend(input);
@@ -572,7 +576,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .toList();
     }
 
-    private void validateGuestRecommendationCommand(GuestPersonalRecommendationCommand command) {
+    private Map<Long, CategoryType> validateGuestRecommendationCommand(GuestPersonalRecommendationCommand command) {
         validateNoDuplicateIds(
                 command.attributeCategoryIds(),
                 GuestRecommendationErrorCode.DUPLICATE_ATTRIBUTE_CATEGORY
@@ -586,9 +590,10 @@ public class RecommendationServiceImpl implements RecommendationService {
                 GuestRecommendationErrorCode.DUPLICATE_DISLIKED_MENU_ITEM
         );
 
-        validateActiveAttributeCategoryIds(command.attributeCategoryIds());
+        Map<Long, CategoryType> categoryTypes = validateActiveAttributeCategoryIds(command.attributeCategoryIds());
         validateActiveRestrictionIngredientIds(command.restrictionIngredientIds());
         validateActiveDislikedMenuItemIds(command.dislikedMenuItemIds());
+        return categoryTypes;
     }
 
     private void validateNoDuplicateIds(List<Long> ids, GuestRecommendationErrorCode errorCode) {
@@ -599,7 +604,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         throw new BusinessException(errorCode, ids);
     }
 
-    private void validateActiveAttributeCategoryIds(List<Long> attributeCategoryIds) {
+    private Map<Long, CategoryType> validateActiveAttributeCategoryIds(List<Long> attributeCategoryIds) {
         if (attributeCategoryIds.stream().anyMatch(Objects::isNull)) {
             throw new BusinessException(GuestRecommendationErrorCode.INVALID_ATTRIBUTE_CATEGORY, attributeCategoryIds);
         }
@@ -609,6 +614,8 @@ public class RecommendationServiceImpl implements RecommendationService {
         if (attributeCategories.size() != attributeCategoryIds.size()) {
             throw new BusinessException(GuestRecommendationErrorCode.INVALID_ATTRIBUTE_CATEGORY, attributeCategoryIds);
         }
+        return attributeCategories.stream()
+                .collect(Collectors.toMap(AttributeCategory::getId, AttributeCategory::getCategoryType));
     }
 
     private void validateActiveRestrictionIngredientIds(List<Long> restrictionIngredientIds) {

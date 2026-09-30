@@ -83,6 +83,31 @@ class GuestRecommendationIntegrationTest {
     }
 
     @Test
+    @DisplayName("비회원 추천은 음식 분류와 온도감 대안이 하나씩 일치하면 100점을 반환한다")
+    void guestRecommendationUsesExclusivePreferenceTypes() throws Exception {
+        AttributeCategory korean = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FOOD_CATEGORY, "KOREAN", "한식", 10));
+        AttributeCategory chinese = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FOOD_CATEGORY, "CHINESE", "중식", 20));
+        AttributeCategory hot = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.TEMPERATURE, "HOT", "뜨거움", 10));
+        AttributeCategory cold = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.TEMPERATURE, "COLD", "차가움", 20));
+        MenuItem menu = menuItemRepository.save(new MenuItem("KOREAN_HOT", "한식 국물", "추천 점수 검증"));
+        menuAttributeCategoryRepository.saveAll(List.of(
+                new MenuAttributeCategory(menu, korean), new MenuAttributeCategory(menu, hot)));
+
+        mockMvc.perform(post("/api/v1/guest/recommendations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "attributeCategoryIds", List.of(korean.getId(), chinese.getId(), hot.getId(), cold.getId())
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidates[0].menuId").value(menu.getId()))
+                .andExpect(jsonPath("$.data.candidates[0].score").value(100.0));
+    }
+
+    @Test
     @ExtendWith(OutputCaptureExtension.class)
     @DisplayName("비회원 추천은 메뉴 수와 무관하게 고정 쿼리로 응답한다")
     void measureGuestRecommendationQueryScaleAfterOptimization(CapturedOutput output) throws Exception {
