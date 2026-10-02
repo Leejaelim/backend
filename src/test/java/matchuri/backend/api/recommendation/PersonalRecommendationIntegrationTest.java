@@ -22,6 +22,9 @@ import java.util.List;
 import javax.crypto.SecretKey;
 import matchuri.backend.domain.behavior.entity.ActionType;
 import matchuri.backend.domain.behavior.repository.MemberMenuActionRepository;
+import matchuri.backend.domain.image.entity.ImageAsset;
+import matchuri.backend.domain.image.entity.ImageStorageProvider;
+import matchuri.backend.domain.image.repository.ImageAssetRepository;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberLocation;
 import matchuri.backend.domain.member.entity.MemberRole;
@@ -42,12 +45,15 @@ import matchuri.backend.domain.menu.entity.Ingredient;
 import matchuri.backend.domain.menu.entity.MenuAttributeCategory;
 import matchuri.backend.domain.menu.entity.MenuIngredient;
 import matchuri.backend.domain.menu.entity.MenuItem;
+import matchuri.backend.domain.menu.entity.MenuItemImage;
 import matchuri.backend.domain.menu.repository.AttributeCategoryRepository;
 import matchuri.backend.domain.menu.repository.IngredientRepository;
 import matchuri.backend.domain.menu.repository.MenuAttributeCategoryRepository;
 import matchuri.backend.domain.menu.repository.MenuIngredientRepository;
 import matchuri.backend.domain.menu.repository.MenuItemRepository;
+import matchuri.backend.domain.menu.repository.MenuItemImageRepository;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendation;
+import matchuri.backend.domain.recommendation.entity.PersonalRecommendationCandidate;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationStatus;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationCandidateRepository;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationRepository;
@@ -55,8 +61,11 @@ import matchuri.backend.global.config.MatchuriProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -98,6 +107,12 @@ class PersonalRecommendationIntegrationTest {
     private MenuItemRepository menuItemRepository;
 
     @Autowired
+    private MenuItemImageRepository menuItemImageRepository;
+
+    @Autowired
+    private ImageAssetRepository imageAssetRepository;
+
+    @Autowired
     private MenuAttributeCategoryRepository menuAttributeCategoryRepository;
 
     @Autowired
@@ -136,11 +151,52 @@ class PersonalRecommendationIntegrationTest {
         memberTasteProfileRepository.deleteAll();
         menuIngredientRepository.deleteAll();
         menuAttributeCategoryRepository.deleteAll();
+        menuItemImageRepository.deleteAll();
         menuItemRepository.deleteAll();
+        imageAssetRepository.deleteAll();
         attributeCategoryRepository.deleteAll();
         ingredientRepository.deleteAll();
         memberLocationRepository.deleteAll();
         memberRepository.deleteAll();
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("개인 추천 후보 조회는 후보 수와 무관하게 고정 쿼리로 응답한다")
+    void measurePersonalRecommendationCandidateQueryScaleAfterOptimization(CapturedOutput output) throws Exception {
+        Member member = saveMember("candidate-baseline-user", "후보계측");
+        String accessToken = accessToken(member);
+
+        PersonalRecommendation small = personalRecommendationRepository.save(PersonalRecommendation.of(member));
+        saveMeasuredCandidates(small, 1, 1);
+
+        PersonalRecommendation large = personalRecommendationRepository.save(PersonalRecommendation.of(member));
+        saveMeasuredCandidates(large, 2, 13);
+
+        mockMvc.perform(get("/api/v1/personal/recommendations/{requestId}/candidates", small.getId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidates.length()").value(1))
+                .andExpect(jsonPath("$.data.candidates[0].thumbnailUrl")
+                        .value("https://asset.matchuri.com/candidate-baseline/1.png"));
+
+        mockMvc.perform(get("/api/v1/personal/recommendations/{requestId}/candidates", large.getId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidates.length()").value(12))
+                .andExpect(jsonPath("$.data.candidates[11].thumbnailUrl")
+                        .value("https://asset.matchuri.com/candidate-baseline/13.png"));
+
+        List<String> queryLogs = output.getOut().lines()
+                .filter(line -> line.contains(
+                        "API_QUERY_BEFORE method=GET uri=/api/v1/personal/recommendations/"))
+                .filter(line -> line.contains("/candidates"))
+                .toList();
+
+        assertThat(queryLogs)
+                .hasSize(2)
+                .allMatch(line -> line.contains(
+                        "total=3 select=3 insert=0 update=0 delete=0 other=0"));
     }
 
     @Test
@@ -394,6 +450,56 @@ class PersonalRecommendationIntegrationTest {
         assertThat(oldRecommendation.getClosedAt()).isNotNull();
         assertThat(newRecommendation.getStatus()).isEqualTo(PersonalRecommendationStatus.OPEN);
         assertThat(newRecommendation.getClosedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("v2 개인 추천 목록은 SELECTED 추천만 대표 메뉴 정보와 함께 반환한다")
+    void getMyPersonalRecommendationHistoriesV2() throws Exception {
+        Member member = saveMember("history-v2-user", "추천이력");
+        String accessToken = accessToken(member);
+        AttributeCategory spicy = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FLAVOR, "SPICY", "매운맛", 10));
+        MenuItem bibimbap = menuItemRepository.save(new MenuItem("BIBIMBAP", "비빔밥", "채소와 밥"));
+        saveMenuAttribute(bibimbap, spicy);
+        ImageAsset imageAsset = imageAssetRepository.save(new ImageAsset(
+                ImageStorageProvider.CLOUDFLARE_R2,
+                "test",
+                "history/bibimbap.png",
+                "bibimbap.png",
+                "image/png",
+                1024,
+                "a".repeat(64),
+                640,
+                480
+        ));
+        menuItemImageRepository.save(new MenuItemImage(bibimbap, imageAsset));
+        saveTasteProfile(member, spicy, null);
+
+        JsonNode recommendation = createRecommendation(accessToken);
+        long requestId = recommendation.path("requestId").asLong();
+        long candidateId = recommendation.path("candidates").get(0).path("id").asLong();
+
+        mockMvc.perform(patch("/api/v1/personal/recommendations/{requestId}", requestId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(selectRequest(candidateId)))
+                .andExpect(status().isOk());
+
+        createRecommendation(accessToken); // OPEN recommendation must not be included in history
+
+        mockMvc.perform(get("/api/v2/personal/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(requestId))
+                .andExpect(jsonPath("$.data.content[0].status")
+                        .value(PersonalRecommendationStatus.SELECTED.name()))
+                .andExpect(jsonPath("$.data.content[0].score").isNumber())
+                .andExpect(jsonPath("$.data.content[0].menuName").value("비빔밥"))
+                .andExpect(jsonPath("$.data.content[0].tags[0]").value("매운맛"))
+                .andExpect(jsonPath("$.data.content[0].thumbnailUrl")
+                        .value("https://asset.matchuri.com/history/bibimbap.png"))
+                .andExpect(jsonPath("$.data.pageInfo.totalElements").value(1));
     }
 
     @Test
@@ -758,6 +864,33 @@ class PersonalRecommendationIntegrationTest {
                 .andExpect(jsonPath("$.error.code").value("PERSONAL_RECOMMENDATION_ALREADY_CLOSED"));
     }
 
+    @Test
+    @DisplayName("회원 추천은 저장된 음식 분류와 온도감 대안을 유형별로 계산한다")
+    void personalRecommendationUsesExclusivePreferenceTypes() throws Exception {
+        Member member = saveMember("exclusive-personal", "배타적선호회원");
+        AttributeCategory korean = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FOOD_CATEGORY, "KOREAN", "한식", 10));
+        AttributeCategory chinese = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FOOD_CATEGORY, "CHINESE", "중식", 20));
+        AttributeCategory hot = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.TEMPERATURE, "HOT", "뜨거움", 10));
+        AttributeCategory cold = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.TEMPERATURE, "COLD", "차가움", 20));
+        MemberTasteProfile profile = memberTasteProfileRepository.save(new MemberTasteProfile(member, "v1"));
+        for (AttributeCategory category : List.of(korean, chinese, hot, cold)) {
+            memberTasteProfileCategoryRepository.save(new MemberTasteProfileCategory(profile, category));
+        }
+        MenuItem menu = menuItemRepository.save(new MenuItem("KOREAN_HOT", "한식 국물", "추천 점수 검증"));
+        saveMenuAttribute(menu, korean);
+        saveMenuAttribute(menu, hot);
+
+        JsonNode recommendation = createRecommendation(accessToken(member));
+
+        assertThat(recommendation.path("candidates").get(0).path("menuId").asLong()).isEqualTo(menu.getId());
+        assertThat(recommendation.path("candidates").get(0).path("score").asDouble()).isEqualTo(100.0);
+        assertThat(personalRecommendationCandidateRepository.findAll().getFirst().getScore()).isEqualTo(100.0);
+    }
+
     private JsonNode createRecommendation(String accessToken) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/personal/recommendations")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
@@ -815,6 +948,32 @@ class PersonalRecommendationIntegrationTest {
 
     private void saveMenuAttribute(MenuItem menuItem, AttributeCategory attributeCategory) {
         menuAttributeCategoryRepository.save(new MenuAttributeCategory(menuItem, attributeCategory));
+    }
+
+    private void saveMeasuredCandidates(
+            PersonalRecommendation recommendation,
+            int startInclusive,
+            int endInclusive
+    ) {
+        for (int number = startInclusive; number <= endInclusive; number++) {
+            MenuItem menuItem = menuItemRepository.save(
+                    new MenuItem("CANDIDATE_BASELINE_" + number, "후보 계측 " + number, "계측 설명"));
+            ImageAsset imageAsset = imageAssetRepository.save(new ImageAsset(
+                    ImageStorageProvider.CLOUDFLARE_R2,
+                    "test",
+                    "candidate-baseline/" + number + ".png",
+                    "candidate-" + number + ".png",
+                    "image/png",
+                    1024L,
+                    "candidate-checksum-" + number,
+                    640,
+                    480
+            ));
+            menuItemImageRepository.save(new MenuItemImage(menuItem, imageAsset));
+            personalRecommendationCandidateRepository.save(
+                    PersonalRecommendationCandidate.of(recommendation, menuItem, number - startInclusive + 1, 50.0)
+            );
+        }
     }
 
     private String selectRequest(long selectedCandidateId) {

@@ -1,0 +1,334 @@
+{
+  "menuImages": [
+    {
+      "menuCode": "KIMCHI_STEW",
+      "objectKey": "menu-items/1/530de6c1-86ac-47cf-85a0-8d402363c259.png",
+      "originalFilename": "김치찌개.png",
+      "contentType": "image/png",
+      "contentLength": 695957,
+      "checksum": "b4b038c4fa404fd711233f3cdf83890f8133e4f0fed86c1d20b43a7d3b03959e",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "DOENJANG_STEW",
+      "objectKey": "menu-items/2/4e40902a-8a22-4fb9-9d97-fdb458e0bf0c.png",
+      "originalFilename": "된장찌개 (1).png",
+      "contentType": "image/png",
+      "contentLength": 673838,
+      "checksum": "6b41992454f7c523f3d443d60e211662efbe88b37c2499b7cc2d6e27c4c21f79",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "BIBIMBAP",
+      "objectKey": "menu-items/3/ab49155a-844f-46d1-b74c-111cdd16694c.png",
+      "originalFilename": "bibimbap.png",
+      "contentType": "image/png",
+      "contentLength": 741468,
+      "checksum": "1b33aaf070dfde6b455a3532c255baf5876108aac16b4e68dd74960833afe1f3",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "PORK_CUTLET",
+      "objectKey": "menu-items/4/551a6ae6-4a80-4d33-9bea-2bde7e263522.png",
+      "originalFilename": "004_돈까스.png",
+      "contentType": "image/png",
+      "contentLength": 812141,
+      "checksum": "b4c82f866734fc6397773ee7025d50f02f5aadc0a4a1de372a30133272321601",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "JJAJANGMYEON",
+      "objectKey": "menu-items/5/0d5365ab-492a-4185-98ac-63913ded1a5c.png",
+      "originalFilename": "005_짜장면.png",
+      "contentType": "image/png",
+      "contentLength": 778346,
+      "checksum": "5f520a9031d5f113967872ef0935841c1e91e1a60e885508b75ceca990970552",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "JJAMPPONG",
+      "objectKey": "menu-items/6/a62bc407-e324-4420-9bf9-22db55fce2d4.png",
+      "originalFilename": "006_짬뽕.png",
+      "contentType": "image/png",
+      "contentLength": 775576,
+      "checksum": "7c0fbdbefd688ac26d6fc64152a982dfa45f759952ece1f0665369451c179520",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "RAMEN",
+      "objectKey": "menu-items/7/5dd70588-d1b4-41c4-b6b6-8ed6f70ee8b5.png",
+      "originalFilename": "007_라멘.png",
+      "contentType": "image/png",
+      "contentLength": 821858,
+      "checksum": "f8fd69a4917c52f03601b6702404349cc9633002f9851c4bb90d31b6e10eb1b2",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "SUSHI",
+      "objectKey": "menu-items/8/57a92624-4d1f-4853-bc83-fd56786ad7a2.png",
+      "originalFilename": "008_초밥.png",
+      "contentType": "image/png",
+      "contentLength": 711663,
+      "checksum": "7166b565a037acb5953acfb6f18c2328ed41e6360aa48679af4b49470d410b97",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "BULGOGI",
+      "objectKey": "menu-items/9/61eb36ff-f969-402b-b7b8-c7dda9cf1978.png",
+      "originalFilename": "009_소불고기.png",
+      "contentType": "image/png",
+      "contentLength": 873850,
+      "checksum": "206739464ed5c878fbe6b674c7a7ccdb36b59c2ca1e246c63693dfbca037cd52",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "SAMGYEOPSAL",
+      "objectKey": "menu-items/10/d9fd72dd-c4da-4c4a-9927-0a147db94075.png",
+      "originalFilename": "010_삼겹살.png",
+      "contentType": "image/png",
+      "contentLength": 908095,
+      "checksum": "120b95ac2d297fed60390a0f38d9e8222b3fd3718a90b42dbad51439e72de117",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "DAK_GALBI",
+      "objectKey": "menu-items/11/41afa375-0a7d-4ba6-a4f6-368b7246ecb5.png",
+      "originalFilename": "011_닭갈비.png",
+      "contentType": "image/png",
+      "contentLength": 920162,
+      "checksum": "33ceaab7a83fe7468eba66b58b6b1ff8e7e0ae47886f4be64c4e69a9132395c6",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "BUDAE_JJIGAE",
+      "objectKey": "menu-items/12/8bc5a7b0-dd35-43a7-bc67-8550db645a6c.png",
+      "originalFilename": "012_부대찌개.png",
+      "contentType": "image/png",
+      "contentLength": 821119,
+      "checksum": "1ff8bd418b314298645ea1c1b0bff9c7b3f4edde3880aed75c3f8535ba76df5e",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "GALBITANG",
+      "objectKey": "menu-items/13/77594e8d-f5eb-417c-b868-2233eb06d4bc.png",
+      "originalFilename": "013_갈비탕.png",
+      "contentType": "image/png",
+      "contentLength": 729718,
+      "checksum": "e0da2112200e86862afdc4332b1fcbfdec5d883aad088693f78b41cfbb9b50e6",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "NAENGMYEON",
+      "objectKey": "menu-items/14/e674ae41-32f5-4456-8807-eeecd5ed479d.png",
+      "originalFilename": "014_냉면.png",
+      "contentType": "image/png",
+      "contentLength": 769221,
+      "checksum": "70034371e469305c72792df0e7d8c92cdc8147f096ce046f245ea42deca82145",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "GIMBAP",
+      "objectKey": "menu-items/15/312685ec-effc-4e80-a59a-2d3afe368cff.png",
+      "originalFilename": "015_김밥.png",
+      "contentType": "image/png",
+      "contentLength": 761904,
+      "checksum": "e2ca5738244981b786f7fa28f554cea39091596b54cf8347c64c82366c867cb4",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "TTEOKBOKKI",
+      "objectKey": "menu-items/16/2d776869-0e13-4de3-a79a-1a81f1f16cc7.png",
+      "originalFilename": "017_우동.png",
+      "contentType": "image/png",
+      "contentLength": 747618,
+      "checksum": "7a5cf5176f4ddb900f2dd129b3bf87f2b0abc64d3e07b12b4263e22c1e8f773f",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "UDON",
+      "objectKey": "menu-items/17/d67e6396-e974-460f-8cd1-4627c285d450.png",
+      "originalFilename": "017_우동.png",
+      "contentType": "image/png",
+      "contentLength": 747618,
+      "checksum": "7a5cf5176f4ddb900f2dd129b3bf87f2b0abc64d3e07b12b4263e22c1e8f773f",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "SOBA",
+      "objectKey": "menu-items/18/16a91019-9b7b-47c7-895a-d0ac3c536163.png",
+      "originalFilename": "018_소바.png",
+      "contentType": "image/png",
+      "contentLength": 763284,
+      "checksum": "e096166d599d4a334d1379cfb8384ea6b2658df1241e75cd07550bfc3773c3e2",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "GYUDON",
+      "objectKey": "menu-items/19/da0ea0f8-2104-43c2-8662-b45bb8646d0d.png",
+      "originalFilename": "019_규동.png",
+      "contentType": "image/png",
+      "contentLength": 643889,
+      "checksum": "b21d1f03685f5b2c2ca3e41f39b384aa225bff0df55cbf24df4685312d340c96",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "KARAAGE",
+      "objectKey": "menu-items/20/a1c84a9d-879d-40bb-9b53-4c933f20bcba.png",
+      "originalFilename": "020_가라아게.png",
+      "contentType": "image/png",
+      "contentLength": 791598,
+      "checksum": "eb78b3616df86dff4cb2094649c4e4ed8e098f0bd6490685f41bed804aed44f1",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "MAPO_TOFU",
+      "objectKey": "menu-items/21/64c7537e-d7ae-468e-b022-4f727edb0f8e.png",
+      "originalFilename": "021_마파두부.png",
+      "contentType": "image/png",
+      "contentLength": 829798,
+      "checksum": "e1f2dd3944fcd5a96ea9154a0ec9dab6e75e6c3795d651d7941e5d17f5806c4e",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "TANGSUYUK",
+      "objectKey": "menu-items/22/4c072ee4-2449-4be0-a199-7504d1616259.png",
+      "originalFilename": "022_탕수육.png",
+      "contentType": "image/png",
+      "contentLength": 770717,
+      "checksum": "38b97899958e1433e892184ddbffb542908cae5117c06ee5ec35af20a1df4b5d",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "FRIED_RICE",
+      "objectKey": "menu-items/23/db61e4c8-6546-4963-a111-317fbe0d30bf.png",
+      "originalFilename": "023_볶음밥.png",
+      "contentType": "image/png",
+      "contentLength": 736854,
+      "checksum": "e0e88c63900b1d7a86385ff5b3074b3cb5d5450150330b0af043e1aa8553f39d",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "MALA_XIANG_GUO",
+      "objectKey": "menu-items/24/6a429522-e297-4565-9332-c7bba32f454b.png",
+      "originalFilename": "024_마라샹궈.png",
+      "contentType": "image/png",
+      "contentLength": 842213,
+      "checksum": "4c57740b61438a40ab6f7a529838a2714d0b87fde143e1ecb188056243545ef5",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "PASTA",
+      "objectKey": "menu-items/25/5f131fd5-bfc9-445f-9c2e-777bf9221128.png",
+      "originalFilename": "025_파스타.png",
+      "contentType": "image/png",
+      "contentLength": 799632,
+      "checksum": "992ad5af6a4d307608f08c0fda7f12c4ae02f2cd2e292f18143c443616bcf0a6",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "PIZZA",
+      "objectKey": "menu-items/26/80746512-b83c-467c-a406-6a5d6893b108.png",
+      "originalFilename": "026_피자.png",
+      "contentType": "image/png",
+      "contentLength": 885842,
+      "checksum": "fe0b03be56897ca76ec5e5890df524e61b236a45935f018c69a19bac865ca829",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "HAMBURGER",
+      "objectKey": "menu-items/27/84767858-b33b-4e37-a2d7-27c1ebdc436f.png",
+      "originalFilename": "027_햄버거.png",
+      "contentType": "image/png",
+      "contentLength": 742011,
+      "checksum": "3f98ed1d15d800b89eb5aa2e87a0d79116409de26127e72bf0894ecd905c96b0",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "SALAD",
+      "objectKey": "menu-items/28/aa1a74d8-17d3-4170-be6f-a7c6ff5e5e28.png",
+      "originalFilename": "028_샐러드.png",
+      "contentType": "image/png",
+      "contentLength": 814084,
+      "checksum": "33b858ba9030c0622944db8ae2d9acf0077c383ceef2405cfefc210dc2b7d37c",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "STEAK",
+      "objectKey": "menu-items/29/d469f62e-9523-4ab4-a84a-0863ff0beb13.png",
+      "originalFilename": "029_스테이크.png",
+      "contentType": "image/png",
+      "contentLength": 885658,
+      "checksum": "3f6ac2831f9c1d9665eb16515a2fe2701ddfe7db68ec8e099f4590dff1d47f43",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "PHO",
+      "objectKey": "menu-items/30/b0a0ea2c-0e28-4009-9ffd-b05d362b55a5.png",
+      "originalFilename": "030_쌀국수.png",
+      "contentType": "image/png",
+      "contentLength": 788882,
+      "checksum": "da803e2e7ab11afbd297fd958ab98d60b1fad413d4748624a7d5fb8681ae258e",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "PAD_THAI",
+      "objectKey": "menu-items/31/974e3287-ff2c-4781-a26f-be8f3aa5c663.png",
+      "originalFilename": "031_팟타이.png",
+      "contentType": "image/png",
+      "contentLength": 778936,
+      "checksum": "f68a0519ea1b76687989f2f0bc93f56b54dd81f8d6c565410eb845b118e029d4",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "CURRY_RICE",
+      "objectKey": "menu-items/32/9efbc40a-5d47-45b3-b136-8b84b6e90526.png",
+      "originalFilename": "032_카레라이스.png",
+      "contentType": "image/png",
+      "contentLength": 735072,
+      "checksum": "70a0d07bc27a351ba61e2b6c4bbc6f9bffd27d4ed6ebbc800ff91f0da6a2b931",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "menuCode": "BANH_MI",
+      "objectKey": "menu-items/33/a8ba50d8-3039-4a05-9545-42d8aa7a6a70.png",
+      "originalFilename": "033_반미.png",
+      "contentType": "image/png",
+      "contentLength": 802587,
+      "checksum": "f88fa17e49b23eaafea5e29ea82606ec5aebd764bf565e04a0ed5e8a4a07c497",
+      "width": 1254,
+      "height": 1254
+    }
+  ]
+}

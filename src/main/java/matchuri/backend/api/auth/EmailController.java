@@ -8,10 +8,8 @@ import matchuri.backend.api.auth.dto.response.ConfirmEmailResponse;
 import matchuri.backend.api.auth.dto.response.SendEmailResponse;
 import matchuri.backend.domain.auth.command.ConfirmEmailVerificationCommand;
 import matchuri.backend.domain.auth.command.SendEmailVerificationCommand;
-import matchuri.backend.domain.auth.entity.EmailVerificationPurpose;
 import matchuri.backend.domain.auth.service.EmailVerificationService;
 import matchuri.backend.global.api.ApiResponse;
-import matchuri.backend.global.exception.RequestValidationException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,8 +25,6 @@ public class EmailController implements EmailApi {
     @Override
     @PostMapping("/email")
     public ApiResponse<SendEmailResponse> sendVerificationEmail(@Valid @RequestBody SendEmailRequest request) {
-        validateConditionalFields(request);
-
         var command = new SendEmailVerificationCommand(
                 request.email(),
                 request.purpose(),
@@ -46,8 +42,6 @@ public class EmailController implements EmailApi {
     @Override
     @PostMapping("/email/confirm")
     public ApiResponse<ConfirmEmailResponse> confirmVerificationEmail(@Valid @RequestBody ConfirmEmailRequest request) {
-        validateConditionalFields(request);
-
         var command = new ConfirmEmailVerificationCommand(
                 request.email(),
                 request.purpose(),
@@ -62,25 +56,5 @@ public class EmailController implements EmailApi {
         );
 
         return ApiResponse.success(response);
-    }
-
-    private void validateConditionalFields(SendEmailRequest request) {
-        if (request.purpose() == EmailVerificationPurpose.RESET_PASSWORD
-                && (request.loginId() == null || request.loginId().isBlank())) {
-            throw RequestValidationException.invalidBodyField(
-                    "loginId",
-                    "RESET_PASSWORD 목적에서는 loginId가 필요합니다."
-            );
-        }
-    }
-
-    private void validateConditionalFields(ConfirmEmailRequest request) {
-        if (request.purpose() == EmailVerificationPurpose.RESET_PASSWORD
-                && (request.loginId() == null || request.loginId().isBlank())) {
-            throw RequestValidationException.invalidBodyField(
-                    "loginId",
-                    "RESET_PASSWORD 목적에서는 loginId가 필요합니다."
-            );
-        }
     }
 }

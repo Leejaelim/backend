@@ -8,10 +8,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import matchuri.backend.api.common.docs.ErrorExamples;
 import matchuri.backend.api.member.dto.docs.CreateMemberApiResponse;
 import matchuri.backend.api.member.dto.docs.LoginIdExistsApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberProfileApiResponse;
+import matchuri.backend.api.member.dto.docs.MemberProfileImageApiResponse;
+import matchuri.backend.api.member.dto.docs.MemberPresetProfileImageListApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberLocationApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberTasteProfileSummaryApiResponse;
 import matchuri.backend.api.member.dto.docs.MemberTasteProfileUpdateApiResponse;
@@ -21,12 +24,15 @@ import matchuri.backend.api.member.dto.docs.UpdateMemberPasswordApiResponse;
 import matchuri.backend.api.member.dto.request.CreateMemberRequest;
 import matchuri.backend.api.member.dto.request.RegisterLocalMemberRequest;
 import matchuri.backend.api.member.dto.request.PutMemberLocationRequest;
+import matchuri.backend.api.member.dto.request.SetPresetProfileImageRequest;
 import matchuri.backend.api.member.dto.request.UpdateMemberBasicInfoRequest;
 import matchuri.backend.api.member.dto.request.UpdateMemberPasswordRequest;
 import matchuri.backend.api.member.dto.request.UpdateMemberTasteProfileRequest;
 import matchuri.backend.api.member.dto.response.CreateMemberResponse;
 import matchuri.backend.api.member.dto.response.LoginIdExistsResponse;
 import matchuri.backend.api.member.dto.response.MemberProfileResponse;
+import matchuri.backend.api.member.dto.response.MemberProfileImageResponse;
+import matchuri.backend.api.member.dto.response.MemberPresetProfileImageResponse;
 import matchuri.backend.api.member.dto.response.MemberLocationResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteProfileSummaryResponse;
 import matchuri.backend.api.member.dto.response.MemberTasteProfileUpdateResponse;
@@ -36,12 +42,14 @@ import matchuri.backend.api.member.dto.response.UpdateMemberPasswordResponse;
 import matchuri.backend.api.member.dto.response.UpdateMemberResponse;
 import matchuri.backend.api.member.dto.response.WithdrawMemberResponse;
 import matchuri.backend.global.api.ApiResponse;
+import matchuri.backend.global.security.AuthenticatedMemberId;
 
 @Tag(name = "Member", description = "회원 관련 공개/인증 API")
 public interface MemberApi {
 
     @Operation(
             summary = "자체 회원가입 통합",
+            deprecated = true,
             description = """
                     자체 회원가입에서 `loginId`, `password`, `nickname`, 검증된 `email`, 필수 약관 동의를 하나의 요청으로 원자적으로 처리합니다.
                     
@@ -51,6 +59,7 @@ public interface MemberApi {
                     - 회원 생성 전에 `SIGNUP` 목적의 `emailVerificationToken`이 필요합니다.
                     - 한 이메일에 여러 자체 로그인 ID는 허용하지 않습니다.
                     - 처리 중 하나라도 실패하면 회원과 약관 동의 기록은 저장되지 않습니다.
+                    - 초기 취향 프로필까지 함께 저장하는 신규 가입은 `POST /api/v2/members/signup`을 사용합니다.
                     """
     )
     @SecurityRequirements
@@ -184,6 +193,7 @@ public interface MemberApi {
 
     @Operation(
             summary = "회원 가입 레거시 생성",
+            deprecated = true,
             description = """
                     일반 회원 계정을 최소 정보(`loginId`, `password`)만으로 생성합니다.
                     
@@ -400,7 +410,7 @@ public interface MemberApi {
                     현재 로그인한 회원의 기본 프로필 정보를 조회합니다.
                     
                     - `Authorization: Bearer <accessToken>` 헤더가 필요합니다.
-                    - 현재 단계에서는 최소 프로필과 로그인 유형 판단에 필요한 `id`, `loginId`, `nickname`, `isSocial`, `email`을 반환합니다.
+                    - 현재 단계에서는 최소 프로필과 로그인 유형 판단에 필요한 `id`, `loginId`, `nickname`, `isSocial`, `email`, `profileImageUrl`을 반환합니다.
                     - 소셜 로그인 전용 회원은 `loginId`가 `null`일 수 있습니다.
                     - 취향 프로필 상세 필드는 이 응답에 포함되지 않습니다.
                     """)
@@ -421,7 +431,8 @@ public interface MemberApi {
                                                 "loginId": "tester01",
                                                 "nickname": "점심탐험가",
                                                 "isSocial": false,
-                                                "email": "tester@example.com"
+                                                "email": "tester@example.com",
+                                                "profileImageUrl": "https://asset.matchuri.com/preset-profile/v1-spaghetti.png"
                                               },
                                               "error": null
                                             }
@@ -454,7 +465,138 @@ public interface MemberApi {
                     )
             )
     })
-    ApiResponse<MemberProfileResponse> getMyProfile();
+    ApiResponse<MemberProfileResponse> getMyProfile(@AuthenticatedMemberId Long memberId);
+
+    @Operation(
+            summary = "선택 가능한 프리셋 프로필 이미지 목록 조회",
+            description = """
+                    현재 로그인한 회원이 프로필 설정에서 선택할 수 있는 활성 프리셋 이미지를 조회합니다.
+
+                    - 삭제된 프리셋은 제외합니다.
+                    - 프리셋 프로필 이미지 ID 오름차순으로 반환합니다.
+                    - Authorization Bearer access token과 필수 온보딩 완료가 필요합니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "프리셋 프로필 이미지 목록 조회 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = MemberPresetProfileImageListApiResponse.class),
+                            examples = @ExampleObject(
+                                    name = "success",
+                                    value = """
+                                            {
+                                              "success": true,
+                                              "data": [
+                                                {
+                                                  "presetProfileImageId": 1,
+                                                  "imageUrl": "https://asset.matchuri.com/preset-profile/v1-spaghetti.png",
+                                                  "isDefault": true
+                                                },
+                                                {
+                                                  "presetProfileImageId": 2,
+                                                  "imageUrl": "https://asset.matchuri.com/preset-profile/v1-burger.png.png",
+                                                  "isDefault": false
+                                                }
+                                              ],
+                                              "error": null
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "accessToken이 없거나 유효하지 않거나 만료됨",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(name = "tokenMissing", value = ErrorExamples.AUTH_TOKEN_MISSING),
+                                    @ExampleObject(name = "tokenInvalid", value = ErrorExamples.AUTH_TOKEN_INVALID),
+                                    @ExampleObject(name = "tokenExpired", value = ErrorExamples.AUTH_TOKEN_EXPIRED)
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "필수 온보딩 미완료 또는 비활성 회원",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(name = "requiredAgreement", value = ErrorExamples.MEMBER_AGREEMENT_REQUIRED),
+                                    @ExampleObject(name = "nicknameRequired", value = ErrorExamples.MEMBER_NICKNAME_REQUIRED),
+                                    @ExampleObject(name = "inactiveMember", value = ErrorExamples.MEMBER_INACTIVE)
+                            }
+                    )
+            )
+    })
+    ApiResponse<List<MemberPresetProfileImageResponse>> getPresetProfileImages(
+            @AuthenticatedMemberId Long memberId
+    );
+
+    @Operation(
+            summary = "프리셋 프로필 이미지 설정",
+            description = """
+                    현재 로그인한 회원의 프로필 이미지를 활성 프리셋 이미지로 전체 교체합니다.
+
+                    - 회원별 프로필 이미지 연결 행은 하나만 유지하며 변경 이력은 저장하지 않습니다.
+                    - 삭제된 프리셋은 선택할 수 없습니다.
+                    - Authorization Bearer access token과 필수 약관 완료가 필요합니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "프리셋 프로필 이미지 설정 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = MemberProfileImageApiResponse.class),
+                            examples = @ExampleObject(
+                                    name = "success",
+                                    value = """
+                                            {
+                                              "success": true,
+                                              "data": {
+                                                "profileImageId": 15,
+                                                "presetProfileImageId": 1,
+                                                "imageUrl": "https://asset.matchuri.com/preset-profile/v1-spaghetti.png",
+                                                "updatedAt": "2026-08-24T12:30:00"
+                                              },
+                                              "error": null
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "선택한 프리셋이 없거나 삭제됨",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "presetNotFound",
+                                    value = """
+                                            {
+                                              "success": false,
+                                              "data": null,
+                                              "error": {
+                                                "status": 404,
+                                                "code": "IMAGE_PRESET_PROFILE_NOT_FOUND",
+                                                "message": "프리셋 프로필 이미지를 찾을 수 없습니다. presetProfileImageId : 999",
+                                                "details": []
+                                              }
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    ApiResponse<MemberProfileImageResponse> setPresetProfileImage(
+            @AuthenticatedMemberId Long memberId,
+            SetPresetProfileImageRequest request
+    );
 
     @Operation(
             summary = "내 개인 위치 조회",
@@ -514,7 +656,7 @@ public interface MemberApi {
                     })
             )
     })
-    ApiResponse<MemberLocationResponse> getMyLocation();
+    ApiResponse<MemberLocationResponse> getMyLocation(@AuthenticatedMemberId Long memberId);
 
     @Operation(
             summary = "내 개인 위치 전체 교체 저장",
@@ -591,7 +733,10 @@ public interface MemberApi {
                     })
             )
     })
-    ApiResponse<MemberLocationResponse> putMyLocation(PutMemberLocationRequest request);
+    ApiResponse<MemberLocationResponse> putMyLocation(
+            @AuthenticatedMemberId Long memberId,
+            PutMemberLocationRequest request
+    );
 
     @Operation(
             summary = "내 취향 프로필 조회",
@@ -697,7 +842,7 @@ public interface MemberApi {
                     )
             )
     })
-    ApiResponse<MemberTasteProfileSummaryResponse> getMyTasteProfile();
+    ApiResponse<MemberTasteProfileSummaryResponse> getMyTasteProfile(@AuthenticatedMemberId Long memberId);
 
     @Operation(
             summary = "내 기본 정보 수정",
@@ -707,10 +852,13 @@ public interface MemberApi {
                     - 부분 수정 API이므로 필요한 필드만 보내면 됩니다.
                     - `nickname`을 보내지 않으면 변경하지 않습니다.
                     - 약관 또는 닉네임 온보딩 미완료 상태에서도 인증된 회원이면 닉네임 확정을 위해 호출할 수 있습니다.
-                    - 닉네임 수정 성공 시 닉네임 온보딩 완료 상태로 처리됩니다.
+                    - 닉네임 수정 성공 시 닉네임 온보딩 완료 상태로 처리됩니다. 필수 약관은 완료했지만 취향 프로필이 없으면 다음 단계는 REQUIRED_TASTE_PROFILE입니다.
                     - 성공 시 최신 수정 시각(`updatedAt`)을 반환합니다.
                     """)
-    ApiResponse<UpdateMemberResponse> updateMyProfile(UpdateMemberBasicInfoRequest request);
+    ApiResponse<UpdateMemberResponse> updateMyProfile(
+            @AuthenticatedMemberId Long memberId,
+            UpdateMemberBasicInfoRequest request
+    );
 
     @Operation(
             summary = "내 비밀번호 변경",
@@ -777,7 +925,10 @@ public interface MemberApi {
                     )
             )
     })
-    ApiResponse<UpdateMemberPasswordResponse> updateMyPassword(UpdateMemberPasswordRequest request);
+    ApiResponse<UpdateMemberPasswordResponse> updateMyPassword(
+            @AuthenticatedMemberId Long memberId,
+            UpdateMemberPasswordRequest request
+    );
 
     @Operation(
             summary = "내 취향 프로필 전체 교체 저장",
@@ -970,16 +1121,20 @@ public interface MemberApi {
                     )
             )
     })
-    ApiResponse<MemberTasteProfileUpdateResponse> updateMyTasteProfile(UpdateMemberTasteProfileRequest request);
+    ApiResponse<MemberTasteProfileUpdateResponse> updateMyTasteProfile(
+            @AuthenticatedMemberId Long memberId,
+            UpdateMemberTasteProfileRequest request
+    );
 
     @Operation(
             summary = "회원 탈퇴",
             description = """
-                    현재 로그인한 회원을 비활성화 처리합니다.
+                    현재 로그인한 회원을 삭제 대기 상태로 전환합니다.
                     
-                    - 물리 삭제가 아니라 `status=INACTIVE`로 전환됩니다.
-                    - 탈퇴 후 같은 계정으로 다시 로그인할 수 없습니다.
-                    - 이미 발급된 access token이 남아 있어도 이후 보호 API에서는 비활성 회원으로 거절됩니다.
+                    - 즉시 물리 삭제하지 않고 `status=DELETED`와 `deletedAt`, `purgeAt`을 기록합니다.
+                    - 삭제 대기 기간은 3일이며, 현재 탈퇴 철회 기능은 제공하지 않습니다.
+                    - 회원이 방장인 그룹도 `DELETED`로 전환합니다.
+                    - 탈퇴 시 기존 refresh token과 OAuth2 교환 코드를 모두 폐기합니다.
                     """)
-    ApiResponse<WithdrawMemberResponse> withdraw();
+    ApiResponse<WithdrawMemberResponse> withdraw(@AuthenticatedMemberId Long memberId);
 }

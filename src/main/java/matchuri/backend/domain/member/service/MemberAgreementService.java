@@ -6,9 +6,9 @@ import matchuri.backend.domain.member.result.SubmitRequiredAgreementsResult;
 
 public interface MemberAgreementService {
 
-    RequiredAgreementStatusResult getRequiredAgreementStatus();
+    RequiredAgreementStatusResult getRequiredAgreementStatus(Long memberId);
 
-    SubmitRequiredAgreementsResult submitRequiredAgreements(SubmitRequiredAgreementsCommand command);
+    SubmitRequiredAgreementsResult submitRequiredAgreements(Long memberId, SubmitRequiredAgreementsCommand command);
 
     boolean hasCompletedRequiredAgreements(Long memberId);
 

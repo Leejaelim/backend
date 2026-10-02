@@ -14,9 +14,11 @@ import org.springframework.stereotype.Component;
 public class ReferenceDataSeedRunner implements ApplicationRunner {
 
     private final ReferenceDataSeedService referenceDataSeedService;
+    private final PresetProfileImageSeedService presetProfileImageSeedService;
 
     @Override
     public void run(ApplicationArguments args) {
         referenceDataSeedService.initialize();
+        presetProfileImageSeedService.initialize();
     }
 }

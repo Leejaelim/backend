@@ -4,19 +4,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import matchuri.backend.domain.auth.entity.EmailVerification;
 import matchuri.backend.domain.auth.support.verification.EmailVerificationTokenVerifier;
 import matchuri.backend.domain.member.command.CreateMemberCommand;
 import matchuri.backend.domain.member.command.PutMemberLocationCommand;
 import matchuri.backend.domain.member.command.RegisterLocalMemberCommand;
+import matchuri.backend.domain.member.command.RegisterLocalMemberV2Command;
 import matchuri.backend.domain.member.command.SubmitRequiredAgreementsCommand;
 import matchuri.backend.domain.member.command.UpdateMemberBasicInfoCommand;
 import matchuri.backend.domain.member.command.UpdateMemberTasteProfileCommand;
@@ -32,14 +36,18 @@ import matchuri.backend.domain.member.entity.MemberTasteProfileDislikedMenuItem;
 import matchuri.backend.domain.member.entity.MemberTasteProfileRestrictionIngredient;
 import matchuri.backend.domain.member.exception.MemberErrorCode;
 import matchuri.backend.domain.member.repository.MemberAgreementRepository;
+import matchuri.backend.domain.member.repository.MemberHomeRow;
 import matchuri.backend.domain.member.repository.MemberLocationRepository;
+import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.domain.member.repository.MemberRepository;
+import matchuri.backend.domain.member.repository.MemberTasteProfileAttributeCategoryRow;
 import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileRestrictionIngredientRepository;
-import matchuri.backend.domain.member.result.MemberProfileResult;
+import matchuri.backend.domain.member.result.MemberHomeResult;
 import matchuri.backend.domain.member.result.MemberLocationResult;
+import matchuri.backend.domain.member.result.MemberProfileResult;
 import matchuri.backend.domain.member.result.MemberTasteProfileSummaryResult;
 import matchuri.backend.domain.member.result.MemberTasteUpdateResult;
 import matchuri.backend.domain.member.result.OnboardingNextStep;
@@ -47,8 +55,10 @@ import matchuri.backend.domain.member.result.OnboardingStatusResult;
 import matchuri.backend.domain.member.result.RegisterLocalMemberResult;
 import matchuri.backend.domain.member.result.UpdateMemberResult;
 import matchuri.backend.domain.member.support.agreement.RequiredAgreementRequestValidator;
-import matchuri.backend.domain.member.support.member.ActiveMemberReader;
+import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.member.support.onboarding.OnboardingStatusResolver;
+import matchuri.backend.domain.member.support.profile.MemberProfileImageManager;
+import matchuri.backend.domain.image.support.ImageUrlResolver;
 import matchuri.backend.domain.menu.entity.AttributeCategory;
 import matchuri.backend.domain.menu.entity.CategoryType;
 import matchuri.backend.domain.menu.entity.Ingredient;
@@ -82,6 +92,9 @@ class MemberServiceImplTest {
     private MemberLocationRepository memberLocationRepository;
 
     @Mock
+    private MemberProfileImageRepository memberProfileImageRepository;
+
+    @Mock
     private MemberTasteProfileRepository memberTasteProfileRepository;
 
     @Mock
@@ -109,7 +122,7 @@ class MemberServiceImplTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private ActiveMemberReader activeMemberReader;
+    private MemberReader memberReader;
 
     @Mock
     private OnboardingStatusResolver onboardingStatusResolver;
@@ -120,8 +133,64 @@ class MemberServiceImplTest {
     @Mock
     private PersonalRecommendationRepository personalRecommendationRepository;
 
+    @Mock
+    private MemberProfileImageManager memberProfileImageManager;
+
+    @Mock
+    private ImageUrlResolver imageUrlResolver;
+
     @InjectMocks
     private MemberServiceImpl memberService;
+
+    @Test
+    @DisplayName("홈 회원 조회는 저장소별 projection을 서비스에서 조합한다")
+    void getHomeMemberCombinesRepositoryRows() {
+        Member member = Member.builder().id(1L).memberRole(MemberRole.MEMBER).status(MemberStatus.ACTIVE).build();
+        LocalDateTime profileUpdatedAt = LocalDateTime.of(2026, 9, 21, 12, 0);
+        MemberHomeRow memberHomeRow = new MemberHomeRow(
+                1L,
+                "tester",
+                "테스터",
+                false,
+                "tester@example.com",
+                "profiles/tester.png",
+                new BigDecimal("37.49"),
+                new BigDecimal("127.02"),
+                1000,
+                "서울 서초구",
+                10L,
+                "v1",
+                profileUpdatedAt
+        );
+        MemberTasteProfileAttributeCategoryRow categoryRow = new MemberTasteProfileAttributeCategoryRow(
+                100L,
+                CategoryType.FLAVOR,
+                "SPICY",
+                "매운맛",
+                10
+        );
+
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
+        when(memberRepository.findHomeRowByMemberId(1L)).thenReturn(Optional.of(memberHomeRow));
+        when(memberTasteProfileCategoryRepository.findAttributeCategoryRowsByProfileId(10L))
+                .thenReturn(List.of(categoryRow));
+        when(imageUrlResolver.toPublicUrl("profiles/tester.png")).thenReturn("https://cdn/profiles/tester.png");
+
+        MemberHomeResult result = memberService.getHomeMember(1L);
+
+        assertThat(result.profile().profileImageUrl()).isEqualTo("https://cdn/profiles/tester.png");
+        assertThat(result.location().address()).isEqualTo("서울 서초구");
+        assertThat(result.tasteProfile().profileVersion()).isEqualTo("v1");
+        assertThat(result.tasteProfile().updatedAt()).isEqualTo(profileUpdatedAt);
+        assertThat(result.tasteProfile().attributeCategories()).singleElement()
+                .satisfies(category -> {
+                    assertThat(category.id()).isEqualTo(100L);
+                    assertThat(category.categoryType()).isEqualTo(CategoryType.FLAVOR);
+                    assertThat(category.code()).isEqualTo("SPICY");
+                    assertThat(category.name()).isEqualTo("매운맛");
+                    assertThat(category.sortOrder()).isEqualTo(10);
+                });
+    }
 
     @Test
     @DisplayName("내 개인 위치 최초 PUT은 회원당 위치를 생성한다")
@@ -134,12 +203,12 @@ class MemberServiceImplTest {
                 " 서울 강남구 테헤란로 123 "
         );
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberLocationRepository.findByMemberId(1L)).thenReturn(Optional.empty());
         when(memberLocationRepository.save(any(MemberLocation.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        MemberLocationResult result = memberService.putMyLocation(command);
+        MemberLocationResult result = memberService.putMyLocation(1L, command);
 
         assertThat(result.latitude()).isEqualByComparingTo("37.4980950");
         assertThat(result.longitude()).isEqualByComparingTo("127.0276100");
@@ -159,10 +228,10 @@ class MemberServiceImplTest {
                 new BigDecimal("35.1795543"), new BigDecimal("129.0756416"), 2000, "부산광역시 중구"
         );
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberLocationRepository.findByMemberId(1L)).thenReturn(Optional.of(location));
 
-        MemberLocationResult result = memberService.putMyLocation(command);
+        MemberLocationResult result = memberService.putMyLocation(1L, command);
 
         assertThat(result.latitude()).isEqualByComparingTo("35.1795543");
         assertThat(result.longitude()).isEqualByComparingTo("129.0756416");
@@ -174,10 +243,10 @@ class MemberServiceImplTest {
     @DisplayName("저장된 개인 위치가 없으면 null을 반환한다")
     void getMyLocationReturnsNullWhenMissing() {
         Member member = Member.builder().id(1L).memberRole(MemberRole.MEMBER).status(MemberStatus.ACTIVE).build();
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberLocationRepository.findByMemberId(1L)).thenReturn(Optional.empty());
 
-        assertThat(memberService.getMyLocation()).isNull();
+        assertThat(memberService.getMyLocation(1L)).isNull();
     }
 
     @Test
@@ -207,8 +276,11 @@ class MemberServiceImplTest {
                 .build();
 
         when(memberRepository.existsByNickname("점심탐험가")).thenReturn(false);
-        when(memberRepository.existsByEmailAndSocialFalseAndStatus("tester@example.com", MemberStatus.ACTIVE))
+        when(memberRepository.existsByEmailAndSocialFalse("tester@example.com"))
                 .thenReturn(false);
+        EmailVerification signupVerification = mock(EmailVerification.class);
+        when(emailVerificationTokenVerifier.verifySignupToken("tester@example.com", "ev_signup-token"))
+                .thenReturn(signupVerification);
         when(passwordEncoder.encode("P@ssw0rd!")).thenReturn("encoded-password");
         when(memberRepository.saveAndFlush(any(Member.class))).thenReturn(savedMember);
         when(requiredAgreementRequestValidator.validateAndIndex(any())).thenReturn(Map.of(
@@ -223,9 +295,78 @@ class MemberServiceImplTest {
         assertThat(result.email()).isEqualTo("tester@example.com");
         assertThat(result.nickname()).isEqualTo("점심탐험가");
         verify(emailVerificationTokenVerifier).verifySignupToken("tester@example.com", "ev_signup-token");
+        verify(signupVerification).assignMember(savedMember);
         verify(memberRepository).saveAndFlush(any(Member.class));
+        verify(memberProfileImageManager).initializeDefault(savedMember);
         verify(requiredAgreementRequestValidator).validateAndIndex(command.agreements());
         verify(memberAgreementRepository, times(2)).save(any(MemberAgreement.class));
+    }
+
+    @Test
+    @DisplayName("자체 회원가입 v2는 회원, 필수 약관, 초기 취향 프로필을 함께 저장한다")
+    void registerLocalMemberV2InitializesTasteProfile() {
+        RegisterLocalMemberCommand memberCommand = new RegisterLocalMemberCommand(
+                "tester02",
+                "P@ssw0rd!",
+                "취향탐험가",
+                "taste@example.com",
+                "ev_signup-token",
+                List.of(
+                        new SubmitRequiredAgreementsCommand.AgreementConsentCommand("TERMS_OF_SERVICE", "2026-04-10"),
+                        new SubmitRequiredAgreementsCommand.AgreementConsentCommand("PRIVACY_POLICY", "2026-04-10")
+                )
+        );
+        UpdateMemberTasteProfileCommand tasteProfileCommand = new UpdateMemberTasteProfileCommand(
+                List.of(1L),
+                List.of(101L),
+                List.of(1001L)
+        );
+        Member savedMember = Member.builder()
+                .id(2L)
+                .loginId("tester02")
+                .passwordHash("encoded-password")
+                .email("taste@example.com")
+                .nickname("취향탐험가")
+                .memberRole(MemberRole.MEMBER)
+                .status(MemberStatus.ACTIVE)
+                .social(false)
+                .build();
+        AttributeCategory attributeCategory = new AttributeCategory(CategoryType.FLAVOR, "SPICY", "매운맛", 10);
+        Ingredient ingredient = new Ingredient("PEANUT", "땅콩", true, 10);
+        MenuItem menuItem = new MenuItem("PORK_CUTLET", "돈까스", "바삭한 돼지고기 튀김");
+
+        when(memberRepository.existsByNickname("취향탐험가")).thenReturn(false);
+        when(memberRepository.existsByEmailAndSocialFalse("taste@example.com"))
+                .thenReturn(false);
+        EmailVerification signupVerification = mock(EmailVerification.class);
+        when(emailVerificationTokenVerifier.verifySignupToken("taste@example.com", "ev_signup-token"))
+                .thenReturn(signupVerification);
+        when(passwordEncoder.encode("P@ssw0rd!")).thenReturn("encoded-password");
+        when(memberRepository.saveAndFlush(any(Member.class))).thenReturn(savedMember);
+        when(requiredAgreementRequestValidator.validateAndIndex(any())).thenReturn(Map.of(
+                AgreementType.TERMS_OF_SERVICE, "2026-04-10",
+                AgreementType.PRIVACY_POLICY, "2026-04-10"
+        ));
+        when(attributeCategoryRepository.findAllByIdInAndActiveTrue(List.of(1L)))
+                .thenReturn(List.of(attributeCategory));
+        when(ingredientRepository.findAllByIdInAndActiveTrue(List.of(101L))).thenReturn(List.of(ingredient));
+        when(menuItemRepository.findAllByIdInAndActiveTrue(List.of(1001L))).thenReturn(List.of(menuItem));
+        when(memberTasteProfileRepository.saveAndFlush(any(MemberTasteProfile.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        RegisterLocalMemberResult result = memberService.registerLocalMemberV2(
+                new RegisterLocalMemberV2Command(memberCommand, tasteProfileCommand)
+        );
+
+        assertThat(result.memberId()).isEqualTo(2L);
+        verify(memberAgreementRepository, times(2)).save(any(MemberAgreement.class));
+        verify(memberTasteProfileRepository).saveAndFlush(any(MemberTasteProfile.class));
+        verify(memberTasteProfileCategoryRepository).saveAll(any());
+        verify(memberTasteProfileRestrictionIngredientRepository).saveAll(any());
+        verify(memberTasteProfileDislikedMenuItemRepository).saveAll(any());
+        verify(memberTasteProfileCategoryRepository, never()).deleteAllInBatch(any());
+        verify(memberTasteProfileRestrictionIngredientRepository, never()).deleteAllInBatch(any());
+        verify(memberTasteProfileDislikedMenuItemRepository, never()).deleteAllInBatch(any());
     }
 
     @Test
@@ -256,10 +397,10 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberRepository.existsByNickname("중복닉네임")).thenReturn(true);
 
-        assertThatThrownBy(() -> memberService.updateMyProfile(new UpdateMemberBasicInfoCommand("중복닉네임")))
+        assertThatThrownBy(() -> memberService.updateMyProfile(1L, new UpdateMemberBasicInfoCommand("중복닉네임")))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MemberErrorCode.DUPLICATE_NICKNAME);
@@ -277,11 +418,11 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(onboardingStatusResolver.resolve(member))
-                .thenReturn(new OnboardingStatusResult(true, true, true, OnboardingNextStep.READY));
+                .thenReturn(new OnboardingStatusResult(true, true, true, true, OnboardingNextStep.READY));
 
-        UpdateMemberResult result = memberService.updateMyProfile(new UpdateMemberBasicInfoCommand("현재닉네임"));
+        UpdateMemberResult result = memberService.updateMyProfile(1L, new UpdateMemberBasicInfoCommand("현재닉네임"));
 
         assertThat(result.id()).isEqualTo(1L);
         assertThat(result.onboarding().nextStep()).isEqualTo(OnboardingNextStep.READY);
@@ -302,9 +443,9 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
 
-        MemberProfileResult result = memberService.getMyProfile();
+        MemberProfileResult result = memberService.getMyProfile(1L);
 
         assertThat(result.id()).isEqualTo(1L);
         assertThat(result.loginId()).isEqualTo("tester01");
@@ -324,10 +465,10 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberTasteProfileRepository.findByMemberId(1L)).thenReturn(java.util.Optional.empty());
 
-        MemberTasteProfileSummaryResult result = memberService.getMyTasteProfile();
+        MemberTasteProfileSummaryResult result = memberService.getMyTasteProfile(1L);
 
         assertThat(result.memberId()).isEqualTo(1L);
         assertThat(result.profileVersion()).isEqualTo(MemberTasteProfileSummaryResult.DEFAULT_PROFILE_VERSION);
@@ -352,7 +493,7 @@ class MemberServiceImplTest {
         Ingredient ingredient = new Ingredient("PEANUT", "땅콩", true, 10);
         MenuItem menuItem = new MenuItem("PORK_CUTLET", "돈까스", "바삭한 돼지고기 튀김");
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberTasteProfileRepository.findByMemberId(1L)).thenReturn(java.util.Optional.of(profile));
         when(memberTasteProfileCategoryRepository.findAllByProfileIdOrderByDisplay(profile.getId()))
                 .thenReturn(List.of(new MemberTasteProfileCategory(profile, attributeCategory)));
@@ -361,7 +502,7 @@ class MemberServiceImplTest {
         when(memberTasteProfileDislikedMenuItemRepository.findAllByProfileIdOrderByDisplay(profile.getId()))
                 .thenReturn(List.of(new MemberTasteProfileDislikedMenuItem(profile, menuItem)));
 
-        MemberTasteProfileSummaryResult result = memberService.getMyTasteProfile();
+        MemberTasteProfileSummaryResult result = memberService.getMyTasteProfile(1L);
 
         assertThat(result.memberId()).isEqualTo(1L);
         assertThat(result.profileVersion()).isEqualTo("v2");
@@ -402,19 +543,13 @@ class MemberServiceImplTest {
         MenuItem menuItem = new MenuItem("PORK_CUTLET", "돈까스", "바삭한 돼지고기 튀김");
         MemberTasteProfile savedProfile = new MemberTasteProfile(member, "v1");
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberTasteProfileRepository.findByMemberId(1L)).thenReturn(Optional.empty());
         when(memberTasteProfileRepository.saveAndFlush(any(MemberTasteProfile.class))).thenReturn(savedProfile);
         when(attributeCategoryRepository.findAllByIdInAndActiveTrue(List.of(1L))).thenReturn(
                 List.of(attributeCategory));
         when(ingredientRepository.findAllByIdInAndActiveTrue(List.of(101L))).thenReturn(List.of(ingredient));
         when(menuItemRepository.findAllByIdInAndActiveTrue(List.of(1001L))).thenReturn(List.of(menuItem));
-        when(memberTasteProfileCategoryRepository.findAllByProfileId(savedProfile.getId())).thenReturn(
-                Collections.emptyList());
-        when(memberTasteProfileRestrictionIngredientRepository.findAllByProfileId(savedProfile.getId())).thenReturn(
-                Collections.emptyList());
-        when(memberTasteProfileDislikedMenuItemRepository.findAllByProfileId(savedProfile.getId())).thenReturn(
-                Collections.emptyList());
         when(memberTasteProfileCategoryRepository.findAllByProfileIdOrderByDisplay(savedProfile.getId()))
                 .thenReturn(List.of(new MemberTasteProfileCategory(savedProfile, attributeCategory)));
         when(memberTasteProfileRestrictionIngredientRepository.findAllByProfileIdOrderByDisplay(savedProfile.getId()))
@@ -423,6 +558,7 @@ class MemberServiceImplTest {
                 .thenReturn(List.of(new MemberTasteProfileDislikedMenuItem(savedProfile, menuItem)));
 
         MemberTasteUpdateResult result = memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(1L), List.of(101L), List.of(1001L))
         );
         MemberTasteProfileSummaryResult profile = result.profile();
@@ -451,7 +587,7 @@ class MemberServiceImplTest {
         MemberTasteProfile profile = new MemberTasteProfile(member, "v1");
         PersonalRecommendation openRecommendation = mock(PersonalRecommendation.class);
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberTasteProfileRepository.findByMemberId(1L)).thenReturn(Optional.of(profile));
         when(attributeCategoryRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
         when(ingredientRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
@@ -473,6 +609,7 @@ class MemberServiceImplTest {
         when(openRecommendation.getId()).thenReturn(9001L);
 
         MemberTasteUpdateResult result = memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(), List.of(), List.of())
         );
 
@@ -490,9 +627,10 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
 
         assertThatThrownBy(() -> memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(1L, 1L), List.of(), List.of())
         ))
                 .isInstanceOf(BusinessException.class)
@@ -511,9 +649,10 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
 
         assertThatThrownBy(() -> memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(), List.of(), List.of(1001L, 1001L))
         ))
                 .isInstanceOf(BusinessException.class)
@@ -532,11 +671,12 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(attributeCategoryRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
         when(ingredientRepository.findAllByIdInAndActiveTrue(List.of(999L))).thenReturn(List.of());
 
         assertThatThrownBy(() -> memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(), List.of(999L), List.of())
         ))
                 .isInstanceOf(BusinessException.class)
@@ -555,12 +695,13 @@ class MemberServiceImplTest {
                 .social(false)
                 .build();
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(attributeCategoryRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
         when(ingredientRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
         when(menuItemRepository.findAllByIdInAndActiveTrue(List.of(999L))).thenReturn(List.of());
 
         assertThatThrownBy(() -> memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(), List.of(), List.of(999L))
         ))
                 .isInstanceOf(BusinessException.class)
@@ -580,7 +721,7 @@ class MemberServiceImplTest {
                 .build();
         MemberTasteProfile profile = new MemberTasteProfile(member, "v1");
 
-        when(activeMemberReader.getCurrentAuthenticatedActiveMember()).thenReturn(member);
+        when(memberReader.getActiveMember(1L)).thenReturn(member);
         when(memberTasteProfileRepository.findByMemberId(1L)).thenReturn(Optional.of(profile));
         when(attributeCategoryRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
         when(ingredientRepository.findAllByIdInAndActiveTrue(List.of())).thenReturn(List.of());
@@ -599,6 +740,7 @@ class MemberServiceImplTest {
                 List.of());
 
         MemberTasteUpdateResult result = memberService.updateMyTasteProfile(
+                1L,
                 new UpdateMemberTasteProfileCommand(List.of(), List.of(), List.of())
         );
         MemberTasteProfileSummaryResult profileResult = result.profile();

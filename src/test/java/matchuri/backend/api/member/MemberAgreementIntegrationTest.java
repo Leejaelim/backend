@@ -18,12 +18,19 @@ import matchuri.backend.domain.auth.repository.AuthExchangeCodeRepository;
 import matchuri.backend.domain.auth.repository.AuthRefreshTokenRepository;
 import matchuri.backend.domain.auth.service.CaptchaPurpose;
 import matchuri.backend.domain.auth.service.CaptchaVerifier;
+import matchuri.backend.domain.image.entity.ImageAsset;
+import matchuri.backend.domain.image.entity.ImageStorageProvider;
+import matchuri.backend.domain.image.entity.PresetProfileImage;
+import matchuri.backend.domain.image.repository.ImageAssetRepository;
+import matchuri.backend.domain.image.repository.PresetProfileImageRepository;
 import matchuri.backend.domain.member.entity.AgreementType;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberAgreement;
 import matchuri.backend.domain.member.repository.MemberAgreementRepository;
+import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,6 +59,15 @@ class MemberAgreementIntegrationTest {
     private MemberRepository memberRepository;
 
     @Autowired
+    private MemberProfileImageRepository memberProfileImageRepository;
+
+    @Autowired
+    private PresetProfileImageRepository presetProfileImageRepository;
+
+    @Autowired
+    private ImageAssetRepository imageAssetRepository;
+
+    @Autowired
     private MemberAgreementRepository memberAgreementRepository;
 
     @Autowired
@@ -73,7 +89,33 @@ class MemberAgreementIntegrationTest {
         authRefreshTokenRepository.deleteAll();
         memberAgreementRepository.deleteAll();
         memberTasteProfileRepository.deleteAll();
+        memberProfileImageRepository.deleteAll();
         memberRepository.deleteAll();
+        presetProfileImageRepository.deleteAll();
+        imageAssetRepository.deleteAll();
+        createDefaultPresetProfileImage();
+    }
+
+    @AfterEach
+    void cleanUpProfileImages() {
+        memberProfileImageRepository.deleteAll();
+        presetProfileImageRepository.deleteAll();
+        imageAssetRepository.deleteAll();
+    }
+
+    private void createDefaultPresetProfileImage() {
+        ImageAsset asset = imageAssetRepository.save(new ImageAsset(
+                ImageStorageProvider.CLOUDFLARE_R2,
+                "test-bucket",
+                "preset-profile/default.png",
+                "default.png",
+                "image/png",
+                1024,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                320,
+                320
+        ));
+        presetProfileImageRepository.save(new PresetProfileImage(asset, true));
     }
 
     @Test

@@ -7,6 +7,7 @@ import matchuri.backend.domain.group.entity.GroupMemberStatus;
 public record GroupMemberSummaryResult(
         Long memberId,
         String nickname,
+        String memberProfileImageUrl,
         GroupMemberRole role,
         GroupMemberStatus status,
         LocalDateTime joinedAt,

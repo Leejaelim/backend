@@ -2,14 +2,12 @@ plugins {
     java
     id("org.springframework.boot") version "4.0.3"
     id("io.spring.dependency-management") version "1.1.7"
-    jacoco
 }
 
 group = "matchuri"
 version = "0.0.1-SNAPSHOT"
 description = "backend"
-
-val snippetsDir = layout.buildDirectory.dir("generated-snippets")
+val queryDslVersion = "5.0.0"
 
 java {
     toolchain {
@@ -39,13 +37,17 @@ dependencies {
     implementation("io.jsonwebtoken:jjwt-api:0.12.7")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2")
     implementation("software.amazon.awssdk:s3:2.25.30")
+    implementation ("com.querydsl:querydsl-jpa:${queryDslVersion}:jakarta")
+    implementation("net.ttddyy:datasource-proxy:1.10")
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
+    annotationProcessor("com.querydsl:querydsl-apt:${queryDslVersion}:jakarta")
+    annotationProcessor("jakarta.annotation:jakarta.annotation-api")
+    annotationProcessor("jakarta.persistence:jakarta.persistence-api")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
-    testImplementation("org.springframework.restdocs:spring-restdocs-mockmvc")
     runtimeOnly("com.mysql:mysql-connector-j")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.7")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.7")
@@ -58,15 +60,17 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
     systemProperty("spring.docker.compose.enabled", "false")
-    outputs.dir(snippetsDir)
-    finalizedBy(tasks.jacocoTestReport)
 }
 
-tasks.jacocoTestReport {
-    dependsOn(tasks.test)
-    reports {
-        xml.required.set(true)
-        csv.required.set(false)
-        html.required.set(true)
-    }
+val fastTest by tasks.registering(Test::class) {
+    description = "Runs tests that do not start Spring MVC, full application, or JPA contexts."
+    group = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    exclude(
+        "**/*IntegrationTest*.class",
+        "**/domain/**/*RepositoryTest*.class",
+        "**/*SecurityConfigTest*.class",
+        "**/GlobalExceptionHandlerTest*.class"
+    )
 }

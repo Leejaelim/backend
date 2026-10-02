@@ -20,8 +20,6 @@ import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.domain.member.support.onboarding.OnboardingStatusResolver;
 import matchuri.backend.global.exception.AuthenticationException;
 import matchuri.backend.global.exception.BusinessException;
-import matchuri.backend.global.security.AuthenticatedMember;
-import matchuri.backend.global.security.AuthenticationFacade;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +33,6 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final SessionTokenService sessionTokenService;
     private final JwtTokenProvider jwtTokenProvider;
-    private final AuthenticationFacade authenticationFacade;
     private final OnboardingStatusResolver onboardingStatusResolver;
     private final CaptchaVerifier captchaVerifier;
 
@@ -50,11 +47,11 @@ public class AuthServiceImpl implements AuthService {
         Member member = memberRepository.findByLoginId(command.loginId())
                 .orElseThrow(() -> new AuthenticationException(AuthErrorCode.LOGIN_FAILED));
 
-        ensureActive(member);
-
         if (!passwordEncoder.matches(command.password(), member.getPasswordHash())) {
             throw new AuthenticationException(AuthErrorCode.LOGIN_FAILED);
         }
+
+        ensureActive(member);
 
         TokenPair tokenPair = sessionTokenService.issueLoginTokenPair(member);
         log.info("auth event=login_success provider=local memberId={} ip={}", member.getId(), clientIp);
@@ -76,12 +73,20 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public LogoutResult logout(String refreshToken, String clientIp) {
-        AuthenticatedMember authenticatedMember = authenticationFacade.getCurrentMember();
+    public LogoutResult logout(Long memberId, String refreshToken, String clientIp) {
         sessionTokenService.revokeRefreshToken(refreshToken);
-        log.info("auth event=logout provider=local memberId={} ip={}", authenticatedMember.memberId(), clientIp);
+        log.info("auth event=logout provider=local memberId={} ip={}", memberId, clientIp);
 
         return new LogoutResult(true);
+    }
+
+    @Override
+    public SocialProviderType resolveOAuth2LoginProvider(String provider) {
+        SocialProviderType socialProviderType = SocialProviderType.fromRegistrationId(provider);
+        if (!socialProviderType.isOAuth2LoginSupported()) {
+            throw new AuthenticationException(AuthErrorCode.OAUTH2_PROVIDER_NOT_SUPPORTED);
+        }
+        return socialProviderType;
     }
 
     @Override

@@ -8,28 +8,21 @@ import org.jspecify.annotations.NullMarked;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 @NullMarked
-public interface MemberRepository extends JpaRepository<Member, Long> {
+public interface MemberRepository extends JpaRepository<Member, Long>, MemberRepositoryCustom {
 
     boolean existsByLoginId(String loginId);
 
     boolean existsByNickname(String nickname);
 
-    boolean existsByEmailAndSocialFalseAndStatus(String email, MemberStatus status);
-
-    boolean existsByLoginIdAndEmailAndSocialFalseAndStatus(String loginId, String email, MemberStatus status);
-
     boolean existsByIdAndNicknameCompletedTrue(Long memberId);
 
     Optional<Member> findByLoginId(String loginId);
-
-    Optional<Member> findByNicknameAndStatus(String nickname, MemberStatus status);
 
     Optional<Member> findByEmailAndSocialFalseAndStatus(String email, MemberStatus status);
 
     Optional<Member> findByLoginIdAndEmailAndSocialFalseAndStatus(String loginId, String email, MemberStatus status);
 
-    Optional<Member> findBySocialProviderTypeAndSocialProviderUserId(
-            SocialProviderType socialProviderType,
-            String socialProviderUserId
-    );
+    Optional<Member> findBySocialProviderTypeAndSocialProviderUserId(SocialProviderType socialProviderType, String socialProviderUserId);
+
+    boolean existsByEmailAndSocialFalse(String email);
 }

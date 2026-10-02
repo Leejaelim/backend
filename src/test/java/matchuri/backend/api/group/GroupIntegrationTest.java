@@ -9,15 +9,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import javax.crypto.SecretKey;
+import matchuri.backend.domain.image.entity.ImageAsset;
+import matchuri.backend.domain.image.entity.ImageStorageProvider;
+import matchuri.backend.domain.image.repository.ImageAssetRepository;
 import matchuri.backend.domain.group.entity.GroupRecommendation;
 import matchuri.backend.domain.group.entity.GroupRecommendationCandidate;
 import matchuri.backend.domain.group.entity.GroupRecommendationReadiness;
@@ -26,6 +32,7 @@ import matchuri.backend.domain.group.entity.GroupRecommendationStatus;
 import matchuri.backend.domain.group.entity.GroupRecommendationVote;
 import matchuri.backend.domain.group.entity.GroupLocation;
 import matchuri.backend.domain.group.entity.GroupInvite;
+import matchuri.backend.domain.group.entity.GroupInviteLink;
 import matchuri.backend.domain.group.entity.GroupInviteStatus;
 import matchuri.backend.domain.group.entity.GroupMemberRole;
 import matchuri.backend.domain.group.entity.GroupMemberStatus;
@@ -33,9 +40,11 @@ import matchuri.backend.domain.group.entity.GroupRoom;
 import matchuri.backend.domain.group.entity.GroupRoomMember;
 import matchuri.backend.domain.group.entity.GroupRoomStatus;
 import matchuri.backend.domain.group.repository.GroupInviteRepository;
+import matchuri.backend.domain.group.repository.GroupInviteLinkRepository;
 import matchuri.backend.domain.group.repository.GroupLocationRepository;
 import matchuri.backend.domain.group.repository.GroupMenuActionRepository;
 import matchuri.backend.domain.group.repository.GroupRecommendationCandidateRepository;
+import matchuri.backend.domain.group.repository.GroupRecommendationCategoryRepository;
 import matchuri.backend.domain.group.repository.GroupRecommendationReadinessRepository;
 import matchuri.backend.domain.group.repository.GroupRecommendationRepository;
 import matchuri.backend.domain.group.repository.GroupRecommendationVoteRepository;
@@ -44,11 +53,13 @@ import matchuri.backend.domain.group.repository.GroupRoomRepository;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberRole;
 import matchuri.backend.domain.member.entity.MemberStatus;
+import matchuri.backend.domain.member.entity.MemberProfileImage;
 import matchuri.backend.domain.member.entity.MemberTasteProfile;
 import matchuri.backend.domain.member.entity.MemberTasteProfileCategory;
 import matchuri.backend.domain.member.entity.MemberTasteProfileDislikedMenuItem;
 import matchuri.backend.domain.member.entity.MemberTasteProfileRestrictionIngredient;
 import matchuri.backend.domain.member.repository.MemberRepository;
+import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileRepository;
@@ -68,13 +79,18 @@ import matchuri.backend.domain.menu.repository.MenuItemRepository;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationCandidateRepository;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationRepository;
 import matchuri.backend.global.config.MatchuriProperties;
+import matchuri.backend.testsupport.JpaAuditTimeFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -84,10 +100,14 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(JpaAuditTimeFixture.class)
 class GroupIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private MatchuriProperties matchuriProperties;
@@ -96,7 +116,16 @@ class GroupIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
+    private JpaAuditTimeFixture jpaAuditTimeFixture;
+
+    @Autowired
     private MemberRepository memberRepository;
+
+    @Autowired
+    private MemberProfileImageRepository memberProfileImageRepository;
+
+    @Autowired
+    private ImageAssetRepository imageAssetRepository;
 
     @Autowired
     private GroupRoomRepository groupRoomRepository;
@@ -111,6 +140,9 @@ class GroupIntegrationTest {
     private GroupInviteRepository groupInviteRepository;
 
     @Autowired
+    private GroupInviteLinkRepository groupInviteLinkRepository;
+
+    @Autowired
     private GroupMenuActionRepository groupMenuActionRepository;
 
     @Autowired
@@ -118,6 +150,9 @@ class GroupIntegrationTest {
 
     @Autowired
     private GroupRecommendationCandidateRepository groupRecommendationCandidateRepository;
+
+    @Autowired
+    private GroupRecommendationCategoryRepository groupRecommendationCategoryRepository;
 
     @Autowired
     private GroupRecommendationReadinessRepository groupRecommendationReadinessRepository;
@@ -173,8 +208,10 @@ class GroupIntegrationTest {
         groupMenuActionRepository.deleteAll();
         groupRecommendationVoteRepository.deleteAll();
         groupRecommendationReadinessRepository.deleteAll();
+        groupRecommendationCategoryRepository.deleteAll();
         groupRecommendationCandidateRepository.deleteAll();
         groupRecommendationRepository.deleteAll();
+        groupInviteLinkRepository.deleteAll();
         groupInviteRepository.deleteAll();
         groupLocationRepository.deleteAll();
         groupRoomMemberRepository.deleteAll();
@@ -190,7 +227,143 @@ class GroupIntegrationTest {
         menuItemRepository.deleteAll();
         ingredientRepository.deleteAll();
         attributeCategoryRepository.deleteAll();
+        memberProfileImageRepository.deleteAll();
         memberRepository.deleteAll();
+        imageAssetRepository.deleteAll();
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("내 그룹 목록은 그룹 수와 무관하게 고정 쿼리로 응답한다")
+    void measureMyGroupListQueryScaleAfterOptimization(CapturedOutput output) throws Exception {
+        Member owner = saveMember("group-list-baseline-owner", "그룹목록계측");
+        String accessToken = accessToken(owner);
+
+        saveGroupOwnedBy(owner, "계측 그룹 1");
+        mockMvc.perform(get("/api/v1/groups")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1));
+
+        for (int number = 2; number <= 12; number++) {
+            saveGroupOwnedBy(owner, "계측 그룹 " + number);
+        }
+        mockMvc.perform(get("/api/v1/groups")
+                        .param("size", "20")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(12));
+
+        List<String> queryLogs = output.getOut().lines()
+                .filter(line -> line.contains("API_QUERY_BEFORE method=GET uri=/api/v1/groups status=200"))
+                .toList();
+
+        assertThat(queryLogs)
+                .hasSize(2)
+                .allMatch(line -> line.contains(
+                        "total=5 select=5 insert=0 update=0 delete=0 other=0"));
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("그룹 상세는 후보 수와 무관하게 고정 쿼리로 응답한다")
+    void measureGroupDetailQueryScaleAfterOptimization(CapturedOutput output) throws Exception {
+        Member owner = saveMember("group-detail-query-owner", "그룹상세계측");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "그룹 상세 계측");
+        GroupRecommendation recommendation = groupRecommendationRepository.save(
+                new GroupRecommendation(groupRoom, "{}", LocalDateTime.now()));
+        groupRecommendationCandidateRepository.save(new GroupRecommendationCandidate(
+                recommendation,
+                saveMenu("GROUP_DETAIL_QUERY_1", "그룹 상세 계측 메뉴 1"),
+                1,
+                100.0,
+                "{}"
+        ));
+        String accessToken = accessToken(owner);
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recentlyRecommendation.candidates.length()").value(1));
+
+        for (int number = 2; number <= 12; number++) {
+            groupRecommendationCandidateRepository.save(new GroupRecommendationCandidate(
+                    recommendation,
+                    saveMenu("GROUP_DETAIL_QUERY_" + number, "그룹 상세 계측 메뉴 " + number),
+                    number,
+                    100.0 - number,
+                    "{}"
+            ));
+        }
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recentlyRecommendation.candidates.length()").value(12));
+
+        List<String> queryLogs = output.getOut().lines()
+                .filter(line -> line.contains(
+                        "API_QUERY_BEFORE method=GET uri=/api/v1/groups/" + groupRoom.getId() + " status=200"))
+                .toList();
+
+        assertThat(queryLogs)
+                .hasSize(2)
+                .allMatch(line -> line.contains(
+                        "total=8 select=8 insert=0 update=0 delete=0 other=0"));
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("OPEN 그룹 추천 상세는 후보 수와 무관하게 고정 쿼리로 응답한다")
+    void measureOpenGroupRecommendationDetailQueryScaleAfterOptimization(CapturedOutput output) throws Exception {
+        Member owner = saveMember("recommendation-detail-query-owner", "추천상세계측");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "추천 상세 계측");
+        GroupRecommendation recommendation = groupRecommendationRepository.save(
+                new GroupRecommendation(groupRoom, "{}", LocalDateTime.now()));
+        groupRecommendationCandidateRepository.save(new GroupRecommendationCandidate(
+                recommendation,
+                saveMenu("RECOMMENDATION_DETAIL_QUERY_1", "추천 상세 계측 메뉴 1"),
+                1,
+                100.0,
+                "{}"
+        ));
+        String accessToken = accessToken(owner);
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}/recommendations/{sessionId}",
+                        groupRoom.getId(),
+                        recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidates.length()").value(1));
+
+        for (int number = 2; number <= 12; number++) {
+            groupRecommendationCandidateRepository.save(new GroupRecommendationCandidate(
+                    recommendation,
+                    saveMenu("RECOMMENDATION_DETAIL_QUERY_" + number, "추천 상세 계측 메뉴 " + number),
+                    number,
+                    100.0 - number,
+                    "{}"
+            ));
+        }
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}/recommendations/{sessionId}",
+                        groupRoom.getId(),
+                        recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidates.length()").value(12));
+
+        String measuredUri = "/api/v1/groups/" + groupRoom.getId()
+                + "/recommendations/" + recommendation.getId();
+        List<String> queryLogs = output.getOut().lines()
+                .filter(line -> line.contains(
+                        "API_QUERY_BEFORE method=GET uri=" + measuredUri + " status=200"))
+                .toList();
+
+        assertThat(queryLogs)
+                .hasSize(2)
+                .allMatch(line -> line.contains(
+                        "total=7 select=7 insert=0 update=0 delete=0 other=0"));
     }
 
     @Test
@@ -352,7 +525,7 @@ class GroupIntegrationTest {
     void createGroupRecommendationFailsWhenActiveRecommendationExists() throws Exception {
         Member owner = saveMember("recommendation-open-owner", "열린추천방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "열린 추천 그룹");
-        groupRecommendationRepository.save(GroupRecommendation.preparing(
+        groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -396,7 +569,7 @@ class GroupIntegrationTest {
     void createGroupRecommendationExpiresOldActiveRecommendationAndCreatesPreparingSession() throws Exception {
         Member owner = saveMember("expired-active-group-owner", "만료추천방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "만료 추천 그룹");
-        GroupRecommendation oldRecommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation oldRecommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now().minusHours(25)
@@ -425,26 +598,28 @@ class GroupIntegrationTest {
     void getGroupRecommendationsExpiresActiveRecommendations() throws Exception {
         Member owner = saveMember("group-expiration-service-owner", "그룹만료방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "그룹 만료 서비스");
-        GroupRecommendation oldPreparing = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation oldPreparing = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now().minusHours(25)
         ));
-        GroupRecommendation oldOpen = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation oldOpen = open(
                 groupRoom,
                 "{}",
+                LocalDateTime.now().minusHours(25),
                 LocalDateTime.now().minusHours(25)
-        ));
-        GroupRecommendation recentPreparing = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        );
+        GroupRecommendation recentPreparing = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now().minusHours(23)
         ));
-        GroupRecommendation alreadyClosed = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation alreadyClosed = open(
                 groupRoom,
                 "{}",
+                LocalDateTime.now().minusHours(25),
                 LocalDateTime.now().minusHours(25)
-        ));
+        );
         alreadyClosed.rerollWithoutSkip(LocalDateTime.now().minusHours(1));
         groupRecommendationRepository.save(alreadyClosed);
 
@@ -517,7 +692,7 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -559,7 +734,7 @@ class GroupIntegrationTest {
         Member owner = saveMember("readiness-access-owner", "준비조회접근방장");
         Member other = saveMember("readiness-access-other", "준비조회접근없음");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "준비 조회 접근 그룹");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -579,7 +754,7 @@ class GroupIntegrationTest {
         Member owner = saveMember("readiness-other-owner", "준비조회다른방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "준비 조회 대상 그룹");
         GroupRoom otherGroupRoom = saveGroupOwnedBy(owner, "준비 조회 다른 그룹");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 otherGroupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -607,7 +782,7 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -645,7 +820,7 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -691,7 +866,7 @@ class GroupIntegrationTest {
         ));
         saveMenu("ready-open-first", "준비오픈첫번째");
         saveMenu("ready-open-second", "준비오픈두번째");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 null,
                 LocalDateTime.now()
@@ -722,6 +897,126 @@ class GroupIntegrationTest {
         assertThat(groupRecommendationCandidateRepository
                 .findAllByGroupRecommendationIdOrderByRankNoAsc(recommendation.getId()))
                 .hasSize(2);
+        mockMvc.perform(get("/api/v1/groups/{groupId}/recommendations/{sessionId}",
+                        groupRoom.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recommendationCategories.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("그룹 준비 완료는 저장된 음식 분류와 온도감 대안을 유형별로 계산한다")
+    void groupRecommendationUsesExclusivePreferenceTypes() throws Exception {
+        Member owner = saveMember("exclusive-owner", "배타적선호방장");
+        Member member = saveMember("exclusive-member", "배타적선호멤버");
+        GroupRoom room = saveGroupOwnedBy(owner, "배타적 선호 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(room, member, GroupMemberRole.MEMBER, LocalDateTime.now()));
+        AttributeCategory korean = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FOOD_CATEGORY, "KOREAN", "한식", 10));
+        AttributeCategory chinese = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FOOD_CATEGORY, "CHINESE", "중식", 20));
+        AttributeCategory hot = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.TEMPERATURE, "HOT", "뜨거움", 10));
+        AttributeCategory cold = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.TEMPERATURE, "COLD", "차가움", 20));
+        for (Member participant : List.of(owner, member)) {
+            saveTasteProfile(participant, new AttributeCategory[]{korean, chinese, hot, cold},
+                    new Ingredient[]{}, new MenuItem[]{});
+        }
+        MenuItem menu = saveMenu("KOREAN_HOT", "한식 국물", korean, hot);
+        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(room));
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/recommendations/{sessionId}/ready", room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(GroupRecommendationStatus.PREPARING.name()));
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/recommendations/{sessionId}/ready", room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(GroupRecommendationStatus.OPEN.name()))
+                .andExpect(jsonPath("$.data.candidates[0].menuId").value(menu.getId()))
+                .andExpect(jsonPath("$.data.candidates[0].score").value(100.0));
+
+        GroupRecommendationCandidate candidate = groupRecommendationCandidateRepository
+                .findAllByGroupRecommendationIdOrderByRankNoAsc(recommendation.getId()).getFirst();
+        assertThat(candidate.getScore()).isEqualTo(100.0);
+        JsonNode candidateMeta = objectMapper.readTree(candidate.getCandidateMetaJson());
+        if (candidateMeta.isTextual()) {
+            candidateMeta = objectMapper.readTree(candidateMeta.asText());
+        }
+        assertThat(candidateMeta.path("algorithmVersion").asText()).isEqualTo("v1.1");
+    }
+
+    @Test
+    @DisplayName("추천 카테고리는 OPEN 시점에 저장되고 취향 수정과 탈퇴 후에도 유지되며 이름은 현재 값을 반환한다")
+    void recommendationCategoriesAreSessionSnapshotWithCurrentCategoryName() throws Exception {
+        Member owner = saveMember("category-owner", "카테고리방장");
+        Member member = saveMember("category-member", "카테고리멤버");
+        GroupRoom room = saveGroupOwnedBy(owner, "카테고리 그룹");
+        GroupRoomMember membership = groupRoomMemberRepository.save(new GroupRoomMember(
+                room, member, GroupMemberRole.MEMBER, LocalDateTime.now()
+        ));
+        AttributeCategory commonOne = saveCategory("COMMON_ONE", "공통 하나", 1);
+        AttributeCategory commonTwo = saveCategory("COMMON_TWO", "공통 둘", 2);
+        AttributeCategory menuOne = saveCategory("MENU_ONE", "메뉴 하나", 3);
+        AttributeCategory menuTwo = saveCategory("MENU_TWO", "메뉴 둘", 4);
+        AttributeCategory menuThree = saveCategory("MENU_THREE", "메뉴 셋", 5);
+        saveTasteProfile(owner, new AttributeCategory[]{commonOne, commonTwo}, new Ingredient[]{}, new MenuItem[]{});
+        saveTasteProfile(member, new AttributeCategory[]{commonOne, commonTwo}, new Ingredient[]{}, new MenuItem[]{});
+        saveMenu("category-first", "첫 메뉴", commonOne, menuOne);
+        saveMenu("category-second", "둘째 메뉴", commonTwo, menuTwo, menuThree);
+        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(room));
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}/recommendations/{sessionId}",
+                        room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recommendationCategories").value(nullValue()));
+
+        for (Member readyMember : List.of(member, owner)) {
+            mockMvc.perform(post("/api/v1/groups/{groupId}/recommendations/{sessionId}/ready",
+                            room.getId(), recommendation.getId())
+                            .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(readyMember))))
+                    .andExpect(status().isOk());
+        }
+
+        assertThat(groupRecommendationCategoryRepository
+                .findAllByGroupRecommendationIdOrderByRankNoAsc(recommendation.getId()))
+                .hasSize(5);
+        mockMvc.perform(get("/api/v1/groups/{groupId}/recommendations/{sessionId}",
+                        room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recommendationCategories.length()").value(5))
+                .andExpect(jsonPath("$.data.recommendationCategories[0].id").value(commonOne.getId()))
+                .andExpect(jsonPath("$.data.recommendationCategories[0].source").value("COMMON"))
+                .andExpect(jsonPath("$.data.recommendationCategories[1].id").value(commonTwo.getId()))
+                .andExpect(jsonPath("$.data.recommendationCategories[1].source").value("COMMON"))
+                .andExpect(jsonPath("$.data.recommendationCategories[2].id").value(menuOne.getId()))
+                .andExpect(jsonPath("$.data.recommendationCategories[2].source").value("MENU"))
+                .andExpect(jsonPath("$.data.recommendationCategories[3].id").value(menuTwo.getId()))
+                .andExpect(jsonPath("$.data.recommendationCategories[4].id").value(menuThree.getId()))
+                .andExpect(jsonPath("$.data.recommendationCategories[4].rankNo").value(5));
+
+        memberTasteProfileCategoryRepository.deleteAll();
+        membership.leave(LocalDateTime.now());
+        groupRoomMemberRepository.save(membership);
+        commonOne.updateName("공통 하나 변경");
+        attributeCategoryRepository.save(commonOne);
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}/recommendations/{sessionId}",
+                        room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recommendationCategories.length()").value(5))
+                .andExpect(jsonPath("$.data.recommendationCategories[0].source").value("COMMON"))
+                .andExpect(jsonPath("$.data.recommendationCategories[0].name").value("공통 하나 변경"));
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}", room.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recentlyRecommendation.recommendationCategories").doesNotExist());
     }
 
     @Test
@@ -749,7 +1044,7 @@ class GroupIntegrationTest {
         Member owner = saveMember("ready-access-owner", "준비접근방장");
         Member other = saveMember("ready-access-other", "준비접근없음");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "준비 접근 그룹");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -1010,7 +1305,7 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -1080,7 +1375,7 @@ class GroupIntegrationTest {
     void getGroupRecommendationCandidatesFailsForPreparingRecommendation() throws Exception {
         Member owner = saveMember("recommendation-candidates-preparing-owner", "준비후보방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "준비 후보 조회 그룹");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -1107,14 +1402,15 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRecommendation oldRecommendation = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation oldRecommendation = open(
                 groupRoom,
                 "{}",
+                LocalDateTime.now().minusMinutes(30),
                 LocalDateTime.now().minusMinutes(30)
-        ));
+        );
         oldRecommendation.rerollWithoutSkip(LocalDateTime.now().minusMinutes(20));
         groupRecommendationRepository.save(oldRecommendation);
-        GroupRecommendation latestRecommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation latestRecommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now().minusMinutes(10)
@@ -1134,7 +1430,8 @@ class GroupIntegrationTest {
                 .andExpect(jsonPath("$.data.content.length()").value(2))
                 .andExpect(jsonPath("$.data.content[0].sessionId").value(latestRecommendation.getId()))
                 .andExpect(jsonPath("$.data.content[0].status").value(GroupRecommendationStatus.PREPARING.name()))
-                .andExpect(jsonPath("$.data.content[0].startedAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[0].createdAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[0].startedAt").value(nullValue()))
                 .andExpect(jsonPath("$.data.content[0].endedAt").value(nullValue()))
                 .andExpect(jsonPath("$.data.content[0].finalCandidate").doesNotExist())
                 .andExpect(jsonPath("$.data.content[0].finalMenuName").doesNotExist())
@@ -1145,6 +1442,51 @@ class GroupIntegrationTest {
                 .andExpect(jsonPath("$.data.content[1].endedAt").isNotEmpty())
                 .andExpect(jsonPath("$.data.pageInfo.totalElements").value(2))
                 .andExpect(jsonPath("$.data.pageInfo.totalPages").value(1));
+    }
+
+    @Test
+    @DisplayName("v2 그룹 추천 목록은 최종 선정 메뉴명을 반환하고 v1 계약은 유지한다")
+    void getGroupRecommendationsV2ReturnsSelectedMenuNameWithoutChangingV1Contract() throws Exception {
+        Member owner = saveMember("recommendation-list-v2-owner", "v2목록방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "v2 추천 목록 그룹");
+        MenuItem selectedMenu = saveMenu("recommendation-list-v2-menu", "비빔밥");
+        GroupRecommendation finalizedRecommendation = open(
+                groupRoom,
+                "{}",
+                LocalDateTime.now().minusMinutes(30),
+                LocalDateTime.now().minusMinutes(30)
+        );
+        GroupRecommendationCandidate selectedCandidate = groupRecommendationCandidateRepository.save(
+                new GroupRecommendationCandidate(finalizedRecommendation, selectedMenu, 1, 95.0, "{}")
+        );
+        finalizedRecommendation.finalizeWith(selectedCandidate, LocalDateTime.now().minusMinutes(20));
+        groupRecommendationRepository.save(finalizedRecommendation);
+        GroupRecommendation preparingRecommendation = groupRecommendationRepository.save(preparing(
+                groupRoom,
+                "{}",
+                LocalDateTime.now().minusMinutes(10)
+        ));
+        String authorization = bearer(accessToken(owner));
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}/recommendations", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authorization))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].selectedMenuName").doesNotExist())
+                .andExpect(jsonPath("$.data.content[1].selectedMenuName").doesNotExist());
+
+        mockMvc.perform(get("/api/v2/groups/{groupId}/recommendations", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authorization)
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content.length()").value(2))
+                .andExpect(jsonPath("$.data.content[0].sessionId").value(preparingRecommendation.getId()))
+                .andExpect(jsonPath("$.data.content[0].selectedMenuName").value(nullValue()))
+                .andExpect(jsonPath("$.data.content[1].sessionId").value(finalizedRecommendation.getId()))
+                .andExpect(jsonPath("$.data.content[1].status").value(GroupRecommendationStatus.FINALIZED.name()))
+                .andExpect(jsonPath("$.data.content[1].selectedMenuName").value(selectedMenu.getName()))
+                .andExpect(jsonPath("$.data.pageInfo.totalElements").value(2));
     }
 
     @Test
@@ -1515,76 +1857,6 @@ class GroupIntegrationTest {
     }
 
     @Test
-    @DisplayName("그룹 추천 최종 확정은 동률이면 추천 순위가 높은 후보를 저장한다")
-    void finalizeGroupRecommendationBreaksVoteTieByRankNo() throws Exception {
-        Member owner = saveMember("recommendation-finalize-tie-owner", "동률확정방장");
-        Member member = saveMember("recommendation-finalize-tie-member", "동률확정멤버");
-        GroupRoom groupRoom = saveGroupOwnedBy(owner, "동률 확정 그룹");
-        groupRoomMemberRepository.save(new GroupRoomMember(
-                groupRoom,
-                member,
-                GroupMemberRole.MEMBER,
-                LocalDateTime.now()
-        ));
-        MenuItem firstMenu = saveMenu("finalize-tie-first", "동률첫번째");
-        MenuItem secondMenu = saveMenu("finalize-tie-second", "동률두번째");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(new GroupRecommendation(
-                groupRoom,
-                "{}",
-                LocalDateTime.now()
-        ));
-        GroupRecommendationCandidate firstCandidate = groupRecommendationCandidateRepository.save(
-                new GroupRecommendationCandidate(recommendation, firstMenu, 1, 70.0, "{}")
-        );
-        GroupRecommendationCandidate secondCandidate = groupRecommendationCandidateRepository.save(
-                new GroupRecommendationCandidate(recommendation, secondMenu, 2, 70.0, "{}")
-        );
-        groupRecommendationVoteRepository.save(new GroupRecommendationVote(recommendation, firstCandidate, owner));
-        groupRecommendationVoteRepository.save(new GroupRecommendationVote(recommendation, secondCandidate, member));
-
-        mockMvc.perform(patch("/api/v1/groups/{groupId}/recommendations/{sessionId}/finalize",
-                        groupRoom.getId(),
-                        recommendation.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner)))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(finalizeLocationRequest()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.finalCandidate.candidateId").value(firstCandidate.getId()))
-                .andExpect(jsonPath("$.data.finalCandidate.rankNo").value(1))
-                .andExpect(jsonPath("$.data.finalCandidate.voteCount").value(1));
-    }
-
-    @Test
-    @DisplayName("그룹 추천 최종 확정은 투표가 없으면 1순위 후보를 저장한다")
-    void finalizeGroupRecommendationSelectsRankOneWhenNoVotes() throws Exception {
-        Member owner = saveMember("recommendation-finalize-no-vote-owner", "무투표확정방장");
-        GroupRoom groupRoom = saveGroupOwnedBy(owner, "무투표 확정 그룹");
-        MenuItem firstMenu = saveMenu("finalize-no-vote-first", "무투표첫번째");
-        MenuItem secondMenu = saveMenu("finalize-no-vote-second", "무투표두번째");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(new GroupRecommendation(
-                groupRoom,
-                "{}",
-                LocalDateTime.now()
-        ));
-        GroupRecommendationCandidate firstCandidate = groupRecommendationCandidateRepository.save(
-                new GroupRecommendationCandidate(recommendation, firstMenu, 1, 70.0, "{}")
-        );
-        groupRecommendationCandidateRepository.save(
-                new GroupRecommendationCandidate(recommendation, secondMenu, 2, 60.0, "{}")
-        );
-
-        mockMvc.perform(patch("/api/v1/groups/{groupId}/recommendations/{sessionId}/finalize",
-                        groupRoom.getId(),
-                        recommendation.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner)))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(finalizeLocationRequest()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.finalCandidate.candidateId").value(firstCandidate.getId()))
-                .andExpect(jsonPath("$.data.finalCandidate.voteCount").value(0));
-    }
-
-    @Test
     @DisplayName("그룹 추천 최종 확정은 OWNER가 아닌 활성 멤버이면 거절한다")
     void finalizeGroupRecommendationFailsForNonOwnerMember() throws Exception {
         Member owner = saveMember("recommendation-finalize-forbidden-owner", "확정권한방장");
@@ -1788,7 +2060,7 @@ class GroupIntegrationTest {
                 GroupMemberRole.MEMBER,
                 LocalDateTime.now()
         ));
-        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now()
@@ -1812,11 +2084,12 @@ class GroupIntegrationTest {
     void getGroupExpiresLatestRecommendationAndReturnsRecentlyRecommendation() throws Exception {
         Member owner = saveMember("group-expired-recent-owner", "만료최근방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "만료 최근 추천 그룹");
-        GroupRecommendation recommendation = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation recommendation = open(
                 groupRoom,
                 "{}",
-                LocalDateTime.now().minusHours(25)
-        ));
+                LocalDateTime.now().minusHours(25),
+                LocalDateTime.now().minusMinutes(5)
+        );
 
         mockMvc.perform(get("/api/v1/groups/{groupId}", groupRoom.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
@@ -1886,13 +2159,14 @@ class GroupIntegrationTest {
     void getMyGroupsReturnsLatestRecommendationStatus() throws Exception {
         Member owner = saveMember("group-list-recommendation-owner", "목록추천방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "목록 추천 그룹");
-        GroupRecommendation oldRecommendation = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation oldRecommendation = open(
                 groupRoom,
                 "{}",
+                LocalDateTime.now().minusMinutes(30),
                 LocalDateTime.now().minusMinutes(30)
-        ));
+        );
         oldRecommendation.rerollWithoutSkip(LocalDateTime.now().minusMinutes(20));
-        groupRecommendationRepository.save(GroupRecommendation.preparing(
+        groupRecommendationRepository.save(preparing(
                 groupRoom,
                 "{}",
                 LocalDateTime.now().minusMinutes(10)
@@ -1915,20 +2189,22 @@ class GroupIntegrationTest {
         Member owner = saveMember("group-list-expired-owner", "목록만료방장");
         GroupRoom groupRoom = saveGroupOwnedBy(owner, "목록 만료 추천 그룹");
         MenuItem menuItem = saveMenu("list-expired-menu", "목록만료메뉴");
-        GroupRecommendation finalizedRecommendation = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation finalizedRecommendation = open(
                 groupRoom,
                 "{}",
+                LocalDateTime.now().minusHours(26),
                 LocalDateTime.now().minusHours(26)
-        ));
+        );
         GroupRecommendationCandidate candidate = groupRecommendationCandidateRepository.save(
                 new GroupRecommendationCandidate(finalizedRecommendation, menuItem, 1, 90.0, "{}")
         );
         finalizedRecommendation.finalizeWith(candidate, LocalDateTime.now().minusHours(25));
-        GroupRecommendation expiredOpenRecommendation = groupRecommendationRepository.save(new GroupRecommendation(
+        GroupRecommendation expiredOpenRecommendation = open(
                 groupRoom,
                 "{}",
-                LocalDateTime.now().minusHours(25)
-        ));
+                LocalDateTime.now().minusHours(25),
+                LocalDateTime.now().minusMinutes(5)
+        );
 
         mockMvc.perform(get("/api/v1/groups")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner)))
@@ -2052,6 +2328,53 @@ class GroupIntegrationTest {
                 .andExpect(jsonPath("$.data.members[1].memberId").value(activeMember.getId()))
                 .andExpect(jsonPath("$.data.members[1].isMe").value(true))
                 .andExpect(jsonPath("$.data.recentlyRecommendation").value(nullValue()));
+    }
+
+    @Test
+    @DisplayName("v2 그룹 상세 조회는 그룹원 프로필 이미지 URL을 반환하고 v1 계약은 유지한다")
+    void getGroupV2ReturnsMemberProfileImageUrlWithoutChangingV1Contract() throws Exception {
+        Member owner = saveMember("detail-v2-owner", "v2상세방장");
+        Member memberWithoutProfileImage = saveMember("detail-v2-member", "v2상세멤버");
+        ImageAsset profileImage = imageAssetRepository.save(new ImageAsset(
+                ImageStorageProvider.CLOUDFLARE_R2,
+                "test",
+                "profile/group-detail-owner.png",
+                "group-detail-owner.png",
+                "image/png",
+                1024,
+                "c".repeat(64),
+                320,
+                320
+        ));
+        memberProfileImageRepository.save(new MemberProfileImage(owner, profileImage));
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "v2 상세 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(
+                groupRoom,
+                memberWithoutProfileImage,
+                GroupMemberRole.MEMBER,
+                LocalDateTime.now()
+        ));
+        String authorization = bearer(accessToken(owner));
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authorization))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.members[0].memberProfileImageUrl").doesNotExist())
+                .andExpect(jsonPath("$.data.members[1].memberProfileImageUrl").doesNotExist());
+
+        mockMvc.perform(get("/api/v2/groups/{groupId}", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authorization))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(groupRoom.getId()))
+                .andExpect(jsonPath("$.data.members.length()").value(2))
+                .andExpect(jsonPath("$.data.members[0].memberId").value(owner.getId()))
+                .andExpect(jsonPath("$.data.members[0].memberProfileImageUrl")
+                        .value("https://asset.matchuri.com/profile/group-detail-owner.png"))
+                .andExpect(jsonPath("$.data.members[0].isMe").value(true))
+                .andExpect(jsonPath("$.data.members[1].memberId").value(memberWithoutProfileImage.getId()))
+                .andExpect(jsonPath("$.data.members[1].memberProfileImageUrl").value(nullValue()))
+                .andExpect(jsonPath("$.data.members[1].isMe").value(false));
     }
 
     @Test
@@ -2470,6 +2793,74 @@ class GroupIntegrationTest {
     }
 
     @Test
+    @DisplayName("v2 내 그룹 초대 목록은 PK와 그룹명, 초대자 프로필 이미지 URL, 닉네임만 반환한다")
+    void getMyInvitesV2ReturnsCompactInviterProfile() throws Exception {
+        Member owner = saveMember("my-invite-v2-owner", "v2초대방장");
+        Member target = saveMember("my-invite-v2-target", "v2초대대상");
+        ImageAsset profileImage = imageAssetRepository.save(new ImageAsset(
+                ImageStorageProvider.CLOUDFLARE_R2,
+                "test",
+                "profile/invite-owner.png",
+                "invite-owner.png",
+                "image/png",
+                1024,
+                "b".repeat(64),
+                320,
+                320
+        ));
+        memberProfileImageRepository.save(new MemberProfileImage(owner, profileImage));
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "v2 받은 초대 그룹");
+        GroupInvite pendingInvite = saveInvite(groupRoom, owner, target, LocalDateTime.now().plusHours(3));
+
+        mockMvc.perform(get("/api/v2/invites/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(target))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(pendingInvite.getId()))
+                .andExpect(jsonPath("$.data.content[0].groupName").value(groupRoom.getName()))
+                .andExpect(jsonPath("$.data.content[0].requestMemberProfileImageUrl")
+                        .value("https://asset.matchuri.com/profile/invite-owner.png"))
+                .andExpect(jsonPath("$.data.content[0].requestMemberNickname").value(owner.getNickname()))
+                .andExpect(jsonPath("$.data.content[0].inviteId").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].groupId").doesNotExist())
+                .andExpect(jsonPath("$.data.pageInfo.totalElements").value(1));
+    }
+
+    @Test
+    @DisplayName("내 그룹 초대 존재 여부는 만료되지 않은 PENDING 초대만 반영한다")
+    void getMyInviteExistsReturnsOnlyActivePendingInviteExistence() throws Exception {
+        Member owner = saveMember("invite-exist-owner", "초대존재방장");
+        Member target = saveMember("invite-exist-target", "초대존재대상");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "초대 존재 그룹");
+        String accessToken = accessToken(target);
+
+        mockMvc.perform(get("/api/v1/invites/me/exists")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.exists").value(false))
+                .andExpect(jsonPath("$.error").value(nullValue()));
+
+        GroupInvite declinedInvite = saveInvite(groupRoom, owner, target, LocalDateTime.now().plusHours(1));
+        declinedInvite.decline(LocalDateTime.now());
+        groupInviteRepository.save(declinedInvite);
+        saveInvite(groupRoom, owner, target, LocalDateTime.now().minusMinutes(1));
+
+        mockMvc.perform(get("/api/v1/invites/me/exists")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.exists").value(false));
+
+        saveInvite(groupRoom, owner, target, LocalDateTime.now().plusHours(2));
+
+        mockMvc.perform(get("/api/v1/invites/me/exists")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.exists").value(true));
+    }
+
+    @Test
     @DisplayName("내 그룹 초대 목록은 현재 회원이 받은 PENDING 초대를 기본 조회한다")
     void getMyInvitesReturnsPendingInvitesForCurrentTargetMember() throws Exception {
         Member owner = saveMember("my-invite-owner", "내초대방장");
@@ -2679,6 +3070,256 @@ class GroupIntegrationTest {
         assertThat(groupInviteRepository.findById(invite.getId()).orElseThrow().getStatus())
                 .isEqualTo(GroupInviteStatus.PENDING);
         assertThat(groupRoomMemberRepository.findByRoomIdAndMemberId(groupRoom.getId(), target.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("그룹 초대 링크 신규 발급은 OWNER에게 HTTP 응답 계약을 반환한다")
+    void createInviteLinkReturnsContractForOwner() throws Exception {
+        Member owner = saveMember("link-create-owner", "링크발급방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 발급 그룹");
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.groupId").value(groupRoom.getId()))
+                .andExpect(jsonPath("$.data.token").isString())
+                .andExpect(jsonPath("$.data.expiresAt").isNotEmpty());
+
+        assertThat(groupInviteLinkRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("그룹 초대 링크 발급은 OWNER가 아니면 거절한다")
+    void createInviteLinkFailsForNonOwner() throws Exception {
+        Member owner = saveMember("link-forbidden-owner", "링크권한방장");
+        Member member = saveMember("link-forbidden-member", "링크권한멤버");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 권한 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(
+                groupRoom,
+                member,
+                GroupMemberRole.MEMBER,
+                LocalDateTime.now()
+        ));
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_FORBIDDEN"));
+
+        assertThat(groupInviteLinkRepository.count()).isZero();
+    }
+
+    @Test
+    @DisplayName("그룹 초대 링크 재발급은 기존 링크를 즉시 만료시키고 새 링크를 발급한다")
+    void reissueInviteLinkExpiresCurrentLinkAndCreatesNewLink() throws Exception {
+        Member owner = saveMember("link-reissue-owner", "링크재발급방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 재발급 그룹");
+        String oldToken = "22222222-2222-2222-2222-222222222222";
+        GroupInviteLink oldInviteLink = saveInviteLink(groupRoom, oldToken, LocalDateTime.now().plusHours(1));
+        LocalDateTime reissuedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/invite-link/reissue", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.groupId").value(groupRoom.getId()))
+                .andExpect(jsonPath("$.data.token").value(org.hamcrest.Matchers.not(oldToken)))
+                .andExpect(jsonPath("$.data.expiresAt").isNotEmpty());
+
+        GroupInviteLink expiredLink = groupInviteLinkRepository.findById(oldInviteLink.getId()).orElseThrow();
+        GroupInviteLink currentLink = groupInviteLinkRepository
+                .findFirstByRoomIdAndExpiresAtAfterOrderByCreatedAtDescIdDesc(groupRoom.getId(), LocalDateTime.now())
+                .orElseThrow();
+        assertThat(expiredLink.getExpiresAt()).isAfterOrEqualTo(reissuedAt);
+        assertThat(expiredLink.getExpiresAt()).isBeforeOrEqualTo(LocalDateTime.now());
+        assertThat(currentLink.getToken()).isNotEqualTo(oldToken);
+        assertThat(groupInviteLinkRepository.count()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("현재 그룹 초대 링크 조회는 OWNER에게 만료되지 않은 링크를 반환한다")
+    void getCurrentInviteLinkReturnsActiveLinkToOwner() throws Exception {
+        Member owner = saveMember("link-get-owner", "링크조회방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 조회 그룹");
+        String token = "77777777-7777-7777-7777-777777777777";
+        saveInviteLink(groupRoom, token, LocalDateTime.now().plusHours(1));
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.groupId").value(groupRoom.getId()))
+                .andExpect(jsonPath("$.data.token").value(token))
+                .andExpect(jsonPath("$.data.expiresAt").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("현재 그룹 초대 링크가 없으면 OWNER에게 빈 성공 응답을 반환한다")
+    void getCurrentInviteLinkReturnsNullDataWhenNoActiveLink() throws Exception {
+        Member owner = saveMember("link-get-empty-owner", "링크미발급방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 미발급 그룹");
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(nullValue()))
+                .andExpect(jsonPath("$.error").value(nullValue()));
+
+        assertThat(groupInviteLinkRepository.count()).isZero();
+    }
+
+    @Test
+    @DisplayName("현재 그룹 초대 링크 조회는 OWNER가 아니면 빈 링크도 반환하지 않는다")
+    void getCurrentInviteLinkRejectsNonOwner() throws Exception {
+        Member owner = saveMember("link-get-forbidden-owner", "링크조회권한방장");
+        Member member = saveMember("link-get-forbidden-member", "링크조회권한멤버");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 조회 권한 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(
+                groupRoom,
+                member,
+                GroupMemberRole.MEMBER,
+                LocalDateTime.now()
+        ));
+
+        mockMvc.perform(get("/api/v1/groups/{groupId}/invite-link", groupRoom.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("초대 링크 미리보기는 로그인 없이 그룹명, 방장 닉네임, 활성 그룹원 수만 반환한다")
+    void previewInviteLinkReturnsPublicGroupSummaryWithoutJoining() throws Exception {
+        Member owner = saveMember("link-preview-owner", "미리보기방장");
+        Member activeMember = saveMember("link-preview-active", "활성그룹원");
+        Member leftMember = saveMember("link-preview-left", "탈퇴그룹원");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "미리보기 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(
+                groupRoom, activeMember, GroupMemberRole.MEMBER, LocalDateTime.now()));
+        GroupRoomMember leftMembership = groupRoomMemberRepository.save(new GroupRoomMember(
+                groupRoom, leftMember, GroupMemberRole.MEMBER, LocalDateTime.now()));
+        leftMembership.leave(LocalDateTime.now());
+        groupRoomMemberRepository.save(leftMembership);
+        String token = "88888888-8888-4888-8888-888888888888";
+        saveInviteLink(groupRoom, token, LocalDateTime.now().plusHours(1));
+
+        mockMvc.perform(post("/api/v1/groups/invite-links/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s"}
+                                """.formatted(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.groupName").value("미리보기 그룹"))
+                .andExpect(jsonPath("$.data.ownerNickname").value("미리보기방장"))
+                .andExpect(jsonPath("$.data.memberCount").value(2))
+                .andExpect(jsonPath("$.data.groupId").doesNotExist())
+                .andExpect(jsonPath("$.data.token").doesNotExist())
+                .andExpect(jsonPath("$.data.inviteCode").doesNotExist());
+
+        assertThat(groupRoomMemberRepository.count()).isEqualTo(3);
+        assertThat(groupInviteLinkRepository.findByToken(token)).isPresent();
+    }
+
+    @Test
+    @DisplayName("초대 링크 미리보기는 존재하지 않는 토큰을 404로 반환한다")
+    void previewInviteLinkRejectsMissingToken() throws Exception {
+        mockMvc.perform(post("/api/v1/groups/invite-links/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"99999999-9999-4999-8999-999999999999"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_LINK_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("초대 링크 미리보기는 UUID 형식이 아닌 토큰을 400으로 거절한다")
+    void previewInviteLinkRejectsMalformedToken() throws Exception {
+        mockMvc.perform(post("/api/v1/groups/invite-links/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"not-a-uuid"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_INVALID_BODY_FIELD"));
+    }
+
+    @Test
+    @DisplayName("초대 링크 미리보기는 만료된 토큰을 409로 반환한다")
+    void previewInviteLinkRejectsExpiredToken() throws Exception {
+        Member owner = saveMember("link-preview-expired-owner", "만료방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "만료 그룹");
+        String token = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        saveInviteLink(groupRoom, token, LocalDateTime.now().minusMinutes(1));
+
+        mockMvc.perform(post("/api/v1/groups/invite-links/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s"}
+                                """.formatted(token)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("GROUP_INVITE_LINK_EXPIRED"));
+    }
+
+    @Test
+    @DisplayName("초대 링크 미리보기는 비활성 그룹을 반환하지 않는다")
+    void previewInviteLinkRejectsInactiveGroup() throws Exception {
+        Member owner = saveMember("link-preview-closed-owner", "종료방장");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "종료 그룹");
+        String token = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        saveInviteLink(groupRoom, token, LocalDateTime.now().plusHours(1));
+        groupRoom.close();
+        groupRoomRepository.save(groupRoom);
+
+        mockMvc.perform(post("/api/v1/groups/invite-links/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s"}
+                                """.formatted(token)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("GROUP_NOT_ACTIVE"));
+    }
+
+    @Test
+    @DisplayName("초대 링크 입장은 유효한 토큰으로 신규 멤버를 ACTIVE 상태로 저장한다")
+    void joinGroupByInviteLinkCreatesActiveMember() throws Exception {
+        Member owner = saveMember("link-join-owner", "링크입장방장");
+        Member newMember = saveMember("link-join-member", "링크입장멤버");
+        GroupRoom groupRoom = saveGroupOwnedBy(owner, "링크 입장 그룹");
+        String token = "44444444-4444-4444-8444-444444444444";
+        saveInviteLink(groupRoom, token, LocalDateTime.now().plusHours(1));
+
+        mockMvc.perform(post("/api/v1/groups/invite-links/join")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(newMember)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "token": "%s"
+                                }
+                                """.formatted(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.groupId").value(groupRoom.getId()))
+                .andExpect(jsonPath("$.data.memberStatus").value(GroupMemberStatus.ACTIVE.name()));
+
+        assertThat(groupRoomMemberRepository.findByRoomIdAndMemberId(groupRoom.getId(), newMember.getId()))
+                .get()
+                .extracting(GroupRoomMember::getStatus)
+                .isEqualTo(GroupMemberStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("초대 링크 입장은 인증되지 않은 요청을 거절한다")
+    void joinGroupByInviteLinkRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/groups/invite-links/join")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "token": "550e8400-e29b-41d4-a716-446655440000"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_TOKEN_MISSING"));
     }
 
     @Test
@@ -2938,6 +3579,11 @@ class GroupIntegrationTest {
         GroupInvite declinedInvite = saveInvite(groupRoom, owner, leftMember, LocalDateTime.now().plusHours(1));
         declinedInvite.decline(LocalDateTime.now());
         groupInviteRepository.save(declinedInvite);
+        GroupInviteLink inviteLink = saveInviteLink(
+                groupRoom,
+                "66666666-6666-6666-6666-666666666666",
+                LocalDateTime.now().plusHours(1)
+        );
 
         mockMvc.perform(delete("/api/v1/groups/{groupId}", groupRoom.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
@@ -2959,6 +3605,7 @@ class GroupIntegrationTest {
                 .orElseThrow();
         GroupInvite savedPendingInvite = groupInviteRepository.findById(pendingInvite.getId()).orElseThrow();
         GroupInvite savedDeclinedInvite = groupInviteRepository.findById(declinedInvite.getId()).orElseThrow();
+        GroupInviteLink expiredInviteLink = groupInviteLinkRepository.findById(inviteLink.getId()).orElseThrow();
 
         assertThat(deletedGroup.getStatus()).isEqualTo(GroupRoomStatus.DELETED);
         assertThat(ownerMembership.getStatus()).isEqualTo(GroupMemberStatus.LEFT);
@@ -2969,6 +3616,7 @@ class GroupIntegrationTest {
         assertThat(savedLeftMembership.getLeftAt()).isEqualTo(alreadyLeftAt);
         assertThat(savedPendingInvite.getStatus()).isEqualTo(GroupInviteStatus.REVOKED);
         assertThat(savedDeclinedInvite.getStatus()).isEqualTo(GroupInviteStatus.DECLINED);
+        assertThat(expiredInviteLink.isExpired(LocalDateTime.now())).isTrue();
     }
 
     @Test
@@ -3092,6 +3740,31 @@ class GroupIntegrationTest {
         return groupLocationRepository.findFirstByRoomIdOrderByCreatedAtDescIdDesc(groupRoom.getId()).orElseThrow();
     }
 
+    private GroupRecommendation preparing(
+            GroupRoom room,
+            String contextJson,
+            LocalDateTime createdAt
+    ) {
+        GroupRecommendation recommendation = GroupRecommendation.preparing(room);
+        recommendation.saveContextJson(contextJson);
+        return jpaAuditTimeFixture.persistGroupRecommendationAt(
+                recommendation,
+                createdAt
+        );
+    }
+
+    private GroupRecommendation open(
+            GroupRoom room,
+            String contextJson,
+            LocalDateTime createdAt,
+            LocalDateTime startedAt
+    ) {
+        return jpaAuditTimeFixture.persistGroupRecommendationAt(
+                new GroupRecommendation(room, contextJson, startedAt),
+                createdAt
+        );
+    }
+
     private GroupInvite saveInvite(
             GroupRoom groupRoom,
             Member createdByMember,
@@ -3099,6 +3772,10 @@ class GroupIntegrationTest {
             LocalDateTime expiresAt
     ) {
         return groupInviteRepository.save(new GroupInvite(groupRoom, createdByMember, targetMember, expiresAt));
+    }
+
+    private GroupInviteLink saveInviteLink(GroupRoom groupRoom, String token, LocalDateTime expiresAt) {
+        return groupInviteLinkRepository.save(new GroupInviteLink(groupRoom, token, expiresAt));
     }
 
     private void leaveOwnerMembership(GroupRoom groupRoom, Member member) {

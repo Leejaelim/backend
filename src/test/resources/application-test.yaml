@@ -5,6 +5,7 @@ spring:
     username: sa
     password:
   jpa:
+    show-sql: false
     hibernate:
       ddl-auto: create-drop
     properties:
@@ -60,6 +61,8 @@ logging:
   level:
     root: WARN
     matchuri.backend: INFO
+    net.ttddyy.dsproxy.listener: WARN
+    org.springframework.web: WARN
 
 captcha:
   provider: google
@@ -71,6 +74,8 @@ captcha:
     read-timeout-millis: 1000
 
 matchuri:
+  query-monitor:
+    enabled: true
   auth:
     public-api-patterns:
       - /error
@@ -85,6 +90,7 @@ matchuri:
       - /login/oauth2/code/**
       - /docs/**
     public-post-api-patterns:
+      - /api/v2/members/signup
       - /api/v1/members/signup
       - /api/v1/members
       - /api/v1/auth/login
@@ -95,6 +101,7 @@ matchuri:
       - /api/v1/auth/recovery/login-id
       - /api/v1/auth/recovery/password
       - /api/v1/guest/recommendations
+      - /api/v1/groups/invite-links/preview
     public-options-api-patterns:
       - /**
     cors:

@@ -16,17 +16,24 @@ import lombok.RequiredArgsConstructor;
 import matchuri.backend.domain.behavior.entity.ActionType;
 import matchuri.backend.domain.behavior.entity.MemberMenuAction;
 import matchuri.backend.domain.behavior.repository.MemberMenuActionRepository;
+import matchuri.backend.domain.image.support.ImageUrlResolver;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberTasteProfile;
-import matchuri.backend.domain.member.support.member.ActiveMemberReader;
+import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.menu.entity.AttributeCategory;
+import matchuri.backend.domain.menu.entity.CategoryType;
 import matchuri.backend.domain.menu.entity.Ingredient;
 import matchuri.backend.domain.menu.entity.MenuAttributeCategory;
 import matchuri.backend.domain.menu.entity.MenuItem;
 import matchuri.backend.domain.menu.repository.AttributeCategoryRepository;
 import matchuri.backend.domain.menu.repository.IngredientRepository;
+import matchuri.backend.domain.menu.repository.MenuAttributeCategoryIdRow;
+import matchuri.backend.domain.menu.repository.MenuAttributeCategoryRepository;
+import matchuri.backend.domain.menu.repository.MenuIngredientIdRow;
 import matchuri.backend.domain.menu.repository.MenuIngredientRepository;
 import matchuri.backend.domain.menu.repository.MenuItemRepository;
+import matchuri.backend.domain.menu.repository.MenuRecommendationRow;
+import matchuri.backend.domain.menu.result.MenuAttributeCategoryResult;
 import matchuri.backend.domain.menu.support.MenuThumbnailUrlResolver;
 import matchuri.backend.domain.recommendation.algorithm.MenuRecommendationAlgorithm;
 import matchuri.backend.domain.recommendation.algorithm.MenuRecommendationAlgorithmResolver;
@@ -47,11 +54,14 @@ import matchuri.backend.domain.recommendation.entity.PersonalRecommendationRerol
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationStatus;
 import matchuri.backend.domain.recommendation.exception.GuestRecommendationErrorCode;
 import matchuri.backend.domain.recommendation.exception.RecommendationErrorCode;
+import matchuri.backend.domain.recommendation.repository.PersonalRecommendationCandidateQueryRow;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationCandidateRepository;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationRepository;
 import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendationCandidateResult;
 import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendationResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationCandidateResult;
+import matchuri.backend.domain.recommendation.result.PersonalRecommendationHomeResult;
+import matchuri.backend.domain.recommendation.result.PersonalRecommendationHistoryResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationSummaryResult;
 import matchuri.backend.domain.recommendation.result.SelectPersonalRecommendationResult;
@@ -66,22 +76,25 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RecommendationServiceImpl implements RecommendationService {
 
+    private static final int HOME_SELECTED_RECOMMENDATION_LIMIT = 3;
     private static final int RECENT_SELECTED_MENU_EXCLUSION_COUNT = 3;
     private static final int RECOMMENDATION_CANDIDATE_LIMIT = 3;
     private static final long RECENT_SKIPPED_MENU_EXCLUSION_HOURS = 24;
     private static final String GUEST_PARTICIPANT_KEY = "guest";
 
-    private final ActiveMemberReader activeMemberReader;
+    private final MemberReader memberReader;
     private final PersonalRecommendationRepository personalRecommendationRepository;
     private final AttributeCategoryRepository attributeCategoryRepository;
     private final IngredientRepository ingredientRepository;
     private final MenuItemRepository menuItemRepository;
+    private final MenuAttributeCategoryRepository menuAttributeCategoryRepository;
     private final MenuIngredientRepository menuIngredientRepository;
     private final PersonalRecommendationCandidateRepository personalRecommendationCandidateRepository;
     private final MemberMenuActionRepository memberMenuActionRepository;
     private final MenuRecommendationAlgorithmResolver menuRecommendationAlgorithmResolver;
     private final PersonalRecommendationExpirationService personalRecommendationExpirationService;
     private final MenuThumbnailUrlResolver menuThumbnailUrlResolver;
+    private final ImageUrlResolver imageUrlResolver;
     private final RecommendationLocationContextJsonFactory recommendationLocationContextJsonFactory;
     private final ObjectMapper objectMapper;
 
@@ -93,8 +106,8 @@ public class RecommendationServiceImpl implements RecommendationService {
      */
     @Override
     @Transactional
-    public PersonalRecommendationResult createPersonalRecommendation(String contextJson) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public PersonalRecommendationResult createPersonalRecommendation(Long memberId, String contextJson) {
+        Member member = memberReader.getActiveMember(memberId);
 
         List<PersonalRecommendation> recommendations =
                 personalRecommendationRepository.findByMemberIdOrderByRequestedAtDescIdDesc(member.getId());
@@ -106,11 +119,12 @@ public class RecommendationServiceImpl implements RecommendationService {
     @Override
     @Transactional(noRollbackFor = BusinessException.class)
     public PersonalRecommendationResult rerollPersonalRecommendation(
+            Long memberId,
             Long sourcePersonalRecommendationId,
             PersonalRecommendationRerollType rerollType,
             String contextJson
     ) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+        Member member = memberReader.getActiveMember(memberId);
         PersonalRecommendation sourceRecommendation = getOwnedPersonalRecommendation(sourcePersonalRecommendationId,
                 member.getId());
 
@@ -168,7 +182,9 @@ public class RecommendationServiceImpl implements RecommendationService {
                 RECOMMENDATION_CANDIDATE_LIMIT,
                 findRecentlySelectedMenuIds(recommendations),
                 findRecentlySkippedMenuIds(member.getId()),
-                countSelectedAttributeCategoryFrequency(recommendations)
+                countSelectedAttributeCategoryFrequency(recommendations),
+                tasteProfile.getPreferAttributeCategories().stream()
+                        .collect(Collectors.toMap(AttributeCategory::getId, AttributeCategory::getCategoryType))
         );
         MenuRecommendationResult recommendationResult = algorithm.recommend(input);
 
@@ -197,40 +213,40 @@ public class RecommendationServiceImpl implements RecommendationService {
     public GuestPersonalRecommendationResult createGuestPersonalRecommendation(
             GuestPersonalRecommendationCommand command
     ) {
-        validateGuestRecommendationCommand(command);
+        Map<Long, CategoryType> categoryTypes = validateGuestRecommendationCommand(command);
 
         MenuRecommendationAlgorithm algorithm =
                 menuRecommendationAlgorithmResolver.resolve(RecommendationAlgorithmType.GUEST_PERSONAL);
-        List<MenuItem> menuItems = menuItemRepository.searchActiveMenuItems(
-                null,
-                List.of(),
-                true,
-                List.of(),
-                true
-        );
-        Map<Long, MenuItem> menuItemById = menuItems.stream()
-                .collect(Collectors.toMap(MenuItem::getId, Function.identity()));
+        List<MenuRecommendationProfile> menuProfiles = findActiveMenuRecommendationProfiles();
+        Map<Long, MenuRecommendationProfile> menuProfileById = menuProfiles.stream()
+                .collect(Collectors.toMap(MenuRecommendationProfile::menuId, Function.identity()));
         MenuRecommendationInput input = new MenuRecommendationInput(
                 RecommendationTargetType.GUEST_PERSONAL,
                 List.of(toGuestTasteProfileSnapshot(command)),
-                toMenuRecommendationProfiles(menuItems),
+                menuProfiles,
                 RecommendationContextSnapshot.of(command.contextJson()),
                 RECOMMENDATION_CANDIDATE_LIMIT,
                 List.of(),
                 List.of(),
-                Map.of()
+                Map.of(),
+                categoryTypes
         );
 
         MenuRecommendationResult recommendationResult = algorithm.recommend(input);
+        Map<Long, String> thumbnailUrlsByMenuId = menuThumbnailUrlResolver.resolveAll(
+                recommendationResult.candidates().stream()
+                        .map(MenuRecommendationCandidateResult::menuId)
+                        .toList()
+        );
 
         List<GuestPersonalRecommendationCandidateResult> candidates = recommendationResult.candidates().stream()
                 .map(candidate -> {
-                    MenuItem menuItem = menuItemById.get(candidate.menuId());
+                    MenuRecommendationProfile menuProfile = menuProfileById.get(candidate.menuId());
 
                     return new GuestPersonalRecommendationCandidateResult(
                             candidate.menuId(),
-                            menuItem.getName(),
-                            menuThumbnailUrlResolver.resolve(candidate.menuId()),
+                            menuProfile.menuName(),
+                            thumbnailUrlsByMenuId.get(candidate.menuId()),
                             candidate.rankNo(),
                             candidate.score()
                     );
@@ -241,8 +257,8 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     @Override
-    public PersonalRecommendationResult getPersonalRecommendation(Long personalRecommendationId) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public PersonalRecommendationResult getPersonalRecommendation(Long memberId, Long personalRecommendationId) {
+        Member member = memberReader.getActiveMember(memberId);
         PersonalRecommendation personalRecommendation = getOwnedPersonalRecommendation(personalRecommendationId,
                 member.getId());
         expirePersonalRecommendationIfNeeded(personalRecommendation, LocalDateTime.now());
@@ -255,26 +271,65 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     @Override
     public List<PersonalRecommendationCandidateResult> getPersonalRecommendationCandidates(
+            Long memberId,
             Long personalRecommendationId
     ) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+        Member member = memberReader.getActiveMember(memberId);
         PersonalRecommendation personalRecommendation = getOwnedPersonalRecommendation(personalRecommendationId,
                 member.getId());
         expirePersonalRecommendationIfNeeded(personalRecommendation, LocalDateTime.now());
 
         return personalRecommendationCandidateRepository
-                .findByPersonalRecommendationIdOrderByRankNoAsc(personalRecommendationId)
+                .findCandidateRowsByPersonalRecommendationId(personalRecommendationId)
                 .stream()
-                .map(candidate -> PersonalRecommendationCandidateResult.from(
-                        candidate,
-                        menuThumbnailUrlResolver.resolve(candidate.getMenuItem().getId())
-                ))
+                .map(this::toPersonalRecommendationCandidateResult)
                 .toList();
     }
 
+    private PersonalRecommendationCandidateResult toPersonalRecommendationCandidateResult(PersonalRecommendationCandidateQueryRow candidate) {
+        return new PersonalRecommendationCandidateResult(
+                candidate.id(),
+                candidate.menuId(),
+                candidate.menuName(),
+                imageUrlResolver.toPublicUrl(candidate.thumbnailObjectKey()),
+                candidate.rankNo(),
+                candidate.score()
+        );
+    }
+
     @Override
-    public Page<@NonNull PersonalRecommendationSummaryResult> getMyPersonalRecommendations(int page, int size) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public PersonalRecommendationHomeResult getHomeRecommendations(Long memberId) {
+        Member member = memberReader.getActiveMember(memberId);
+        expireOpenPersonalRecommendations(member.getId(), LocalDateTime.now());
+        var latest = personalRecommendationRepository
+                .findFirstByMemberIdOrderByRequestedAtDescIdDesc(member.getId())
+                .map(PersonalRecommendationSummaryResult::from)
+                .orElse(null);
+        var selected = personalRecommendationRepository.findRecentSelectedByMemberId(
+                member.getId(), PageRequest.of(0, HOME_SELECTED_RECOMMENDATION_LIMIT));
+        List<Long> menuIds = selected.stream()
+                .map(recommendation -> recommendation.getSelectedMenu().getId()).distinct().toList();
+        Map<Long, List<MenuAttributeCategoryResult>> categories = menuIds.isEmpty() ? Map.of()
+                : menuAttributeCategoryRepository.findDisplayCategoriesByMenuIds(menuIds).stream()
+                        .collect(Collectors.groupingBy(mapping -> mapping.getMenu().getId(),
+                                Collectors.mapping(
+                                        mapping -> MenuAttributeCategoryResult.from(mapping.getAttributeCategory()),
+                                        Collectors.toList())));
+        return new PersonalRecommendationHomeResult(latest, selected.stream()
+                .map(recommendation -> new PersonalRecommendationHomeResult.SelectedRecommendation(
+                        recommendation.getId(), recommendation.getRequestedAt(),
+                        recommendation.getSelectedMenu().getName(),
+                        categories.getOrDefault(recommendation.getSelectedMenu().getId(), List.of())))
+                .toList());
+    }
+
+    @Override
+    public Page<@NonNull PersonalRecommendationSummaryResult> getMyPersonalRecommendations(
+            Long memberId,
+            int page,
+            int size
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
         expireOpenPersonalRecommendations(member.getId(), LocalDateTime.now());
 
         return personalRecommendationRepository
@@ -283,9 +338,73 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     @Override
+    public Page<@NonNull PersonalRecommendationHistoryResult> getMyPersonalRecommendationHistories(
+            Long memberId,
+            int page,
+            int size
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
+        expireOpenPersonalRecommendations(member.getId(), LocalDateTime.now());
+
+        Page<PersonalRecommendation> recommendations = personalRecommendationRepository
+                .findByMemberIdAndStatusOrderByRequestedAtDescIdDesc(member.getId(), PersonalRecommendationStatus.SELECTED, PageRequest.of(page, size));
+        List<Long> recommendationIds = recommendations.stream()
+                .map(PersonalRecommendation::getId)
+                .toList();
+        if (recommendationIds.isEmpty()) {
+            return recommendations.map(recommendation -> PersonalRecommendationHistoryResult.of(
+                    recommendation,
+                    null,
+                    List.of(),
+                    null
+            ));
+        }
+
+        Map<Long, PersonalRecommendationCandidate> representativeCandidates =
+                personalRecommendationCandidateRepository.findRepresentativeCandidates(recommendationIds).stream()
+                        .collect(Collectors.toMap(
+                                candidate -> candidate.getPersonalRecommendation().getId(),
+                                Function.identity()
+                        ));
+        List<Long> menuIds = representativeCandidates.values().stream()
+                .map(PersonalRecommendationCandidate::getMenuItem)
+                .map(MenuItem::getId)
+                .toList();
+        Map<Long, List<String>> tagsByMenuId = menuIds.isEmpty() ? Map.of()
+                : menuAttributeCategoryRepository.findDisplayCategoriesByMenuIds(menuIds).stream()
+                        .collect(Collectors.groupingBy(
+                                mapping -> mapping.getMenu().getId(),
+                                LinkedHashMap::new,
+                                Collectors.mapping(
+                                        mapping -> mapping.getAttributeCategory().getName(),
+                                        Collectors.toList()
+                                )
+                        ));
+        Map<Long, String> thumbnailUrlsByMenuId = menuThumbnailUrlResolver.resolveAll(menuIds);
+
+        return recommendations.map(recommendation -> {
+            PersonalRecommendationCandidate candidate = representativeCandidates.get(recommendation.getId());
+            if (candidate == null) {
+                return PersonalRecommendationHistoryResult.of(recommendation, null, List.of(), null);
+            }
+
+            Long menuId = candidate.getMenuItem().getId();
+            return PersonalRecommendationHistoryResult.of(
+                    recommendation,
+                    candidate,
+                    tagsByMenuId.getOrDefault(menuId, List.of()),
+                    thumbnailUrlsByMenuId.get(menuId)
+            );
+        });
+    }
+
+    @Override
     @Transactional(noRollbackFor = BusinessException.class)
-    public SelectPersonalRecommendationResult selectPersonalRecommendationCandidate(SelectPersonalRecommendationCommand command) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public SelectPersonalRecommendationResult selectPersonalRecommendationCandidate(
+            Long memberId,
+            SelectPersonalRecommendationCommand command
+    ) {
+        Member member = memberReader.getActiveMember(memberId);
         PersonalRecommendation personalRecommendation = getOwnedPersonalRecommendation(command.personalRecommendationId(),
                 member.getId());
 
@@ -420,7 +539,44 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .toList();
     }
 
-    private void validateGuestRecommendationCommand(GuestPersonalRecommendationCommand command) {
+    private List<MenuRecommendationProfile> findActiveMenuRecommendationProfiles() {
+        List<MenuRecommendationRow> menuRows = menuItemRepository.findActiveRecommendationRows();
+        if (menuRows.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> menuIds = menuRows.stream()
+                .map(MenuRecommendationRow::menuId)
+                .toList();
+        Map<Long, List<Long>> attributeCategoryIdsByMenuId = menuAttributeCategoryRepository
+                .findIdRowsByMenuIds(menuIds)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        MenuAttributeCategoryIdRow::menuId,
+                        LinkedHashMap::new,
+                        Collectors.mapping(MenuAttributeCategoryIdRow::attributeCategoryId, Collectors.toList())
+                ));
+        Map<Long, List<Long>> ingredientIdsByMenuId = menuIngredientRepository
+                .findIdRowsByMenuIds(menuIds)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        MenuIngredientIdRow::menuId,
+                        LinkedHashMap::new,
+                        Collectors.mapping(MenuIngredientIdRow::ingredientId, Collectors.toList())
+                ));
+
+        return menuRows.stream()
+                .map(row -> new MenuRecommendationProfile(
+                        row.menuId(),
+                        row.menuCode(),
+                        row.menuName(),
+                        attributeCategoryIdsByMenuId.getOrDefault(row.menuId(), List.of()),
+                        ingredientIdsByMenuId.getOrDefault(row.menuId(), List.of())
+                ))
+                .toList();
+    }
+
+    private Map<Long, CategoryType> validateGuestRecommendationCommand(GuestPersonalRecommendationCommand command) {
         validateNoDuplicateIds(
                 command.attributeCategoryIds(),
                 GuestRecommendationErrorCode.DUPLICATE_ATTRIBUTE_CATEGORY
@@ -434,9 +590,10 @@ public class RecommendationServiceImpl implements RecommendationService {
                 GuestRecommendationErrorCode.DUPLICATE_DISLIKED_MENU_ITEM
         );
 
-        validateActiveAttributeCategoryIds(command.attributeCategoryIds());
+        Map<Long, CategoryType> categoryTypes = validateActiveAttributeCategoryIds(command.attributeCategoryIds());
         validateActiveRestrictionIngredientIds(command.restrictionIngredientIds());
         validateActiveDislikedMenuItemIds(command.dislikedMenuItemIds());
+        return categoryTypes;
     }
 
     private void validateNoDuplicateIds(List<Long> ids, GuestRecommendationErrorCode errorCode) {
@@ -447,7 +604,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         throw new BusinessException(errorCode, ids);
     }
 
-    private void validateActiveAttributeCategoryIds(List<Long> attributeCategoryIds) {
+    private Map<Long, CategoryType> validateActiveAttributeCategoryIds(List<Long> attributeCategoryIds) {
         if (attributeCategoryIds.stream().anyMatch(Objects::isNull)) {
             throw new BusinessException(GuestRecommendationErrorCode.INVALID_ATTRIBUTE_CATEGORY, attributeCategoryIds);
         }
@@ -457,6 +614,8 @@ public class RecommendationServiceImpl implements RecommendationService {
         if (attributeCategories.size() != attributeCategoryIds.size()) {
             throw new BusinessException(GuestRecommendationErrorCode.INVALID_ATTRIBUTE_CATEGORY, attributeCategoryIds);
         }
+        return attributeCategories.stream()
+                .collect(Collectors.toMap(AttributeCategory::getId, AttributeCategory::getCategoryType));
     }
 
     private void validateActiveRestrictionIngredientIds(List<Long> restrictionIngredientIds) {

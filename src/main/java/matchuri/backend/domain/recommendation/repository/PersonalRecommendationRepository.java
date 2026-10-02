@@ -11,7 +11,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 @NullMarked
-public interface PersonalRecommendationRepository extends JpaRepository<PersonalRecommendation, Long> {
+public interface PersonalRecommendationRepository extends JpaRepository<PersonalRecommendation, Long>,
+        PersonalRecommendationRepositoryCustom {
+
+    Optional<PersonalRecommendation> findFirstByMemberIdOrderByRequestedAtDescIdDesc(Long memberId);
+
     List<PersonalRecommendation> findByMemberId(Long memberId);
 
     List<PersonalRecommendation> findByMemberIdOrderByRequestedAtDescIdDesc(Long memberId);
@@ -30,4 +34,6 @@ public interface PersonalRecommendationRepository extends JpaRepository<Personal
             PersonalRecommendationStatus status,
             LocalDateTime requestedAt
     );
+
+    Page<PersonalRecommendation> findByMemberIdAndStatusOrderByRequestedAtDescIdDesc(Long memberId, PersonalRecommendationStatus status, Pageable pageable);
 }

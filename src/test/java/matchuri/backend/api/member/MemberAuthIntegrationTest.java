@@ -36,6 +36,11 @@ import matchuri.backend.domain.auth.exception.AuthErrorCode;
 import matchuri.backend.domain.auth.service.CaptchaPurpose;
 import matchuri.backend.domain.auth.service.CaptchaVerifier;
 import matchuri.backend.domain.auth.support.verification.EmailVerificationTokenGenerator;
+import matchuri.backend.domain.image.entity.ImageAsset;
+import matchuri.backend.domain.image.entity.ImageStorageProvider;
+import matchuri.backend.domain.image.entity.PresetProfileImage;
+import matchuri.backend.domain.image.repository.ImageAssetRepository;
+import matchuri.backend.domain.image.repository.PresetProfileImageRepository;
 import matchuri.backend.domain.member.entity.AgreementType;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberAgreement;
@@ -48,6 +53,7 @@ import matchuri.backend.domain.member.entity.MemberTasteProfileRestrictionIngred
 import matchuri.backend.domain.member.entity.SocialProviderType;
 import matchuri.backend.domain.member.repository.MemberAgreementRepository;
 import matchuri.backend.domain.member.repository.MemberLocationRepository;
+import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
@@ -89,6 +95,15 @@ class MemberAuthIntegrationTest {
 
     @Autowired
     private MemberRepository memberRepository;
+
+    @Autowired
+    private MemberProfileImageRepository memberProfileImageRepository;
+
+    @Autowired
+    private PresetProfileImageRepository presetProfileImageRepository;
+
+    @Autowired
+    private ImageAssetRepository imageAssetRepository;
 
     @Autowired
     private AuthRefreshTokenRepository authRefreshTokenRepository;
@@ -150,7 +165,26 @@ class MemberAuthIntegrationTest {
         attributeCategoryRepository.deleteAll();
         ingredientRepository.deleteAll();
         menuItemRepository.deleteAll();
+        memberProfileImageRepository.deleteAll();
         memberRepository.deleteAll();
+        presetProfileImageRepository.deleteAll();
+        imageAssetRepository.deleteAll();
+        createDefaultPresetProfileImage();
+    }
+
+    private void createDefaultPresetProfileImage() {
+        ImageAsset asset = imageAssetRepository.save(new ImageAsset(
+                ImageStorageProvider.CLOUDFLARE_R2,
+                "test-bucket",
+                "preset-profile/default.png",
+                "default.png",
+                "image/png",
+                1024,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                320,
+                320
+        ));
+        presetProfileImageRepository.save(new PresetProfileImage(asset, true));
     }
 
     @Test
@@ -208,8 +242,11 @@ class MemberAuthIntegrationTest {
     }
 
     @AfterEach
-    void cleanUpMemberLocations() {
+    void cleanUpMemberLocationsAndProfileImages() {
         memberLocationRepository.deleteAll();
+        memberProfileImageRepository.deleteAll();
+        presetProfileImageRepository.deleteAll();
+        imageAssetRepository.deleteAll();
     }
 
     @Test
@@ -271,6 +308,124 @@ class MemberAuthIntegrationTest {
                 .andExpect(jsonPath("$.data.nickname").value("점심탐험가"))
                 .andExpect(jsonPath("$.data.isSocial").value(false))
                 .andExpect(jsonPath("$.data.email").value("signup@example.com"));
+    }
+
+    @Test
+    @DisplayName("자체 회원가입 v2는 회원과 약관, 초기 취향 프로필을 원자적으로 저장한다")
+    void registerLocalMemberV2WithTasteProfile() throws Exception {
+        AttributeCategory attributeCategory = attributeCategoryRepository.save(
+                new AttributeCategory(CategoryType.FLAVOR, "SIGNUP_SPICY", "가입 매운맛", 10)
+        );
+        Ingredient ingredient = ingredientRepository.save(
+                new Ingredient("SIGNUP_PEANUT", "가입 땅콩", true, 10)
+        );
+        MenuItem menuItem = menuItemRepository.save(
+                new MenuItem("SIGNUP_PORK_CUTLET", "가입 돈까스", "가입용 돈까스")
+        );
+        String emailVerificationToken = issueSignupEmailVerificationToken("signup-v2@example.com");
+
+        mockMvc.perform(post("/api/v2/members/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "signup-v2-user",
+                                  "password": "P@ssw0rd!",
+                                  "nickname": "취향가입자",
+                                  "email": "signup-v2@example.com",
+                                  "emailVerificationToken": "%s",
+                                  "agreements": [
+                                    {
+                                      "agreementType": "TERMS_OF_SERVICE",
+                                      "agreementVersion": "2026-04-10"
+                                    },
+                                    {
+                                      "agreementType": "PRIVACY_POLICY",
+                                      "agreementVersion": "2026-04-10"
+                                    }
+                                  ],
+                                  "tasteProfile": {
+                                    "attributeCategoryIds": [%d],
+                                    "restrictionIngredientIds": [%d],
+                                    "dislikedMenuItemIds": [%d]
+                                  }
+                                }
+                                """.formatted(
+                                emailVerificationToken,
+                                attributeCategory.getId(),
+                                ingredient.getId(),
+                                menuItem.getId()
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.loginId").value("signup-v2-user"))
+                .andExpect(jsonPath("$.data.email").value("signup-v2@example.com"))
+                .andExpect(jsonPath("$.data.nickname").value("취향가입자"))
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+
+        Member member = memberRepository.findByLoginId("signup-v2-user").orElseThrow();
+        MemberTasteProfile profile = memberTasteProfileRepository.findByMemberId(member.getId()).orElseThrow();
+        assertThat(memberAgreementRepository.count()).isEqualTo(2);
+        assertThat(memberTasteProfileCategoryRepository.findAllByProfileId(profile.getId())).hasSize(1);
+        assertThat(memberTasteProfileRestrictionIngredientRepository.findAllByProfileId(profile.getId())).hasSize(1);
+        assertThat(memberTasteProfileDislikedMenuItemRepository.findAllByProfileId(profile.getId())).hasSize(1);
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "signup-v2-user",
+                                  "password": "P@ssw0rd!",
+                                  "captchaToken": "test-captcha-token"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.onboarding.tasteProfileCompleted").value(true))
+                .andExpect(jsonPath("$.data.onboarding.completed").value(true))
+                .andExpect(jsonPath("$.data.onboarding.nextStep").value("READY"));
+    }
+
+    @Test
+    @DisplayName("자체 회원가입 v2는 취향 프로필 검증 실패 시 회원과 약관, 이메일 token 사용을 롤백한다")
+    void registerLocalMemberV2RollsBackWhenTasteProfileIsInvalid() throws Exception {
+        String emailVerificationToken = issueSignupEmailVerificationToken("signup-v2-rollback@example.com");
+
+        mockMvc.perform(post("/api/v2/members/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "signup-v2-rollback",
+                                  "password": "P@ssw0rd!",
+                                  "nickname": "취향롤백",
+                                  "email": "signup-v2-rollback@example.com",
+                                  "emailVerificationToken": "%s",
+                                  "agreements": [
+                                    {
+                                      "agreementType": "TERMS_OF_SERVICE",
+                                      "agreementVersion": "2026-04-10"
+                                    },
+                                    {
+                                      "agreementType": "PRIVACY_POLICY",
+                                      "agreementVersion": "2026-04-10"
+                                    }
+                                  ],
+                                  "tasteProfile": {
+                                    "attributeCategoryIds": [999999],
+                                    "restrictionIngredientIds": [],
+                                    "dislikedMenuItemIds": []
+                                  }
+                                }
+                                """.formatted(emailVerificationToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("MEMBER_INVALID_TASTE_ATTRIBUTE_CATEGORY"));
+
+        assertThat(memberRepository.findByLoginId("signup-v2-rollback")).isEmpty();
+        assertThat(memberAgreementRepository.count()).isZero();
+        assertThat(memberTasteProfileRepository.count()).isZero();
+        assertThat(emailVerificationRepository.findByVerificationTokenHash(
+                emailVerificationTokenGenerator.hashToken(emailVerificationToken)
+        )).isPresent()
+                .get()
+                .extracting(EmailVerification::getVerificationTokenUsedAt)
+                .isNull();
     }
 
     @Test
@@ -694,7 +849,10 @@ class MemberAuthIntegrationTest {
         mockMvc.perform(delete("/api/v1/members/me")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("INACTIVE"));
+                .andExpect(jsonPath("$.data.id").isNumber())
+                .andExpect(jsonPath("$.data.status").value("DELETED"))
+                .andExpect(jsonPath("$.data.deletedAt").doesNotExist())
+                .andExpect(jsonPath("$.data.purgeAt").doesNotExist());
 
         mockMvc.perform(get("/api/v1/members/me")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
@@ -1252,10 +1410,39 @@ class MemberAuthIntegrationTest {
                 .andExpect(jsonPath("$.data.id").isNumber())
                 .andExpect(jsonPath("$.data.onboarding.requiredAgreementsCompleted").value(true))
                 .andExpect(jsonPath("$.data.onboarding.nicknameCompleted").value(true))
-                .andExpect(jsonPath("$.data.onboarding.completed").value(true))
-                .andExpect(jsonPath("$.data.onboarding.nextStep").value("READY"));
+                .andExpect(jsonPath("$.data.onboarding.tasteProfileCompleted").value(false))
+                .andExpect(jsonPath("$.data.onboarding.completed").value(false))
+                .andExpect(jsonPath("$.data.onboarding.nextStep").value("REQUIRED_TASTE_PROFILE"));
 
         assertThat(memberRepository.findById(member.getId()).orElseThrow().isNicknameCompleted()).isTrue();
+
+        authRefreshTokenRepository.save(AuthRefreshToken.issue(
+                member, "taste-onboarding-refresh-token", LocalDateTime.now().plusDays(1)));
+        Cookie refreshCookie = new Cookie("matchuri_refresh_token", "taste-onboarding-refresh-token");
+        MvcResult refreshResult = mockMvc.perform(post("/api/v1/auth/refresh").cookie(refreshCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.onboarding.tasteProfileCompleted").value(false))
+                .andExpect(jsonPath("$.data.onboarding.nextStep").value("REQUIRED_TASTE_PROFILE"))
+                .andReturn();
+
+        mockMvc.perform(patch("/api/v1/members/me/taste-profile")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "attributeCategoryIds": [],
+                                  "restrictionIngredientIds": [],
+                                  "dislikedMenuItemIds": []
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .cookie(refreshResult.getResponse().getCookie("matchuri_refresh_token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.onboarding.tasteProfileCompleted").value(true))
+                .andExpect(jsonPath("$.data.onboarding.completed").value(true))
+                .andExpect(jsonPath("$.data.onboarding.nextStep").value("READY"));
 
         mockMvc.perform(get("/api/v1/members/me")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
@@ -1342,8 +1529,8 @@ class MemberAuthIntegrationTest {
     }
 
     @Test
-    @DisplayName("탈퇴한 회원은 다시 로컬 로그인할 수 없다")
-    void withdrawnMemberCannotLoginAgain() throws Exception {
+    @DisplayName("탈퇴 대기 회원은 올바른 자격 증명을 제출해도 로그인할 수 없다")
+    void withdrawnMemberCannotLogin() throws Exception {
         createMemberThroughApi("withdrawn-user", "P@ssw0rd!");
         AuthSession authSession = login("withdrawn-user", "P@ssw0rd!");
         String accessToken = submitRequiredAgreements(authSession.accessToken());
@@ -1351,7 +1538,10 @@ class MemberAuthIntegrationTest {
         mockMvc.perform(delete("/api/v1/members/me")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("INACTIVE"));
+                .andExpect(jsonPath("$.data.id").isNumber())
+                .andExpect(jsonPath("$.data.status").value("DELETED"))
+                .andExpect(jsonPath("$.data.deletedAt").doesNotExist())
+                .andExpect(jsonPath("$.data.purgeAt").doesNotExist());
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -1364,6 +1554,23 @@ class MemberAuthIntegrationTest {
                                 """))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("MEMBER_INACTIVE_MEMBER"));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "withdrawn-user",
+                                  "password": "wrong-password!1",
+                                  "captchaToken": "test-captcha-token"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_LOGIN_FAILED"));
+
+        Member deletedMember = memberRepository.findByLoginId("withdrawn-user").orElseThrow();
+        assertThat(deletedMember.getStatus()).isEqualTo(MemberStatus.DELETED);
+        assertThat(deletedMember.getDeletedAt()).isNotNull();
+        assertThat(deletedMember.getPurgeAt()).isNotNull();
     }
 
     @Test

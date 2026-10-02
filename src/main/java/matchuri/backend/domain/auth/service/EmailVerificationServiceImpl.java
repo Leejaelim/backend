@@ -19,11 +19,13 @@ import matchuri.backend.domain.auth.support.verification.EmailVerificationPolicy
 import matchuri.backend.domain.auth.support.verification.EmailVerificationTokenGenerator;
 import matchuri.backend.domain.auth.support.verification.VerificationCodeGenerator;
 import matchuri.backend.domain.auth.support.verification.VerificationCodeHasher;
+import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberStatus;
 import matchuri.backend.domain.member.exception.MemberErrorCode;
 import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.global.exception.AuthenticationException;
 import matchuri.backend.global.exception.BusinessException;
+import matchuri.backend.global.exception.RequestValidationException;
 import org.springframework.mail.MailException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +46,8 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     @Override
     @Transactional(noRollbackFor = BusinessException.class)
     public SendEmailVerificationResult sendVerificationEmail(SendEmailVerificationCommand command) {
+        validateConditionalFields(command);
+
         LocalDateTime now = LocalDateTime.now();
         List<EmailVerification> pendingVerifications = repository.findAllByTargetAndStatus(
                 command.email(),
@@ -58,7 +62,8 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
             throw new BusinessException(MemberErrorCode.DUPLICATE_EMAIL, command.email());
         }
 
-        if (!shouldSend(command)) {
+        Optional<Member> targetMember = findTargetMember(command);
+        if (command.purpose() != EmailVerificationPurpose.SIGNUP && targetMember.isEmpty()) {
             expirePrevious(pendingVerifications);
             return SendEmailVerificationResult.accepted(policy.resendCooldownSeconds());
         }
@@ -79,6 +84,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
                 policy.codeExpiresAt(now),
                 now
         );
+        targetMember.ifPresent(emailVerification::assignMember);
         repository.save(emailVerification);
 
         try {
@@ -97,6 +103,8 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     @Override
     @Transactional(noRollbackFor = AuthenticationException.class)
     public ConfirmEmailVerificationResult confirmVerificationEmail(ConfirmEmailVerificationCommand command) {
+        validateConditionalFields(command);
+
         LocalDateTime now = LocalDateTime.now();
         EmailVerification verification = findLatestPending(command)
                 .orElseThrow(() -> new AuthenticationException(AuthErrorCode.EMAIL_VERIFICATION_FAILED));
@@ -124,6 +132,26 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
         return ConfirmEmailVerificationResult.verified(token, policy.tokenTtlSeconds());
     }
 
+    private void validateConditionalFields(SendEmailVerificationCommand command) {
+        if (command.purpose() == EmailVerificationPurpose.RESET_PASSWORD
+                && (command.loginId() == null || command.loginId().isBlank())) {
+            throw RequestValidationException.invalidBodyField(
+                    "loginId",
+                    "RESET_PASSWORD 목적에서는 loginId가 필요합니다."
+            );
+        }
+    }
+
+    private void validateConditionalFields(ConfirmEmailVerificationCommand command) {
+        if (command.purpose() == EmailVerificationPurpose.RESET_PASSWORD
+                && (command.loginId() == null || command.loginId().isBlank())) {
+            throw RequestValidationException.invalidBodyField(
+                    "loginId",
+                    "RESET_PASSWORD 목적에서는 loginId가 필요합니다."
+            );
+        }
+    }
+
     private long resendCooldownRemainingSeconds(List<EmailVerification> pendingVerifications, LocalDateTime now) {
         return pendingVerifications.stream()
                 .findFirst()
@@ -131,26 +159,23 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
                 .orElse(0L);
     }
 
-    private boolean shouldSend(SendEmailVerificationCommand command) {
-        if (command.purpose() == EmailVerificationPurpose.SIGNUP) {
-            return true;
-        }
+    private Optional<Member> findTargetMember(SendEmailVerificationCommand command) {
         if (command.purpose() == EmailVerificationPurpose.FIND_LOGIN_ID) {
-            return memberRepository.existsByEmailAndSocialFalseAndStatus(command.email(), MemberStatus.ACTIVE);
+            return memberRepository.findByEmailAndSocialFalseAndStatus(command.email(), MemberStatus.ACTIVE);
         }
         if (command.purpose() == EmailVerificationPurpose.RESET_PASSWORD) {
-            return memberRepository.existsByLoginIdAndEmailAndSocialFalseAndStatus(
+            return memberRepository.findByLoginIdAndEmailAndSocialFalseAndStatus(
                     command.loginId(),
                     command.email(),
                     MemberStatus.ACTIVE
             );
         }
-        return false;
+        return Optional.empty();
     }
 
     private boolean isDuplicateSignupEmail(SendEmailVerificationCommand command) {
         return command.purpose() == EmailVerificationPurpose.SIGNUP
-                && memberRepository.existsByEmailAndSocialFalseAndStatus(command.email(), MemberStatus.ACTIVE);
+                && memberRepository.existsByEmailAndSocialFalse(command.email());
     }
 
     private Optional<EmailVerification> findLatestPending(ConfirmEmailVerificationCommand command) {

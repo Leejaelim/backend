@@ -112,6 +112,44 @@ public final class GroupApiExamples {
             }
             """;
 
+    public static final String GROUP_DETAIL_V2_SUCCESS = """
+            {
+              "success": true,
+              "data": {
+                "id": 3001,
+                "name": "오늘 점심 메뉴 회의",
+                "inviteCode": "LUNCH42",
+                "latitude": 37.498095,
+                "longitude": 127.027610,
+                "radiusMeters": 1000,
+                "address": "서울 강남구 테헤란로 123",
+                "status": "ACTIVE",
+                "members": [
+                  {
+                    "memberId": 1,
+                    "nickname": "점심탐험가",
+                    "memberProfileImageUrl": "https://asset.matchuri.com/preset-profile/v1-spaghetti.png",
+                    "role": "OWNER",
+                    "status": "ACTIVE",
+                    "joinedAt": "2026-05-06T12:01:00",
+                    "isMe": true
+                  },
+                  {
+                    "memberId": 2,
+                    "nickname": "든든한한끼",
+                    "memberProfileImageUrl": null,
+                    "role": "MEMBER",
+                    "status": "ACTIVE",
+                    "joinedAt": "2026-05-06T12:02:00",
+                    "isMe": false
+                  }
+                ],
+                "recentlyRecommendation": null
+              },
+              "error": null
+            }
+            """;
+
     public static final String GROUP_DETAIL_OPEN_RECOMMENDATION_SUCCESS = """
             {
               "success": true,
@@ -260,6 +298,108 @@ public final class GroupApiExamples {
             }
             """;
 
+    public static final String GROUP_INVITE_LINK_SUCCESS = """
+            {
+              "success": true,
+              "data": {
+                "groupId": 3001,
+                "token": "550e8400-e29b-41d4-a716-446655440000",
+                "expiresAt": "2026-08-15T12:00:00"
+              },
+              "error": null
+            }
+            """;
+
+    public static final String GROUP_INVITE_LINK_EMPTY = """
+            {
+              "success": true,
+              "data": null,
+              "error": null
+            }
+            """;
+
+    public static final String GROUP_INVITE_LINK_PREVIEW_SUCCESS = """
+            {
+              "success": true,
+              "data": {
+                "groupName": "오늘 점심 메뉴 회의",
+                "ownerNickname": "점심탐험가",
+                "memberCount": 3
+              },
+              "error": null
+            }
+            """;
+
+    public static final String GROUP_INVITE_LINK_INVALID_TOKEN = """
+            {
+              "success": false,
+              "data": null,
+              "error": {
+                "status": 400,
+                "code": "COMMON_INVALID_BODY_FIELD",
+                "message": "요청 바디 필드가 올바르지 않습니다.",
+                "details": [
+                  {
+                    "source": "BODY",
+                    "field": "token",
+                    "reason": "UUID 토큰 형식이 올바르지 않습니다."
+                  }
+                ]
+              }
+            }
+            """;
+
+    public static final String GROUP_INVITE_LINK_ALREADY_EXISTS = """
+            {
+              "success": false,
+              "data": null,
+              "error": {
+                "status": 409,
+                "code": "GROUP_INVITE_LINK_ALREADY_EXISTS",
+                "message": "아직 만료되지 않은 그룹 초대 링크가 있습니다. groupId : 3,001"
+              }
+            }
+            """;
+
+    public static final String GROUP_INVITE_LINK_NOT_FOUND = """
+            {
+              "success": false,
+              "data": null,
+              "error": {
+                "status": 404,
+                "code": "GROUP_INVITE_LINK_NOT_FOUND",
+                "message": "유효한 그룹 초대 링크를 찾을 수 없습니다.",
+                "details": []
+              }
+            }
+            """;
+
+    public static final String GROUP_INVITE_LINK_EXPIRED = """
+            {
+              "success": false,
+              "data": null,
+              "error": {
+                "status": 409,
+                "code": "GROUP_INVITE_LINK_EXPIRED",
+                "message": "만료된 그룹 초대 링크입니다.",
+                "details": []
+              }
+            }
+            """;
+
+    public static final String GROUP_NOT_ACTIVE = """
+            {
+              "success": false,
+              "data": null,
+              "error": {
+                "status": 409,
+                "code": "GROUP_NOT_ACTIVE",
+                "message": "활성 상태의 그룹이 아닙니다. groupId : 3,001",
+                "details": []
+              }
+            }
+            """;
+
     public static final String MY_INVITES_SUCCESS = """
             {
               "success": true,
@@ -397,13 +537,52 @@ public final class GroupApiExamples {
                   {
                     "sessionId": 5002,
                     "status": "PREPARING",
-                    "startedAt": "2026-05-26T12:20:00",
+                    "createdAt": "2026-05-26T12:20:00",
+                    "startedAt": null,
                     "endedAt": null
                   },
                   {
                     "sessionId": 5001,
                     "status": "FINALIZED",
-                    "startedAt": "2026-05-26T12:00:00",
+                    "createdAt": "2026-05-26T12:00:00",
+                    "startedAt": "2026-05-26T12:05:00",
+                    "endedAt": "2026-05-26T12:15:00"
+                  }
+                ],
+                "pageInfo": {
+                  "page": 0,
+                  "size": 20,
+                  "totalElements": 2,
+                  "totalPages": 1,
+                  "first": true,
+                  "last": true,
+                  "hasNext": false,
+                  "hasPrevious": false
+                }
+              },
+              "error": null
+            }
+            """;
+
+    public static final String RECOMMENDATION_LIST_V2_SUCCESS = """
+            {
+              "success": true,
+              "data": {
+                "content": [
+                  {
+                    "sessionId": 5002,
+                    "status": "PREPARING",
+                    "selectedMenuName": null,
+                    "createdAt": "2026-05-26T12:20:00",
+                    "startedAt": null,
+                    "endedAt": null
+                  },
+                  {
+                    "sessionId": 5001,
+                    "status": "FINALIZED",
+                    "selectedMenuName": "비빔밥",
+                    "createdAt": "2026-05-26T12:00:00",
+                    "startedAt": "2026-05-26T12:05:00",
                     "endedAt": "2026-05-26T12:15:00"
                   }
                 ],
@@ -455,6 +634,10 @@ public final class GroupApiExamples {
                     "score": 79.5,
                     "voteCount": 0
                   }
+                ],
+                "recommendationCategories": [
+                  {"id": 101, "categoryType": "FOOD_CATEGORY", "code": "KOREAN", "name": "한식", "rankNo": 1, "source": "COMMON"},
+                  {"id": 102, "categoryType": "FLAVOR", "code": "SPICY", "name": "매운맛", "rankNo": 2, "source": "MENU"}
                 ],
                 "voteProgress": {
                   "totalMemberCount": 4,

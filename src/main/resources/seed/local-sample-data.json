@@ -2,35 +2,35 @@
   "members": [
     {
       "loginId": "tester01",
-      "passwordHash": "$2a$10$VVuO/Z4eCysA.tIaAEnjkOwHhT42Kx1ci84jB5yNR8td9fkO7wNGq",
+      "passwordHash": "$2a$10$GAZqt9wGTOPKcs/AmAr8Fu185oWbaJV5gIhx9s/wOD79X13FLQkgm",
       "nickname": "테스터일",
       "email": "tester01@example.com",
       "role": "MEMBER"
     },
     {
       "loginId": "tester02",
-      "passwordHash": "$2a$10$VVuO/Z4eCysA.tIaAEnjkOwHhT42Kx1ci84jB5yNR8td9fkO7wNGq",
+      "passwordHash": "$2a$10$GAZqt9wGTOPKcs/AmAr8Fu185oWbaJV5gIhx9s/wOD79X13FLQkgm",
       "nickname": "테스터이",
       "email": "tester02@example.com",
       "role": "MEMBER"
     },
     {
       "loginId": "tester03",
-      "passwordHash": "$2a$10$VVuO/Z4eCysA.tIaAEnjkOwHhT42Kx1ci84jB5yNR8td9fkO7wNGq",
+      "passwordHash": "$2a$10$GAZqt9wGTOPKcs/AmAr8Fu185oWbaJV5gIhx9s/wOD79X13FLQkgm",
       "nickname": "테스터삼",
       "email": "tester03@example.com",
       "role": "MEMBER"
     },
     {
       "loginId": "tester04",
-      "passwordHash": "$2a$10$VVuO/Z4eCysA.tIaAEnjkOwHhT42Kx1ci84jB5yNR8td9fkO7wNGq",
+      "passwordHash": "$2a$10$GAZqt9wGTOPKcs/AmAr8Fu185oWbaJV5gIhx9s/wOD79X13FLQkgm",
       "nickname": "테스터사",
       "email": "tester04@example.com",
       "role": "MEMBER"
     },
     {
       "loginId": "admin01",
-      "passwordHash": "$2a$10$y9lgSzbq2RGzj22DWiXSq.JM.dYmo6t7MTZJABIWhblVc9OBX7V76",
+      "passwordHash": "$2a$10$GAZqt9wGTOPKcs/AmAr8Fu185oWbaJV5gIhx9s/wOD79X13FLQkgm",
       "nickname": "matchuri-admin",
       "email": "admin01@example.com",
       "role": "ADMIN"

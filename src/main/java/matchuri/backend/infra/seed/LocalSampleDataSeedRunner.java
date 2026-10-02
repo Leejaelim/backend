@@ -13,10 +13,12 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class LocalSampleDataSeedRunner implements ApplicationRunner {
 
+    private final LocalMenuImageSeedService localMenuImageSeedService;
     private final LocalSampleDataSeedService localSampleDataSeedService;
 
     @Override
     public void run(ApplicationArguments args) {
+        localMenuImageSeedService.initialize();
         localSampleDataSeedService.initialize();
     }
 }

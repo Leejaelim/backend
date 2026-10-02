@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class GuestPersonalMenuRecommendationAlgorithmV1 extends SingleParticipantMenuRecommendationAlgorithm {
 
-    private static final String VERSION = "v1";
+    private static final String VERSION = "v1.1";
 
     @Override
     public RecommendationAlgorithmType type() {

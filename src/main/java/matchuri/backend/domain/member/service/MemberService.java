@@ -1,13 +1,18 @@
 package matchuri.backend.domain.member.service;
 
+import java.util.List;
 import matchuri.backend.domain.member.command.CreateMemberCommand;
 import matchuri.backend.domain.member.command.PutMemberLocationCommand;
 import matchuri.backend.domain.member.command.RegisterLocalMemberCommand;
+import matchuri.backend.domain.member.command.RegisterLocalMemberV2Command;
 import matchuri.backend.domain.member.command.UpdateMemberBasicInfoCommand;
 import matchuri.backend.domain.member.command.UpdateMemberPasswordCommand;
 import matchuri.backend.domain.member.command.UpdateMemberTasteProfileCommand;
 import matchuri.backend.domain.member.result.CreateMemberResult;
 import matchuri.backend.domain.member.result.MemberProfileResult;
+import matchuri.backend.domain.member.result.MemberHomeResult;
+import matchuri.backend.domain.member.result.MemberPresetProfileImageResult;
+import matchuri.backend.domain.member.result.MemberProfileImageResult;
 import matchuri.backend.domain.member.result.MemberLocationResult;
 import matchuri.backend.domain.member.result.MemberTasteProfileSummaryResult;
 import matchuri.backend.domain.member.result.MemberTasteUpdateResult;
@@ -25,21 +30,29 @@ public interface MemberService {
 
     RegisterLocalMemberResult registerLocalMember(RegisterLocalMemberCommand command);
 
+    RegisterLocalMemberResult registerLocalMemberV2(RegisterLocalMemberV2Command command);
+
     CreateMemberResult createMember(CreateMemberCommand command);
 
-    MemberProfileResult getMyProfile();
+    MemberProfileResult getMyProfile(Long memberId);
 
-    @Nullable MemberLocationResult getMyLocation();
+    MemberHomeResult getHomeMember(Long memberId);
 
-    MemberLocationResult putMyLocation(PutMemberLocationCommand command);
+    List<MemberPresetProfileImageResult> getPresetProfileImages(Long memberId);
 
-    MemberTasteProfileSummaryResult getMyTasteProfile();
+    MemberProfileImageResult setPresetProfileImage(Long memberId, Long presetProfileImageId);
 
-    UpdateMemberResult updateMyProfile(UpdateMemberBasicInfoCommand command);
+    @Nullable MemberLocationResult getMyLocation(Long memberId);
 
-    UpdateMemberPasswordResult updateMyPassword(UpdateMemberPasswordCommand command);
+    MemberLocationResult putMyLocation(Long memberId, PutMemberLocationCommand command);
 
-    MemberTasteUpdateResult updateMyTasteProfile(UpdateMemberTasteProfileCommand command);
+    MemberTasteProfileSummaryResult getMyTasteProfile(Long memberId);
 
-    WithdrawMemberResult withdraw();
+    UpdateMemberResult updateMyProfile(Long memberId, UpdateMemberBasicInfoCommand command);
+
+    UpdateMemberPasswordResult updateMyPassword(Long memberId, UpdateMemberPasswordCommand command);
+
+    MemberTasteUpdateResult updateMyTasteProfile(Long memberId, UpdateMemberTasteProfileCommand command);
+
+    WithdrawMemberResult withdraw(Long memberId);
 }

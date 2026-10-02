@@ -3,9 +3,14 @@ package matchuri.backend.infra.seed;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import matchuri.backend.domain.group.repository.GroupLocationRepository;
+import matchuri.backend.domain.image.entity.ImageAsset;
+import matchuri.backend.domain.image.entity.ImageStorageProvider;
+import matchuri.backend.domain.image.repository.ImageAssetRepository;
+import matchuri.backend.domain.image.repository.PresetProfileImageRepository;
 import matchuri.backend.domain.group.repository.GroupRoomMemberRepository;
 import matchuri.backend.domain.group.repository.GroupRoomRepository;
 import matchuri.backend.domain.member.repository.MemberAgreementRepository;
+import matchuri.backend.domain.member.repository.MemberProfileImageRepository;
 import matchuri.backend.domain.member.repository.MemberRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileCategoryRepository;
 import matchuri.backend.domain.member.repository.MemberTasteProfileDislikedMenuItemRepository;
@@ -15,6 +20,7 @@ import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberRole;
 import matchuri.backend.domain.member.entity.MemberStatus;
 import matchuri.backend.domain.menu.entity.MenuItem;
+import matchuri.backend.domain.menu.entity.MenuItemImage;
 import matchuri.backend.domain.menu.repository.AttributeCategoryRepository;
 import matchuri.backend.domain.menu.repository.IngredientRepository;
 import matchuri.backend.domain.menu.repository.MenuAttributeCategoryRepository;
@@ -40,6 +46,12 @@ class SeedDataInitializationIntegrationTest {
     private LocalSampleDataSeedService localSampleDataSeedService;
 
     @Autowired
+    private LocalMenuImageSeedService localMenuImageSeedService;
+
+    @Autowired
+    private PresetProfileImageSeedService presetProfileImageSeedService;
+
+    @Autowired
     private AttributeCategoryRepository attributeCategoryRepository;
 
     @Autowired
@@ -59,6 +71,15 @@ class SeedDataInitializationIntegrationTest {
 
     @Autowired
     private MemberRepository memberRepository;
+
+    @Autowired
+    private MemberProfileImageRepository memberProfileImageRepository;
+
+    @Autowired
+    private PresetProfileImageRepository presetProfileImageRepository;
+
+    @Autowired
+    private ImageAssetRepository imageAssetRepository;
 
     @Autowired
     private MemberAgreementRepository memberAgreementRepository;
@@ -85,9 +106,23 @@ class SeedDataInitializationIntegrationTest {
     private GroupLocationRepository groupLocationRepository;
 
     @Test
-    @DisplayName("기준 데이터와 로컬 샘플 데이터는 멱등하게 생성하고 메뉴 대표 이미지는 생성하지 않는다")
-    void initializesSeedDataIdempotentlyWithoutMenuImages() {
-        menuItemRepository.save(new MenuItem("BIBIMBAP", "기존 비빔밥", "기존 메뉴 설명"));
+    @DisplayName("기준 데이터와 로컬 샘플 데이터 및 메뉴 이미지를 멱등하게 생성한다")
+    void initializesSeedDataIdempotently() {
+        MenuItem existingMenu = menuItemRepository.save(
+                new MenuItem("BIBIMBAP", "기존 비빔밥", "기존 메뉴 설명")
+        );
+        ImageAsset existingImage = imageAssetRepository.save(new ImageAsset(
+                ImageStorageProvider.CLOUDFLARE_R2,
+                "test-bucket",
+                "menu-items/custom/bibimbap.png",
+                "custom-bibimbap.png",
+                "image/png",
+                1024,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                300,
+                300
+        ));
+        menuItemImageRepository.save(new MenuItemImage(existingMenu, existingImage));
         memberRepository.save(Member.builder()
                 .loginId("tester01")
                 .passwordHash("existing-password-hash")
@@ -100,8 +135,12 @@ class SeedDataInitializationIntegrationTest {
                 .build());
 
         referenceDataSeedService.initialize();
+        presetProfileImageSeedService.initialize();
+        localMenuImageSeedService.initialize();
         localSampleDataSeedService.initialize();
         referenceDataSeedService.initialize();
+        presetProfileImageSeedService.initialize();
+        localMenuImageSeedService.initialize();
         localSampleDataSeedService.initialize();
 
         assertThat(attributeCategoryRepository.count()).isEqualTo(26);
@@ -109,9 +148,15 @@ class SeedDataInitializationIntegrationTest {
         assertThat(menuItemRepository.count()).isEqualTo(45);
         assertThat(menuAttributeCategoryRepository.count()).isEqualTo(234);
         assertThat(menuIngredientRepository.count()).isEqualTo(130);
-        assertThat(menuItemImageRepository.count()).isZero();
+        assertThat(menuItemImageRepository.count()).isEqualTo(33);
+        assertThat(imageAssetRepository.count()).isEqualTo(40);
+        assertThat(presetProfileImageRepository.count()).isEqualTo(7);
+        assertThat(presetProfileImageRepository.findActiveDefaults()).singleElement()
+                .satisfies(preset -> assertThat(preset.getImageAsset().getObjectKey())
+                        .isEqualTo("preset-profile/v1-spaghetti.png"));
 
         assertThat(memberRepository.count()).isEqualTo(5);
+        assertThat(memberProfileImageRepository.count()).isEqualTo(5);
         assertThat(memberAgreementRepository.count()).isEqualTo(10);
         assertThat(memberTasteProfileRepository.count()).isEqualTo(4);
         assertThat(memberTasteProfileCategoryRepository.count()).isEqualTo(16);
@@ -123,6 +168,14 @@ class SeedDataInitializationIntegrationTest {
         assertThat(menuItemRepository.findByCode("BIBIMBAP")).get()
                 .extracting(MenuItem::getName, MenuItem::getDescription)
                 .containsExactly("기존 비빔밥", "기존 메뉴 설명");
+        assertThat(menuItemImageRepository.findByMenuId(existingMenu.getId())).get()
+                .extracting(menuItemImage -> menuItemImage.getImageAsset().getObjectKey())
+                .isEqualTo("menu-items/custom/bibimbap.png");
+        assertThat(menuItemRepository.findByCode("KIMCHI_STEW"))
+                .flatMap(menuItem -> menuItemImageRepository.findByMenuId(menuItem.getId()))
+                .get()
+                .extracting(menuItemImage -> menuItemImage.getImageAsset().getObjectKey())
+                .isEqualTo("menu-items/1/530de6c1-86ac-47cf-85a0-8d402363c259.png");
         assertThat(memberRepository.findByLoginId("tester01")).get()
                 .extracting(Member::getNickname)
                 .isEqualTo("기존 회원");

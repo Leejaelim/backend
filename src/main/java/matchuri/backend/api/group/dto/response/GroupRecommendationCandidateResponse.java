@@ -18,7 +18,7 @@ public record GroupRecommendationCandidateResponse(
         @Schema(description = "추천 순위입니다.", example = "1")
         Integer rankNo,
 
-        @Schema(description = "0에서 100 사이로 정규화된 추천 점수입니다.", example = "91.5")
+        @Schema(description = "구성원별 취향 일치율과 비선호 감점을 반영한 0~100 추천 점수입니다. FOOD_CATEGORY와 TEMPERATURE는 유형별로 선택 항목 중 하나만 일치해도 충족됩니다. 찬성 인원 비율이나 만족 확률을 의미하지 않습니다.", example = "91.5")
         Double score,
 
         @Schema(description = "현재 찬성 투표 수입니다.", example = "3")

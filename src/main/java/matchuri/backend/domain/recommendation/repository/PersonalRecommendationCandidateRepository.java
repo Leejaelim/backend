@@ -7,7 +7,8 @@ import org.jspecify.annotations.NullMarked;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 @NullMarked
-public interface PersonalRecommendationCandidateRepository extends JpaRepository<PersonalRecommendationCandidate, Long> {
+public interface PersonalRecommendationCandidateRepository extends JpaRepository<PersonalRecommendationCandidate, Long>,
+        PersonalRecommendationCandidateRepositoryCustom {
 
     List<PersonalRecommendationCandidate> findByPersonalRecommendationIdOrderByRankNoAsc(Long personalRecommendationId);
 
@@ -15,4 +16,5 @@ public interface PersonalRecommendationCandidateRepository extends JpaRepository
             Long id,
             Long personalRecommendationId
     );
+
 }

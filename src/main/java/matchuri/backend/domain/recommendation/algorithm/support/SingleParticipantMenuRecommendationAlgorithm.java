@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
+import matchuri.backend.domain.menu.entity.CategoryType;
 import matchuri.backend.domain.recommendation.algorithm.MenuRecommendationAlgorithm;
 import matchuri.backend.domain.recommendation.algorithm.input.MenuRecommendationInput;
 import matchuri.backend.domain.recommendation.algorithm.input.MenuRecommendationProfile;
@@ -33,7 +34,8 @@ public abstract class SingleParticipantMenuRecommendationAlgorithm implements Me
                 .filter(menu -> !participant.dislikedMenuItemIds().contains(menu.menuId()))
                 .filter(menu -> !input.recentSelectedMenuIds().contains(menu.menuId()))
                 .filter(menu -> !input.recentlySkippedMenuIds().contains(menu.menuId()))
-                .map(menu -> score(menu, participant, input.selectedAttributeCategoryFrequency()))
+                .map(menu -> score(menu, participant, input.selectedAttributeCategoryFrequency(),
+                        input.attributeCategoryTypes()))
                 .sorted(Comparator.comparing(ScoredMenu::totalScore).reversed()
                         .thenComparing(scoredMenu -> scoredMenu.menu().menuId()))
                 .limit(input.candidateLimit())
@@ -45,19 +47,22 @@ public abstract class SingleParticipantMenuRecommendationAlgorithm implements Me
     private ScoredMenu score(
             MenuRecommendationProfile menu,
             TasteProfileSnapshot participant,
-            Map<Long, Long> selectedAttributeCategoryFrequency
+            Map<Long, Long> selectedAttributeCategoryFrequency,
+            Map<Long, CategoryType> categoryTypes
     ) {
-        long categoryMatchingCount = countMatches(
+        var preferenceMatch = RecommendationPreferenceMatchCalculator.calculate(
                 menu.attributeCategoryIds(),
-                participant.preferredAttributeCategoryIds()
+                participant.preferredAttributeCategoryIds(),
+                categoryTypes
         );
+        long categoryMatchingCount = preferenceMatch.matchingCount();
         long historyWeightMatchingCount = menu.attributeCategoryIds().stream()
                 .mapToLong(categoryId -> selectedAttributeCategoryFrequency.getOrDefault(categoryId, 0L))
                 .sum();
 
         double categoryMatchingScore = calculateCategoryMatchingScore(
                 categoryMatchingCount,
-                participant.preferredAttributeCategoryIds().size()
+                preferenceMatch.preferredUnitCount()
         );
         double historyWeightScore = calculateHistoryWeightScore(
                 historyWeightMatchingCount,
@@ -170,14 +175,6 @@ public abstract class SingleParticipantMenuRecommendationAlgorithm implements Me
         }
 
         return maxScore;
-    }
-
-    private long countMatches(List<Long> sourceIds, List<Long> targetIds) {
-        Set<Long> targetIdSet = new HashSet<>(targetIds);
-
-        return sourceIds.stream()
-                .filter(targetIdSet::contains)
-                .count();
     }
 
     private boolean containsAny(List<Long> sourceIds, List<Long> targetIds) {

@@ -145,6 +145,7 @@ public class OpenApiConfig {
         Map<ApiOperationKey, ApiOperationMetadata> metadata = new LinkedHashMap<>();
 
         metadata.put(key("/api/v1/health", PathItem.HttpMethod.GET), meta("OPS.010.000", "00 Ops"));
+        metadata.put(key("/api/v1/home", PathItem.HttpMethod.GET), meta("OPS.020.000", "00 Ops"));
 
         metadata.put(key("/api/v1/auth/email", PathItem.HttpMethod.POST), meta("AUTH.010.000", "01 Auth"));
         metadata.put(key("/api/v1/auth/email/confirm", PathItem.HttpMethod.POST), meta("AUTH.020.000", "01 Auth"));
@@ -153,6 +154,7 @@ public class OpenApiConfig {
                 key("/api/v1/members/exists/nickname/{nickname}", PathItem.HttpMethod.GET),
                 meta("AUTH.040.000", "01 Auth"));
         metadata.put(key("/api/v1/members/signup", PathItem.HttpMethod.POST), meta("AUTH.050.000", "01 Auth"));
+        metadata.put(key("/api/v2/members/signup", PathItem.HttpMethod.POST), meta("AUTH.050.500", "01 Auth"));
         metadata.put(key("/api/v1/auth/oauth2/{provider}", PathItem.HttpMethod.GET), meta("AUTH.060.000", "01 Auth"));
         metadata.put(
                 key("/api/v1/auth/oauth2/exchange", PathItem.HttpMethod.POST),
@@ -186,6 +188,18 @@ public class OpenApiConfig {
                 key("/api/v1/members/me/taste-profile", PathItem.HttpMethod.PATCH),
                 meta("ONB.070.000", "02 Onboarding"));
         metadata.put(key("/api/v1/members/me", PathItem.HttpMethod.DELETE), meta("ONB.080.000", "02 Onboarding"));
+        metadata.put(
+                key("/api/v1/members/me/location", PathItem.HttpMethod.GET),
+                meta("ONB.090.000", "02 Onboarding"));
+        metadata.put(
+                key("/api/v1/members/me/location", PathItem.HttpMethod.PUT),
+                meta("ONB.100.000", "02 Onboarding"));
+        metadata.put(
+                key("/api/v1/members/profile/preset-image", PathItem.HttpMethod.PUT),
+                meta("ONB.110.000", "02 Onboarding"));
+        metadata.put(
+                key("/api/v1/members/profile/preset-image", PathItem.HttpMethod.GET),
+                meta("ONB.120.000", "02 Onboarding"));
 
         metadata.put(
                 key("/api/v1/attribute-categories", PathItem.HttpMethod.GET),
@@ -205,6 +219,9 @@ public class OpenApiConfig {
                 key("/api/v1/personal/recommendations", PathItem.HttpMethod.GET),
                 meta("REC.020.000", "04 Recommendation"));
         metadata.put(
+                key("/api/v2/personal/recommendations", PathItem.HttpMethod.GET),
+                meta("REC.020.500", "04 Recommendation"));
+        metadata.put(
                 key("/api/v1/personal/recommendations", PathItem.HttpMethod.POST),
                 meta("REC.030.000", "04 Recommendation"));
         metadata.put(
@@ -223,6 +240,7 @@ public class OpenApiConfig {
         metadata.put(key("/api/v1/groups", PathItem.HttpMethod.POST), meta("GROUP.010.000", "05 Group"));
         metadata.put(key("/api/v1/groups", PathItem.HttpMethod.GET), meta("GROUP.020.000", "05 Group"));
         metadata.put(key("/api/v1/groups/{groupId}", PathItem.HttpMethod.GET), meta("GROUP.030.000", "05 Group"));
+        metadata.put(key("/api/v2/groups/{groupId}", PathItem.HttpMethod.GET), meta("GROUP.030.500", "05 Group"));
         metadata.put(
                 key("/api/v1/groups/{groupId}", PathItem.HttpMethod.PATCH),
                 meta("GROUP.040.000", "05 Group"));
@@ -230,8 +248,14 @@ public class OpenApiConfig {
                 key("/api/v1/groups/invites/nickname", PathItem.HttpMethod.POST),
                 meta("GROUP.050.000", "05 Group"));
         metadata.put(
+                key("/api/v1/invites/me/exists", PathItem.HttpMethod.GET),
+                meta("GROUP.050.500", "05 Group"));
+        metadata.put(
                 key("/api/v1/groups/invites/me", PathItem.HttpMethod.GET),
                 meta("GROUP.060.000", "05 Group"));
+        metadata.put(
+                key("/api/v2/invites/me", PathItem.HttpMethod.GET),
+                meta("GROUP.060.500", "05 Group"));
         metadata.put(
                 key("/api/v1/groups/invites/{inviteId}/response", PathItem.HttpMethod.POST),
                 meta("GROUP.070.000", "05 Group"));
@@ -240,6 +264,21 @@ public class OpenApiConfig {
                 key("/api/v1/groups/{groupId}/leave", PathItem.HttpMethod.POST),
                 meta("GROUP.090.000", "05 Group"));
         metadata.put(key("/api/v1/groups/{groupId}", PathItem.HttpMethod.DELETE), meta("GROUP.100.000", "05 Group"));
+        metadata.put(
+                key("/api/v1/groups/{groupId}/invite-link", PathItem.HttpMethod.POST),
+                meta("GROUP.110.000", "05 Group"));
+        metadata.put(
+                key("/api/v1/groups/{groupId}/invite-link/reissue", PathItem.HttpMethod.POST),
+                meta("GROUP.120.000", "05 Group"));
+        metadata.put(
+                key("/api/v1/groups/{groupId}/invite-link", PathItem.HttpMethod.GET),
+                meta("GROUP.130.000", "05 Group"));
+        metadata.put(
+                key("/api/v1/groups/invite-links/join", PathItem.HttpMethod.POST),
+                meta("GROUP.140.000", "05 Group"));
+        metadata.put(
+                key("/api/v1/groups/invite-links/preview", PathItem.HttpMethod.POST),
+                meta("GROUP.150.000", "05 Group"));
 
         metadata.put(
                 key("/api/v1/groups/{groupId}/recommendations", PathItem.HttpMethod.POST),
@@ -253,6 +292,9 @@ public class OpenApiConfig {
         metadata.put(
                 key("/api/v1/groups/{groupId}/recommendations", PathItem.HttpMethod.GET),
                 meta("GREC.040.000", "06 Group Recommendation"));
+        metadata.put(
+                key("/api/v2/groups/{groupId}/recommendations", PathItem.HttpMethod.GET),
+                meta("GREC.040.500", "06 Group Recommendation"));
         metadata.put(
                 key("/api/v1/groups/{groupId}/recommendations/{sessionId}", PathItem.HttpMethod.GET),
                 meta("GREC.050.000", "06 Group Recommendation"));
@@ -307,6 +349,27 @@ public class OpenApiConfig {
         metadata.put(
                 key("/api/v1/admin/menu-items/{menuItemId}/images/primary", PathItem.HttpMethod.DELETE),
                 meta("ADMIN.130.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/menu-items/{menuItemId}", PathItem.HttpMethod.GET),
+                meta("ADMIN.135.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/menu-items", PathItem.HttpMethod.POST),
+                meta("ADMIN.140.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/menu-items/{menuItemId}/references", PathItem.HttpMethod.PATCH),
+                meta("ADMIN.150.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/preset-profile-images", PathItem.HttpMethod.GET),
+                meta("ADMIN.160.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/preset-profile-images", PathItem.HttpMethod.POST),
+                meta("ADMIN.170.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/preset-profile-images/{presetProfileImageId}", PathItem.HttpMethod.DELETE),
+                meta("ADMIN.180.000", "09 Admin"));
+        metadata.put(
+                key("/api/v1/admin/preset-profile-images/{presetProfileImageId}/default", PathItem.HttpMethod.PUT),
+                meta("ADMIN.190.000", "09 Admin"));
 
         return metadata;
     }

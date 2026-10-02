@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import matchuri.backend.domain.group.exception.GroupErrorCode;
 import matchuri.backend.domain.group.repository.GroupRoomMemberRepository;
 import matchuri.backend.domain.member.entity.Member;
-import matchuri.backend.domain.member.support.member.ActiveMemberReader;
+import matchuri.backend.domain.member.support.member.MemberReader;
 import matchuri.backend.domain.realtime.entity.RealtimeEventType;
 import matchuri.backend.domain.realtime.result.RealtimeConnectedPayload;
 import matchuri.backend.domain.realtime.result.RealtimeEventEnvelope;
@@ -20,13 +20,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RequiredArgsConstructor
 public class RealtimeEventService {
 
-    private final ActiveMemberReader activeMemberReader;
+    private final MemberReader memberReader;
     private final GroupRoomMemberRepository groupRoomMemberRepository;
     private final RealtimeSseEmitterRegistry emitterRegistry;
 
     @Transactional(readOnly = true)
-    public SseEmitter connectMemberStream() {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public SseEmitter connectMemberStream(Long memberId) {
+        Member member = memberReader.getActiveMember(memberId);
         SseEmitter emitter = emitterRegistry.registerMember(member.getId());
 
         sendConnected(emitter, member.getId(), null);
@@ -35,8 +35,8 @@ public class RealtimeEventService {
     }
 
     @Transactional(readOnly = true)
-    public SseEmitter connectGroupStream(Long groupId) {
-        Member member = activeMemberReader.getCurrentAuthenticatedActiveMember();
+    public SseEmitter connectGroupStream(Long memberId, Long groupId) {
+        Member member = memberReader.getActiveMember(memberId);
 
         if (!groupRoomMemberRepository.existsActiveMembershipInNotDeletedRoom(groupId, member.getId())) {
             throw new BusinessException(GroupErrorCode.ACCESS_DENIED, groupId);
