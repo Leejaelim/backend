@@ -1,4 +1,4 @@
-package matchuri.backend.catalog.api.query;
+package matchuri.backend.catalog.repository;
 
 public record MenuRecommendationRow(
         Long menuId,

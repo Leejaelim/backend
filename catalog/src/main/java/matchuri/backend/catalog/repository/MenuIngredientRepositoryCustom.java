@@ -1,7 +1,5 @@
 package matchuri.backend.catalog.repository;
 
-import matchuri.backend.catalog.api.query.MenuIngredientIdRow;
-
 import java.util.Collection;
 import java.util.List;
 
