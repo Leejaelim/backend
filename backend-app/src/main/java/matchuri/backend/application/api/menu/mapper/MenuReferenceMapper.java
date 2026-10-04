@@ -19,14 +19,14 @@ import matchuri.backend.application.api.menu.dto.response.RestrictionIngredientR
 import matchuri.backend.catalog.command.CreateAdminAttributeCategoryCommand;
 import matchuri.backend.catalog.command.CreateAdminIngredientCommand;
 import matchuri.backend.catalog.command.CreateAdminMenuItemCommand;
-import matchuri.backend.catalog.command.GetAttributeCategoriesCommand;
-import matchuri.backend.catalog.command.GetRestrictionIngredientsCommand;
-import matchuri.backend.catalog.command.SearchMenuItemsCommand;
 import matchuri.backend.catalog.command.UpdateAdminAttributeCategoryCommand;
 import matchuri.backend.catalog.command.UpdateAdminIngredientCommand;
 import matchuri.backend.catalog.command.UpdateAdminMenuItemCommand;
 import matchuri.backend.catalog.command.UpdateAdminMenuItemReferencesCommand;
 import matchuri.backend.catalog.entity.CategoryType;
+import matchuri.backend.catalog.query.GetAttributeCategoriesQuery;
+import matchuri.backend.catalog.query.GetRestrictionIngredientsQuery;
+import matchuri.backend.catalog.query.SearchMenuItemsQuery;
 import matchuri.backend.catalog.result.AdminAttributeCategoryResult;
 import matchuri.backend.catalog.result.AdminIngredientResult;
 import matchuri.backend.catalog.result.AdminMenuItemDetailResult;
@@ -118,24 +118,24 @@ public class MenuReferenceMapper {
         );
     }
 
-    public SearchMenuItemsCommand toSearchMenuItemsCommand(
+    public SearchMenuItemsQuery toSearchMenuItemsQuery(
             String query,
             List<Long> attributeCategoryIds,
             List<Long> ingredientIds
     ) {
-        return new SearchMenuItemsCommand(
+        return new SearchMenuItemsQuery(
                 trimNullable(query),
                 attributeCategoryIds == null ? List.of() : attributeCategoryIds,
                 ingredientIds == null ? List.of() : ingredientIds
         );
     }
 
-    public GetAttributeCategoriesCommand toGetAttributeCategoriesCommand(List<CategoryType> categoryTypes) {
-        return new GetAttributeCategoriesCommand(categoryTypes == null ? List.of() : categoryTypes);
+    public GetAttributeCategoriesQuery toGetAttributeCategoriesQuery(List<CategoryType> categoryTypes) {
+        return new GetAttributeCategoriesQuery(categoryTypes == null ? List.of() : categoryTypes);
     }
 
-    public GetRestrictionIngredientsCommand toGetRestrictionIngredientsCommand(String query, Boolean allergen) {
-        return new GetRestrictionIngredientsCommand(trimNullable(query), allergen);
+    public GetRestrictionIngredientsQuery toGetRestrictionIngredientsQuery(String query, Boolean allergen) {
+        return new GetRestrictionIngredientsQuery(trimNullable(query), allergen);
     }
 
     public List<AdminAttributeCategoryResponse> toAdminAttributeCategoryResponses(

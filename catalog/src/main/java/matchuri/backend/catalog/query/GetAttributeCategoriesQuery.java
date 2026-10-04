@@ -1,9 +1,9 @@
-package matchuri.backend.catalog.command;
+package matchuri.backend.catalog.query;
 
 import java.util.List;
 import matchuri.backend.catalog.entity.CategoryType;
 
-public record GetAttributeCategoriesCommand(
+public record GetAttributeCategoriesQuery(
         List<CategoryType> categoryTypes
 ) {
 }

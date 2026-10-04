@@ -29,8 +29,8 @@ public class MenuReferenceController implements MenuReferenceApi {
     public ApiResponse<List<AttributeCategoryResponse>> getAttributeCategories(
             @RequestParam(required = false) List<CategoryType> categoryTypes
     ) {
-        var command = menuReferenceMapper.toGetAttributeCategoriesCommand(categoryTypes);
-        var categories = menuReferenceService.getActiveAttributeCategories(command);
+        var query = menuReferenceMapper.toGetAttributeCategoriesQuery(categoryTypes);
+        var categories = menuReferenceService.getActiveAttributeCategories(query);
         var responses = menuReferenceMapper.toAttributeCategoryResponses(categories);
 
         return ApiResponse.success(responses);
@@ -42,8 +42,8 @@ public class MenuReferenceController implements MenuReferenceApi {
             @RequestParam(required = false) String query,
             @RequestParam(required = false) Boolean allergen
     ) {
-        var command = menuReferenceMapper.toGetRestrictionIngredientsCommand(query, allergen);
-        var ingredients = menuReferenceService.getActiveRestrictionIngredients(command);
+        var ingredientQuery = menuReferenceMapper.toGetRestrictionIngredientsQuery(query, allergen);
+        var ingredients = menuReferenceService.getActiveRestrictionIngredients(ingredientQuery);
         var responses = menuReferenceMapper.toRestrictionIngredientResponses(ingredients);
 
         return ApiResponse.success(responses);
@@ -56,8 +56,8 @@ public class MenuReferenceController implements MenuReferenceApi {
             @RequestParam(required = false) List<Long> attributeCategoryIds,
             @RequestParam(required = false) List<Long> ingredientIds
     ) {
-        var command = menuReferenceMapper.toSearchMenuItemsCommand(query, attributeCategoryIds, ingredientIds);
-        var menuItems = menuReferenceService.searchMenuItems(command);
+        var menuQuery = menuReferenceMapper.toSearchMenuItemsQuery(query, attributeCategoryIds, ingredientIds);
+        var menuItems = menuReferenceService.searchMenuItems(menuQuery);
         var responses = menuReferenceMapper.toMenuItemSummaryResponses(menuItems);
 
         return ApiResponse.success(responses);
