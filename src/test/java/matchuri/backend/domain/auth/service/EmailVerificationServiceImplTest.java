@@ -18,6 +18,7 @@ import matchuri.backend.domain.auth.exception.AuthErrorCode;
 import matchuri.backend.domain.auth.repository.EmailVerificationRepository;
 import matchuri.backend.domain.auth.support.mail.AuthMailSender;
 import matchuri.backend.domain.auth.support.verification.EmailVerificationPolicy;
+import matchuri.backend.domain.auth.support.verification.EmailVerificationFailureRecorder;
 import matchuri.backend.domain.auth.support.verification.EmailVerificationTokenGenerator;
 import matchuri.backend.domain.auth.support.verification.VerificationCodeGenerator;
 import matchuri.backend.domain.auth.support.verification.VerificationCodeHasher;
@@ -57,6 +58,9 @@ class EmailVerificationServiceImplTest {
 
     @Mock
     private AuthMailSender authMailSender;
+
+    @Mock
+    private EmailVerificationFailureRecorder failureRecorder;
 
     @InjectMocks
     private EmailVerificationServiceImpl service;

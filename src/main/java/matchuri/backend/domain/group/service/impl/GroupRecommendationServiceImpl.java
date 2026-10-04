@@ -161,7 +161,7 @@ public class GroupRecommendationServiceImpl implements GroupRecommendationServic
     }
 
     @Override
-    @Transactional(noRollbackFor = BusinessException.class)
+    @Transactional
     public GroupRecommendationCandidateListResult getGroupRecommendationCandidates(
             Long memberId,
             Long groupId,
@@ -262,7 +262,7 @@ public class GroupRecommendationServiceImpl implements GroupRecommendationServic
     }
 
     @Override
-    @Transactional(noRollbackFor = BusinessException.class)
+    @Transactional
     public ReadyGroupRecommendationResult readyGroupRecommendation(Long memberId, Long groupId, Long sessionId) {
         Member member = memberReader.getActiveMember(memberId);
         GroupRoom room = groupRoomReader.getActiveGroupRoom(groupId);
@@ -331,7 +331,7 @@ public class GroupRecommendationServiceImpl implements GroupRecommendationServic
     }
 
     @Override
-    @Transactional(noRollbackFor = BusinessException.class)
+    @Transactional
     public GroupVoteResult voteGroupRecommendation(Long memberId, Long groupId, Long sessionId, Long candidateId) {
         Member member = memberReader.getActiveMember(memberId);
         groupRoomReader.getActiveMembership(groupId, member.getId());
@@ -387,7 +387,7 @@ public class GroupRecommendationServiceImpl implements GroupRecommendationServic
     }
 
     @Override
-    @Transactional(noRollbackFor = BusinessException.class)
+    @Transactional
     public FinalizeGroupRecommendationResult finalizeGroupRecommendation(
             Long memberId,
             FinalizeGroupRecommendationCommand command

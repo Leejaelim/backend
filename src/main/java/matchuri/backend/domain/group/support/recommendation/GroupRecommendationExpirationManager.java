@@ -10,6 +10,7 @@ import matchuri.backend.domain.group.entity.GroupRecommendation;
 import matchuri.backend.domain.group.entity.GroupRecommendationStatus;
 import matchuri.backend.domain.group.repository.GroupRecommendationRepository;
 import matchuri.backend.domain.group.repository.GroupRecommendationStatusQueryRow;
+import matchuri.backend.global.transaction.RollbackRecordExecutor;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -23,6 +24,7 @@ public class GroupRecommendationExpirationManager {
 
     private final GroupRecommendationRepository groupRecommendationRepository;
     private final GroupRecommendationExpirationPolicy groupRecommendationExpirationPolicy;
+    private final RollbackRecordExecutor rollbackRecordExecutor;
 
     public boolean hasActiveRecommendation(Long roomId) {
         return groupRecommendationRepository.existsByRoomIdAndStatusInAndCreatedAtAfter(
@@ -47,7 +49,7 @@ public class GroupRecommendationExpirationManager {
                         ACTIVE_RECOMMENDATION_STATUSES,
                         groupRecommendationExpirationPolicy.activeThreshold(now)
                 )
-                .forEach(recommendation -> recommendation.expire(now));
+                .forEach(recommendation -> expireGroupRecommendationIfNeeded(recommendation, now));
     }
 
     public boolean expireGroupRecommendationIfNeeded(GroupRecommendation recommendation, LocalDateTime now) {
@@ -60,6 +62,11 @@ public class GroupRecommendationExpirationManager {
         }
 
         recommendation.expire(now);
+        Long id = recommendation.getId();
+        rollbackRecordExecutor.afterRollback("group-recommendation-expiration", () ->
+                groupRecommendationRepository.findById(id)
+                        .filter(current -> groupRecommendationExpirationPolicy.isExpired(current, now))
+                        .ifPresent(current -> current.expire(now)));
         return true;
     }
 

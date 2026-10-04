@@ -54,6 +54,7 @@ import matchuri.backend.domain.menu.repository.MenuItemRepository;
 import matchuri.backend.domain.menu.repository.MenuItemImageRepository;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendation;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationCandidate;
+import matchuri.backend.domain.recommendation.entity.PersonalRecommendationRerollType;
 import matchuri.backend.domain.recommendation.entity.PersonalRecommendationStatus;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationCandidateRepository;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationRepository;
@@ -62,6 +63,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -623,6 +626,36 @@ class PersonalRecommendationIntegrationTest {
         assertThat(personalRecommendationRepository.count()).isEqualTo(1);
     }
 
+    @ParameterizedTest
+    @EnumSource(PersonalRecommendationRerollType.class)
+    @DisplayName("개인 추천 재요청 실패는 기존 추천 종료와 SKIP, 후보 변경을 함께 롤백한다")
+    void rerollFailureRollsBackBusinessChanges(PersonalRecommendationRerollType rerollType) throws Exception {
+        Member member = saveMember("reroll-rollback-user", "재요청롤백");
+        MenuItem menu = menuItemRepository.save(new MenuItem("BIBIMBAP", "비빔밥", "채소와 밥"));
+        PersonalRecommendation source = personalRecommendationRepository.save(PersonalRecommendation.of(member));
+        personalRecommendationCandidateRepository.save(PersonalRecommendationCandidate.of(
+                source, menu, 1, 1.0, "{}"));
+
+        mockMvc.perform(post("/api/v1/personal/recommendations/{requestId}/reroll", source.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"rerollType":"%s","contextJson":{}}
+                                """.formatted(rerollType.name())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data").value(nullValue()))
+                .andExpect(jsonPath("$.error.code").value("PERSONAL_RECOMMENDATION_TASTE_PROFILE_REQUIRED"));
+
+        PersonalRecommendation stored = personalRecommendationRepository.findById(source.getId()).orElseThrow();
+        assertThat(stored.getStatus()).isEqualTo(PersonalRecommendationStatus.OPEN);
+        assertThat(stored.getClosedAt()).isNull();
+        assertThat(stored.getSelectedCandidate()).isNull();
+        assertThat(personalRecommendationRepository.count()).isEqualTo(1);
+        assertThat(personalRecommendationCandidateRepository.count()).isEqualTo(1);
+        assertThat(memberMenuActionRepository.count()).isZero();
+    }
+
     @Test
     @DisplayName("불만족 개인 추천 재요청은 이전 후보를 SKIP 로그로 저장하고 새 추천을 생성한다")
     void rerollPersonalRecommendationWithNotSatisfiedClosesWithSkipAndCreatesNewRecommendation() throws Exception {
@@ -667,6 +700,9 @@ class PersonalRecommendationIntegrationTest {
                 .path("requestId")
                 .asLong();
         JsonNode rerolledData = objectMapper.readTree(rerollResult.getResponse().getContentAsString()).path("data");
+
+        assertThat(rerolledData.properties()).extracting(java.util.Map.Entry::getKey)
+                .containsExactlyInAnyOrder("requestId", "status", "requestedAt", "closedAt", "candidates");
 
         assertThat(rerolledRequestId).isNotEqualTo(sourceRequestId);
         assertThat(candidateMenuIds(rerolledData)).doesNotContainAnyElementsOf(sourceCandidateMenuIds);

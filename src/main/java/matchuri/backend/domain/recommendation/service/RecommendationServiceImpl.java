@@ -57,6 +57,7 @@ import matchuri.backend.domain.recommendation.exception.RecommendationErrorCode;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationCandidateQueryRow;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationCandidateRepository;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationRepository;
+import matchuri.backend.domain.recommendation.support.PersonalRecommendationFailureRecorder;
 import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendationCandidateResult;
 import matchuri.backend.domain.recommendation.result.GuestPersonalRecommendationResult;
 import matchuri.backend.domain.recommendation.result.PersonalRecommendationCandidateResult;
@@ -93,6 +94,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final MemberMenuActionRepository memberMenuActionRepository;
     private final MenuRecommendationAlgorithmResolver menuRecommendationAlgorithmResolver;
     private final PersonalRecommendationExpirationService personalRecommendationExpirationService;
+    private final PersonalRecommendationFailureRecorder failureRecorder;
     private final MenuThumbnailUrlResolver menuThumbnailUrlResolver;
     private final ImageUrlResolver imageUrlResolver;
     private final RecommendationLocationContextJsonFactory recommendationLocationContextJsonFactory;
@@ -117,7 +119,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     @Override
-    @Transactional(noRollbackFor = BusinessException.class)
+    @Transactional
     public PersonalRecommendationResult rerollPersonalRecommendation(
             Long memberId,
             Long sourcePersonalRecommendationId,
@@ -399,7 +401,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     @Override
-    @Transactional(noRollbackFor = BusinessException.class)
+    @Transactional
     public SelectPersonalRecommendationResult selectPersonalRecommendationCandidate(
             Long memberId,
             SelectPersonalRecommendationCommand command
@@ -475,7 +477,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                         PersonalRecommendationStatus.OPEN,
                         personalRecommendationExpirationService.activeThreshold(now)
                 )
-                .forEach(recommendation -> recommendation.expire(now));
+                .forEach(recommendation -> expirePersonalRecommendationIfNeeded(recommendation, now));
     }
 
     private boolean expirePersonalRecommendationIfNeeded(PersonalRecommendation recommendation, LocalDateTime now) {
@@ -488,6 +490,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
 
         recommendation.expire(now);
+        failureRecorder.expireAfterRollback(recommendation.getId(), now);
         return true;
     }
 

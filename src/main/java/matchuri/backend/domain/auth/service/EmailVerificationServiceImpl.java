@@ -16,6 +16,7 @@ import matchuri.backend.domain.auth.result.ConfirmEmailVerificationResult;
 import matchuri.backend.domain.auth.result.SendEmailVerificationResult;
 import matchuri.backend.domain.auth.support.mail.AuthMailSender;
 import matchuri.backend.domain.auth.support.verification.EmailVerificationPolicy;
+import matchuri.backend.domain.auth.support.verification.EmailVerificationFailureRecorder;
 import matchuri.backend.domain.auth.support.verification.EmailVerificationTokenGenerator;
 import matchuri.backend.domain.auth.support.verification.VerificationCodeGenerator;
 import matchuri.backend.domain.auth.support.verification.VerificationCodeHasher;
@@ -42,9 +43,10 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     private final EmailVerificationPolicy policy;
     private final EmailVerificationTokenGenerator tokenGenerator;
     private final AuthMailSender authMailSender;
+    private final EmailVerificationFailureRecorder failureRecorder;
 
     @Override
-    @Transactional(noRollbackFor = BusinessException.class)
+    @Transactional
     public SendEmailVerificationResult sendVerificationEmail(SendEmailVerificationCommand command) {
         validateConditionalFields(command);
 
@@ -58,6 +60,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
 
         if (isDuplicateSignupEmail(command)) {
             expirePrevious(pendingVerifications);
+            failureRecorder.expirePendingAfterRollback(pendingVerifications);
             log.info("Signup email verification rejected by duplicate email: email={}", maskEmail(command.email()));
             throw new BusinessException(MemberErrorCode.DUPLICATE_EMAIL, command.email());
         }
@@ -94,6 +97,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
             return SendEmailVerificationResult.accepted(policy.resendCooldownSeconds());
         } catch (MailException e) {
             emailVerification.markFailed();
+            failureRecorder.recordSendFailureAfterRollback(pendingVerifications, emailVerification);
             log.warn("Email verification message failed: purpose={}, email={}",
                     command.purpose(), maskEmail(command.email()));
             throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);
@@ -101,7 +105,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     }
 
     @Override
-    @Transactional(noRollbackFor = AuthenticationException.class)
+    @Transactional
     public ConfirmEmailVerificationResult confirmVerificationEmail(ConfirmEmailVerificationCommand command) {
         validateConditionalFields(command);
 
@@ -111,16 +115,19 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
 
         if (verification.getExpiresAt().isBefore(now) || verification.getExpiresAt().isEqual(now)) {
             verification.expire();
+            failureRecorder.expireAfterRollback(verification.getId());
             throw new AuthenticationException(AuthErrorCode.EMAIL_VERIFICATION_FAILED);
         }
 
         if (verification.getAttemptCount() >= policy.maxAttempts()) {
             verification.markFailed();
+            failureRecorder.markFailedAfterRollback(verification.getId());
             throw new AuthenticationException(AuthErrorCode.EMAIL_VERIFICATION_FAILED);
         }
 
         if (!codeHasher.matches(command.code(), verification.getCodeHash())) {
             verification.recordFailedAttempt(policy.maxAttempts());
+            failureRecorder.recordFailedAttemptAfterRollback(verification.getId(), policy.maxAttempts());
             throw new AuthenticationException(AuthErrorCode.EMAIL_VERIFICATION_FAILED);
         }
 

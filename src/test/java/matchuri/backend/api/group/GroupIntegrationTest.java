@@ -1,6 +1,8 @@
 package matchuri.backend.api.group;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -50,6 +52,8 @@ import matchuri.backend.domain.group.repository.GroupRecommendationRepository;
 import matchuri.backend.domain.group.repository.GroupRecommendationVoteRepository;
 import matchuri.backend.domain.group.repository.GroupRoomMemberRepository;
 import matchuri.backend.domain.group.repository.GroupRoomRepository;
+import matchuri.backend.domain.group.exception.GroupErrorCode;
+import matchuri.backend.domain.group.support.recommendation.GroupRecommendationCandidateGenerator;
 import matchuri.backend.domain.member.entity.Member;
 import matchuri.backend.domain.member.entity.MemberRole;
 import matchuri.backend.domain.member.entity.MemberStatus;
@@ -79,6 +83,7 @@ import matchuri.backend.domain.menu.repository.MenuItemRepository;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationCandidateRepository;
 import matchuri.backend.domain.recommendation.repository.PersonalRecommendationRepository;
 import matchuri.backend.global.config.MatchuriProperties;
+import matchuri.backend.global.exception.BusinessException;
 import matchuri.backend.testsupport.JpaAuditTimeFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -95,6 +100,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
@@ -147,6 +153,9 @@ class GroupIntegrationTest {
 
     @Autowired
     private GroupRecommendationRepository groupRecommendationRepository;
+
+    @MockitoSpyBean
+    private GroupRecommendationCandidateGenerator candidateGenerator;
 
     @Autowired
     private GroupRecommendationCandidateRepository groupRecommendationCandidateRepository;
@@ -768,6 +777,49 @@ class GroupIntegrationTest {
                         .content(finalizeLocationRequest()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("GROUP_RECOMMENDATION_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("후보 생성 업무 예외는 준비 상태와 후보 변경을 함께 롤백한다")
+    void readyFailureRollsBackReadinessAndCandidates() throws Exception {
+        Member owner = saveMember("ready-rollback-owner", "준비롤백방장");
+        GroupRoom room = saveGroupOwnedBy(owner, "준비 롤백 그룹");
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(room, "{}", LocalDateTime.now()));
+        doThrow(new BusinessException(GroupErrorCode.RECOMMENDATION_NO_CANDIDATES, recommendation.getId()))
+                .when(candidateGenerator).generateCandidatesForRecommendation(any(), any(), any(), any());
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/recommendations/{sessionId}/ready",
+                        room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("GROUP_RECOMMENDATION_NO_CANDIDATES"));
+
+        assertThat(groupRecommendationReadinessRepository.count()).isZero();
+        assertThat(groupRecommendationCandidateRepository.count()).isZero();
+        assertThat(groupRecommendationCategoryRepository.count()).isZero();
+        assertThat(groupRecommendationRepository.findById(recommendation.getId()).orElseThrow().getStatus())
+                .isEqualTo(GroupRecommendationStatus.PREPARING);
+    }
+
+    @Test
+    @DisplayName("만료 추천 준비 요청은 만료 기록을 보존하고 READY나 후보를 저장하지 않는다")
+    void readyExpiredRecommendationPreservesOnlyExpiration() throws Exception {
+        Member owner = saveMember("ready-expired-owner", "준비만료방장");
+        GroupRoom room = saveGroupOwnedBy(owner, "준비 만료 그룹");
+        GroupRecommendation recommendation = groupRecommendationRepository.save(preparing(
+                room, "{}", LocalDateTime.now().minusHours(25)));
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/recommendations/{sessionId}/ready",
+                        room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("GROUP_RECOMMENDATION_EXPIRED"));
+
+        GroupRecommendation stored = groupRecommendationRepository.findById(recommendation.getId()).orElseThrow();
+        assertThat(stored.getStatus()).isEqualTo(GroupRecommendationStatus.EXPIRED);
+        assertThat(stored.getEndedAt()).isNotNull();
+        assertThat(groupRecommendationReadinessRepository.count()).isZero();
+        assertThat(groupRecommendationCandidateRepository.count()).isZero();
     }
 
     @Test
