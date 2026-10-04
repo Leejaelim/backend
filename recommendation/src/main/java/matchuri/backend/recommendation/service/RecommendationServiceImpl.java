@@ -29,7 +29,7 @@ import matchuri.backend.catalog.entity.MenuAttributeCategory;
 import matchuri.backend.catalog.entity.MenuItem;
 import matchuri.backend.catalog.api.query.CatalogAttributeQuery;
 import matchuri.backend.catalog.api.query.CatalogIngredientQuery;
-import matchuri.backend.catalog.api.query.CatalogMenuAttributeQuery;
+import matchuri.backend.catalog.api.query.CatalogMenuAttributeQueryService;
 import matchuri.backend.catalog.api.query.CatalogMenuIngredientQuery;
 import matchuri.backend.catalog.api.query.CatalogMenuQuery;
 import matchuri.backend.catalog.api.query.CatalogRecommendationMenuQueryService;
@@ -89,7 +89,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final CatalogIngredientQuery ingredientRepository;
     private final CatalogMenuQuery menuItemRepository;
     private final CatalogRecommendationMenuQueryService recommendationMenuQueryService;
-    private final CatalogMenuAttributeQuery menuAttributeCategoryRepository;
+    private final CatalogMenuAttributeQueryService menuAttributeQueryService;
     private final CatalogMenuIngredientQuery menuIngredientRepository;
     private final PersonalRecommendationCandidateRepository personalRecommendationCandidateRepository;
     private final MemberMenuActionRepository memberMenuActionRepository;
@@ -312,12 +312,8 @@ public class RecommendationServiceImpl implements RecommendationService {
                 member.getId(), PageRequest.of(0, HOME_SELECTED_RECOMMENDATION_LIMIT));
         List<Long> menuIds = selected.stream()
                 .map(recommendation -> recommendation.getSelectedMenu().getId()).distinct().toList();
-        Map<Long, List<MenuAttributeCategoryResult>> categories = menuIds.isEmpty() ? Map.of()
-                : menuAttributeCategoryRepository.findDisplayCategoriesByMenuIds(menuIds).stream()
-                        .collect(Collectors.groupingBy(mapping -> mapping.getMenu().getId(),
-                                Collectors.mapping(
-                                        mapping -> MenuAttributeCategoryResult.from(mapping.getAttributeCategory()),
-                                        Collectors.toList())));
+        Map<Long, List<MenuAttributeCategoryResult>> categories =
+                menuAttributeQueryService.findDisplayCategoriesByMenuIds(menuIds);
         return new PersonalRecommendationHomeResult(latest, selected.stream()
                 .map(recommendation -> new PersonalRecommendationHomeResult.SelectedRecommendation(
                         recommendation.getId(), recommendation.getRequestedAt(),
@@ -373,16 +369,8 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .map(PersonalRecommendationCandidate::getMenuItem)
                 .map(MenuItem::getId)
                 .toList();
-        Map<Long, List<String>> tagsByMenuId = menuIds.isEmpty() ? Map.of()
-                : menuAttributeCategoryRepository.findDisplayCategoriesByMenuIds(menuIds).stream()
-                        .collect(Collectors.groupingBy(
-                                mapping -> mapping.getMenu().getId(),
-                                LinkedHashMap::new,
-                                Collectors.mapping(
-                                        mapping -> mapping.getAttributeCategory().getName(),
-                                        Collectors.toList()
-                                )
-                        ));
+        Map<Long, List<MenuAttributeCategoryResult>> categoriesByMenuId =
+                menuAttributeQueryService.findDisplayCategoriesByMenuIds(menuIds);
         Map<Long, String> thumbnailUrlsByMenuId = menuThumbnailUrlResolver.resolveAll(menuIds);
 
         return recommendations.map(recommendation -> {
@@ -395,7 +383,9 @@ public class RecommendationServiceImpl implements RecommendationService {
             return PersonalRecommendationHistoryResult.of(
                     recommendation,
                     candidate,
-                    tagsByMenuId.getOrDefault(menuId, List.of()),
+                    categoriesByMenuId.getOrDefault(menuId, List.of()).stream()
+                            .map(MenuAttributeCategoryResult::name)
+                            .toList(),
                     thumbnailUrlsByMenuId.get(menuId)
             );
         });
