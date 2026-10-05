@@ -26,6 +26,11 @@ public interface GroupRecommendationRepository extends JpaRepository<GroupRecomm
 
     Optional<GroupRecommendation> findFirstByRoomIdOrderByCreatedAtDescIdDesc(Long roomId);
 
+    Optional<GroupRecommendation> findFirstByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(
+            Long roomId,
+            Collection<GroupRecommendationStatus> statuses
+    );
+
     Page<GroupRecommendation> findByRoomIdOrderByCreatedAtDescIdDesc(Long roomId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"selectedCandidate", "selectedCandidate.menuItem"})

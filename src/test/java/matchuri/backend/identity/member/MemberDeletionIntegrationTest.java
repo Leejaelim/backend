@@ -12,6 +12,7 @@ import matchuri.backend.identity.auth.repository.AuthExchangeCodeRepository;
 import matchuri.backend.identity.auth.repository.AuthRefreshTokenRepository;
 import matchuri.backend.identity.auth.repository.EmailVerificationRepository;
 import matchuri.backend.groupdecision.entity.GroupMemberRole;
+import matchuri.backend.groupdecision.entity.GroupMemberStatus;
 import matchuri.backend.groupdecision.entity.GroupRoom;
 import matchuri.backend.groupdecision.entity.GroupRoomStatus;
 import matchuri.backend.groupdecision.repository.GroupRoomMemberRepository;
@@ -71,6 +72,14 @@ class MemberDeletionIntegrationTest {
         GroupRoom closedRoom = GroupRoom.createOwnedBy("닫힌 그룹", "LIFECYCLE-CODE", member);
         closedRoom.close();
         groupRoomRepository.saveAndFlush(closedRoom);
+        Member otherOwner = saveMember("lifecycle-other-owner", "다른방장");
+        GroupRoom activeOtherRoom = GroupRoom.createOwnedBy("참여 그룹", "LIFECYCLE-OTHER-CODE", otherOwner);
+        activeOtherRoom.addGroupMember(member, GroupMemberRole.MEMBER);
+        groupRoomRepository.saveAndFlush(activeOtherRoom);
+        GroupRoom closedOtherRoom = GroupRoom.createOwnedBy("닫힌 참여 그룹", "LIFECYCLE-CLOSED-CODE", otherOwner);
+        closedOtherRoom.addGroupMember(member, GroupMemberRole.MEMBER);
+        closedOtherRoom.close();
+        groupRoomRepository.saveAndFlush(closedOtherRoom);
         authRefreshTokenRepository.save(AuthRefreshToken.issue(
                 member,
                 "lifecycle-refresh-token",
@@ -91,6 +100,10 @@ class MemberDeletionIntegrationTest {
         assertThat(closedRoom.getStatus()).isEqualTo(GroupRoomStatus.DELETED);
         assertThat(closedRoom.getDeletedAt()).isEqualTo(requestedAt);
         assertThat(groupRoomMemberRepository.findActiveMembersByRoomId(closedRoom.getId())).isEmpty();
+        assertThat(groupRoomMemberRepository.findByRoomIdAndMemberId(activeOtherRoom.getId(), member.getId())
+                .orElseThrow().getStatus()).isEqualTo(GroupMemberStatus.LEFT);
+        assertThat(groupRoomMemberRepository.findByRoomIdAndMemberId(closedOtherRoom.getId(), member.getId())
+                .orElseThrow().getStatus()).isEqualTo(GroupMemberStatus.LEFT);
         assertThat(authRefreshTokenRepository.findByMemberId(member.getId())).isEmpty();
         assertThat(authExchangeCodeRepository.findByCode("lifecycle-exchange-code")).isEmpty();
     }

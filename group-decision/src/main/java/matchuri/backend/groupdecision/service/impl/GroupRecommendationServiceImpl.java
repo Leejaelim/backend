@@ -42,9 +42,8 @@ import matchuri.backend.groupdecision.result.ReadyGroupRecommendationResult;
 import matchuri.backend.groupdecision.service.GroupRecommendationService;
 import matchuri.backend.groupdecision.support.GroupFinalCandidateSelector;
 import matchuri.backend.groupdecision.support.location.GroupLocationManager;
-import matchuri.backend.groupdecision.support.recommendation.GroupRecommendationCandidateGenerator;
 import matchuri.backend.groupdecision.support.recommendation.GroupRecommendationExpirationManager;
-import matchuri.backend.groupdecision.support.recommendation.GroupRecommendationHistoryReader;
+import matchuri.backend.groupdecision.support.recommendation.GroupRecommendationOpeningManager;
 import matchuri.backend.groupdecision.support.recommendation.GroupRecommendationResultAssembler;
 import matchuri.backend.groupdecision.support.room.GroupRoomReader;
 import matchuri.backend.recommendation.context.RecommendationLocationContextJsonFactory;
@@ -79,8 +78,7 @@ public class GroupRecommendationServiceImpl implements GroupRecommendationServic
     private final GroupRoomReader groupRoomReader;
     private final GroupLocationManager groupLocationManager;
     private final GroupRecommendationExpirationManager groupRecommendationExpirationManager;
-    private final GroupRecommendationHistoryReader groupRecommendationHistoryReader;
-    private final GroupRecommendationCandidateGenerator groupRecommendationCandidateGenerator;
+    private final GroupRecommendationOpeningManager groupRecommendationOpeningManager;
     private final GroupRecommendationResultAssembler groupRecommendationResultAssembler;
     private final RecommendationLocationContextJsonFactory recommendationLocationContextJsonFactory;
     private final ApplicationEventPublisher eventPublisher;
@@ -290,18 +288,9 @@ public class GroupRecommendationServiceImpl implements GroupRecommendationServic
                 totalMemberCount
         );
 
-        List<GroupRecommendationCandidate> candidates = List.of();
-        if (readiness.allReady()) {
-            candidates = groupRecommendationCandidateGenerator.generateCandidatesForRecommendation(
-                    room,
-                    recommendation,
-                    null,
-                    groupRecommendationHistoryReader.recentlySkippedMenuIds(room.getId())
-            );
-            recommendation.open(LocalDateTime.now());
-        }
-        List<GroupRecommendationCandidateResult> candidateResults =
-                groupRecommendationResultAssembler.toCandidateResults(candidates, 0);
+        List<GroupRecommendationCandidateResult> candidateResults = readiness.allReady()
+                ? groupRecommendationOpeningManager.open(room, recommendation)
+                : List.of();
 
         eventPublisher.publishEvent(new GroupRecommendationReadinessUpdatedEvent(
                 room.getId(),
