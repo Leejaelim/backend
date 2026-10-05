@@ -117,6 +117,21 @@ public class GroupRoomMemberRepositoryImpl implements GroupRoomMemberRepositoryC
                 .fetch();
     }
 
+    @Override
+    public List<GroupRoomMember> findActiveMembershipsInOtherRooms(Long memberId) {
+        return jpaQueryFactory
+                .selectFrom(groupRoomMember)
+                .join(groupRoomMember.room, groupRoom).fetchJoin()
+                .where(
+                        groupRoomMember.member.id.eq(memberId),
+                        groupRoomMember.status.eq(GroupMemberStatus.ACTIVE),
+                        groupRoom.status.ne(GroupRoomStatus.DELETED),
+                        groupRoom.hostMember.id.ne(memberId)
+                )
+                .orderBy(groupRoom.id.asc())
+                .fetch();
+    }
+
     private BooleanExpression[] myActiveMembershipPredicate(Long memberId, @Nullable GroupRoomStatus roomStatus) {
         return new BooleanExpression[]{
                 groupRoomMember.member.id.eq(memberId),

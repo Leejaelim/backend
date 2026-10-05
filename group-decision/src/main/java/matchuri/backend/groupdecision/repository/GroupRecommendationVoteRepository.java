@@ -15,4 +15,6 @@ public interface GroupRecommendationVoteRepository extends JpaRepository<GroupRe
     List<GroupRecommendationVote> findAllByGroupRecommendationId(Long recommendationId);
 
     Optional<GroupRecommendationVote> findByGroupRecommendationIdAndMemberId(Long recommendationId, Long memberId);
+
+    long deleteByGroupRecommendationIdAndMemberId(Long recommendationId, Long memberId);
 }

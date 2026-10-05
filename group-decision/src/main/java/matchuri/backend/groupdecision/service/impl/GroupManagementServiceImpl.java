@@ -37,12 +37,12 @@ import matchuri.backend.groupdecision.support.GroupInviteLinkManager;
 import matchuri.backend.groupdecision.support.location.GroupLocationManager;
 import matchuri.backend.groupdecision.support.recommendation.GroupRecommendationExpirationManager;
 import matchuri.backend.groupdecision.support.recommendation.GroupRecommendationResultAssembler;
+import matchuri.backend.groupdecision.support.room.GroupMemberDepartureManager;
 import matchuri.backend.groupdecision.support.room.GroupRoomReader;
 import matchuri.backend.identity.member.entity.Member;
 import matchuri.backend.identity.api.MemberReader;
 import matchuri.backend.identity.api.MemberProfileImageUrlResolver;
 import matchuri.backend.groupdecision.event.GroupDeletedEvent;
-import matchuri.backend.groupdecision.event.GroupMemberLeftEvent;
 import matchuri.backend.shared.exception.BusinessException;
 import org.jspecify.annotations.NonNull;
 import org.springframework.context.ApplicationEventPublisher;
@@ -66,6 +66,7 @@ public class GroupManagementServiceImpl implements GroupManagementService {
     private final GroupInviteCodeGenerator groupInviteCodeGenerator;
     private final GroupInviteLinkManager groupInviteLinkManager;
     private final GroupRoomReader groupRoomReader;
+    private final GroupMemberDepartureManager groupMemberDepartureManager;
     private final GroupLocationManager groupLocationManager;
     private final GroupRecommendationExpirationManager groupRecommendationExpirationManager;
     private final GroupRecommendationResultAssembler groupRecommendationResultAssembler;
@@ -100,7 +101,7 @@ public class GroupManagementServiceImpl implements GroupManagementService {
 
     @Override
     public LeaveGroupResult leaveGroup(Long memberId, LeaveGroupCommand command) {
-        Member member = memberReader.getActiveMember(memberId);
+        memberReader.getActiveMember(memberId);
         GroupRoom room = groupRoomRepository.findByIdAndStatusNot(command.groupId(), GroupRoomStatus.DELETED)
                 .orElseThrow(() -> new BusinessException(GroupErrorCode.NOT_FOUND, command.groupId()));
         GroupRoomMember membership = room.getGroupRoomMemberById(memberId)
@@ -119,14 +120,7 @@ public class GroupManagementServiceImpl implements GroupManagementService {
         }
 
         LocalDateTime leftAt = LocalDateTime.now();
-        membership.leave(leftAt);
-
-        eventPublisher.publishEvent(new GroupMemberLeftEvent(
-                room.getId(),
-                member.getId(),
-                member.getNickname(),
-                membership.getLeftAt()
-        ));
+        groupMemberDepartureManager.leave(membership, leftAt);
 
         return new LeaveGroupResult(room.getId(), membership.getStatus(), membership.getLeftAt());
     }

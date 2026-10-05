@@ -3533,6 +3533,156 @@ class GroupIntegrationTest {
     }
 
     @Test
+    @DisplayName("회원 탈퇴는 다른 방의 멤버십과 진행 중인 표를 종료한다")
+    void memberWithdrawalLeavesOtherRoomAndRemovesOpenVote() throws Exception {
+        Member owner = saveMember("withdraw-vote-owner", "탈퇴투표방장");
+        Member departing = saveMember("withdraw-vote-member", "탈퇴투표멤버");
+        GroupRoom room = saveGroupOwnedBy(owner, "탈퇴 투표 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(room, departing, GroupMemberRole.MEMBER, LocalDateTime.now()));
+        GroupRecommendation recommendation = groupRecommendationRepository.save(
+                new GroupRecommendation(room, LocalDateTime.now())
+        );
+        GroupRecommendationCandidate first = groupRecommendationCandidateRepository.save(
+                new GroupRecommendationCandidate(recommendation, saveMenu("withdraw-vote-first", "첫메뉴"), 1, 70.0, "{}")
+        );
+        GroupRecommendationCandidate second = groupRecommendationCandidateRepository.save(
+                new GroupRecommendationCandidate(recommendation, saveMenu("withdraw-vote-second", "둘째메뉴"), 2, 60.0, "{}")
+        );
+        groupRecommendationVoteRepository.save(new GroupRecommendationVote(recommendation, second, departing));
+
+        mockMvc.perform(delete("/api/v1/members/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(departing))))
+                .andExpect(status().isOk());
+
+        GroupRoomMember membership = groupRoomMemberRepository.findByRoomIdAndMemberId(room.getId(), departing.getId())
+                .orElseThrow();
+        assertThat(membership.getStatus()).isEqualTo(GroupMemberStatus.LEFT);
+        assertThat(membership.getLeftAt()).isNotNull();
+        assertThat(groupRecommendationVoteRepository.findByGroupRecommendationIdAndMemberId(
+                recommendation.getId(), departing.getId())).isEmpty();
+        mockMvc.perform(get("/api/v1/groups/{groupId}/recommendations/{sessionId}",
+                        room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.voteProgress.totalMemberCount").value(1))
+                .andExpect(jsonPath("$.data.voteProgress.votedMemberCount").value(0))
+                .andExpect(jsonPath("$.data.candidates[1].voteCount").value(0));
+        mockMvc.perform(patch("/api/v1/groups/{groupId}/recommendations/{sessionId}/finalize",
+                        room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.finalCandidate.candidateId").value(first.getId()));
+    }
+
+    @Test
+    @DisplayName("일반 그룹 탈퇴도 진행 중인 표를 제거하며 재참여 시 되살리지 않는다")
+    void leavingGroupRemovesOpenVoteBeforeRejoining() throws Exception {
+        Member owner = saveMember("leave-vote-owner", "나가기투표방장");
+        Member member = saveMember("leave-vote-member", "나가기투표멤버");
+        GroupRoom room = saveGroupOwnedBy(owner, "나가기 투표 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(room, member, GroupMemberRole.MEMBER, LocalDateTime.now()));
+        GroupRecommendation recommendation = groupRecommendationRepository.save(
+                new GroupRecommendation(room, LocalDateTime.now())
+        );
+        GroupRecommendationCandidate candidate = groupRecommendationCandidateRepository.save(
+                new GroupRecommendationCandidate(recommendation, saveMenu("leave-vote-menu", "나가기메뉴"), 1, 70.0, "{}")
+        );
+        groupRecommendationVoteRepository.save(new GroupRecommendationVote(recommendation, candidate, member));
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/leave", room.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member))))
+                .andExpect(status().isOk());
+        assertThat(groupRecommendationVoteRepository.findByGroupRecommendationIdAndMemberId(
+                recommendation.getId(), member.getId())).isEmpty();
+
+        mockMvc.perform(post("/api/v1/groups/join")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"inviteCode":"%s"}
+                                """.formatted(room.getInviteCode())))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/groups/{groupId}/recommendations/{sessionId}",
+                        room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.voteProgress.totalMemberCount").value(2))
+                .andExpect(jsonPath("$.data.voteProgress.votedMemberCount").value(0));
+    }
+
+    @Test
+    @DisplayName("그룹 탈퇴는 이미 확정된 추천의 표와 선택 후보를 유지한다")
+    void leavingGroupKeepsFinalizedRecommendationVote() throws Exception {
+        Member owner = saveMember("leave-finalized-owner", "확정유지방장");
+        Member member = saveMember("leave-finalized-member", "확정유지멤버");
+        GroupRoom room = saveGroupOwnedBy(owner, "확정 유지 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(room, member, GroupMemberRole.MEMBER, LocalDateTime.now()));
+        GroupRecommendation recommendation = groupRecommendationRepository.save(
+                new GroupRecommendation(room, LocalDateTime.now())
+        );
+        GroupRecommendationCandidate candidate = groupRecommendationCandidateRepository.save(
+                new GroupRecommendationCandidate(recommendation, saveMenu("leave-finalized-menu", "확정유지메뉴"),
+                        1, 70.0, "{}")
+        );
+        groupRecommendationVoteRepository.save(new GroupRecommendationVote(recommendation, candidate, member));
+        recommendation.finalizeWith(candidate, LocalDateTime.now());
+        groupRecommendationRepository.saveAndFlush(recommendation);
+
+        mockMvc.perform(post("/api/v1/groups/{groupId}/leave", room.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(member))))
+                .andExpect(status().isOk());
+
+        assertThat(groupRecommendationVoteRepository.findByGroupRecommendationIdAndMemberId(
+                recommendation.getId(), member.getId())).isPresent();
+        assertThat(groupRecommendationRepository.findById(recommendation.getId()).orElseThrow()
+                .getSelectedCandidate().getId()).isEqualTo(candidate.getId());
+    }
+
+    @Test
+    @DisplayName("준비되지 않은 멤버가 탈퇴하면 남은 준비 완료 멤버로 후보를 연다")
+    void withdrawalOpensPreparingRecommendationForReadyMembers() throws Exception {
+        Member owner = saveMember("withdraw-ready-owner", "준비탈퇴방장");
+        Member departing = saveMember("withdraw-ready-member", "준비탈퇴멤버");
+        GroupRoom room = saveGroupOwnedBy(owner, "준비 탈퇴 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(room, departing, GroupMemberRole.MEMBER, LocalDateTime.now()));
+        saveMenu("withdraw-ready-menu", "준비탈퇴메뉴");
+        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(room));
+        groupRecommendationReadinessRepository.save(new GroupRecommendationReadiness(recommendation, owner));
+
+        mockMvc.perform(delete("/api/v1/members/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(departing))))
+                .andExpect(status().isOk());
+
+        assertThat(groupRecommendationRepository.findById(recommendation.getId()).orElseThrow().getStatus())
+                .isEqualTo(GroupRecommendationStatus.OPEN);
+        assertThat(groupRecommendationCandidateRepository.findAllByGroupRecommendationIdOrderByRankNoAsc(
+                recommendation.getId())).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("준비 완료 멤버가 탈퇴해도 남은 멤버의 준비 완료로 후보를 연다")
+    void withdrawnReadyMemberDoesNotBlockRemainingMember() throws Exception {
+        Member owner = saveMember("withdraw-ready-count-owner", "준비집계방장");
+        Member departing = saveMember("withdraw-ready-count-member", "준비집계멤버");
+        GroupRoom room = saveGroupOwnedBy(owner, "준비 집계 그룹");
+        groupRoomMemberRepository.save(new GroupRoomMember(room, departing, GroupMemberRole.MEMBER, LocalDateTime.now()));
+        saveMenu("withdraw-ready-count-menu", "준비집계메뉴");
+        GroupRecommendation recommendation = groupRecommendationRepository.save(GroupRecommendation.preparing(room));
+        groupRecommendationReadinessRepository.save(new GroupRecommendationReadiness(recommendation, departing));
+
+        mockMvc.perform(delete("/api/v1/members/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(departing))))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/groups/{groupId}/recommendations/{sessionId}/ready",
+                        room.getId(), recommendation.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(GroupRecommendationStatus.OPEN.name()))
+                .andExpect(jsonPath("$.data.readiness.totalMemberCount").value(1))
+                .andExpect(jsonPath("$.data.readiness.readyMemberCount").value(1));
+    }
+
+    @Test
     @DisplayName("그룹 나가기는 OWNER이면 거절한다")
     void leaveGroupFailsForOwner() throws Exception {
         Member owner = saveMember("owner-leave-owner", "방장탈퇴");

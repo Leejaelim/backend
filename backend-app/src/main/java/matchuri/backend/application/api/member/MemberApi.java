@@ -1134,6 +1134,8 @@ public interface MemberApi {
                     - 즉시 물리 삭제하지 않고 `status=DELETED`와 `deletedAt`, `purgeAt`을 기록합니다.
                     - 삭제 대기 기간은 3일이며, 현재 탈퇴 철회 기능은 제공하지 않습니다.
                     - 회원이 방장인 그룹도 `DELETED`로 전환합니다.
+                     - 다른 회원이 방장인 그룹에서는 활성 멤버십을 `LEFT`로 전환하고 진행 중인 투표를 제거합니다.
+                     - 남은 활성 멤버가 모두 준비 완료한 그룹 추천은 후보 생성 후 `OPEN`으로 전환합니다.
                     - 탈퇴 시 기존 refresh token과 OAuth2 교환 코드를 모두 폐기합니다.
                     """)
     ApiResponse<WithdrawMemberResponse> withdraw(@AuthenticatedMemberId Long memberId);

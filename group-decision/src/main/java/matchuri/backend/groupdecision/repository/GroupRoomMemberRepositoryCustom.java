@@ -20,4 +20,6 @@ public interface GroupRoomMemberRepositoryCustom {
     Optional<GroupRoomMember> findActiveMembershipInNotDeletedRoom(Long roomId, Long memberId);
 
     List<GroupRoomMember> findActiveMembersByRoomId(Long roomId);
+
+    List<GroupRoomMember> findActiveMembershipsInOtherRooms(Long memberId);
 }
