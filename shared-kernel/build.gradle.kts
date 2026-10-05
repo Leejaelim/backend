@@ -12,5 +12,5 @@ dependencies {
     api("com.fasterxml.jackson.core:jackson-databind")
     api("jakarta.validation:jakarta.validation-api")
     api("org.springframework.modulith:spring-modulith-api:2.0.3")
-    api("com.querydsl:querydsl-jpa:5.0.0:jakarta")
+    api("io.github.openfeign.querydsl:querydsl-jpa:7.7")
 }

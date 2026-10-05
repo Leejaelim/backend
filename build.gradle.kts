@@ -2,7 +2,7 @@ import org.gradle.api.tasks.testing.Test
 
 plugins {
     java
-    id("org.springframework.boot") version "4.0.3" apply false
+    id("org.springframework.boot") version "4.0.8" apply false
     id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -18,12 +18,12 @@ allprojects {
         options.compilerArgs.add("-parameters")
     }
 }
-dependencyManagement { imports { mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.3") } }
+dependencyManagement { imports { mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.8") } }
 subprojects {
     apply(plugin = "java-library")
     apply(plugin = "io.spring.dependency-management")
     extensions.configure<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension> {
-        imports { mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.3") }
+        imports { mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.8") }
     }
     extensions.configure<JavaPluginExtension> {
         toolchain { languageVersion = JavaLanguageVersion.of(21) }
@@ -33,7 +33,7 @@ subprojects {
         "compileOnly"("org.projectlombok:lombok")
         "annotationProcessor"("org.projectlombok:lombok")
         "annotationProcessor"("org.springframework.boot:spring-boot-configuration-processor")
-        "annotationProcessor"("com.querydsl:querydsl-apt:5.0.0:jakarta")
+        "annotationProcessor"("io.github.openfeign.querydsl:querydsl-apt:7.7:jpa")
         "annotationProcessor"("jakarta.annotation:jakarta.annotation-api")
         "annotationProcessor"("jakarta.persistence:jakarta.persistence-api")
     }
