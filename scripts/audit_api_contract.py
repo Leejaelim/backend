@@ -53,11 +53,13 @@ def line_number(text: str, offset: int) -> int:
 
 
 def openapi_config_path(root: Path) -> Path:
-    return root / "src" / "main" / "java" / "matchuri" / "backend" / "global" / "config" / "OpenApiConfig.java"
+    return root / "backend-app" / "src" / "main" / "java" / "matchuri" / "backend" / "application" / "config" / "OpenApiConfig.java"
 
 
 def parse_backend_endpoints(root: Path) -> list[Endpoint]:
-    api_root = root / "src" / "main" / "java" / "matchuri" / "backend" / "api"
+    api_root = root / "backend-app" / "src" / "main" / "java" / "matchuri" / "backend" / "application" / "api"
+    if not api_root.is_dir():
+        raise FileNotFoundError(f"API source root를 찾을 수 없습니다: {api_root}")
     endpoints: list[Endpoint] = []
 
     for source in sorted(api_root.rglob("*Controller*.java")):
@@ -131,6 +133,8 @@ def duplicates(items: list[Endpoint] | list[ApiMetadata], key) -> dict[object, l
 def report(root: Path) -> tuple[str, bool]:
     endpoints = parse_backend_endpoints(root)
     metadata = parse_openapi_metadata(root)
+    if not endpoints or not metadata:
+        raise ValueError("검사할 API endpoint 또는 OpenAPI metadata가 없습니다.")
     endpoint_keys = {(item.method, item.path) for item in endpoints}
     metadata_keys = {(item.method, item.path) for item in metadata}
 
